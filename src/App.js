@@ -13,7 +13,7 @@ function App() {
         <Form>
             <FormGroup>
                 <Label for="sportSelect">Select Sport</Label>
-                <Input type="select" name="select" id="sportSelect" class="SelectSports">
+                <Input type="select" name="select" id="sportSelect" class="Select-sports">
                     <option>MLB</option>
                     <option>NBA</option>
                     <option>NFL</option>
