@@ -6,14 +6,14 @@ import './App.css';
 function App() {
   return (
     <div class="App">
-      <header>
+      <header class="App-header">
         <h1><Badge color="secondary">TheOddsOracle</Badge></h1>
       </header>
-        <body>
+        <body class="App-body">
         <Form>
             <FormGroup>
-                <Label for="exampleSelect">Select Sport</Label>
-                <Input type="select" name="select" id="exampleSelect">
+                <Label for="sportSelect">Select Sport</Label>
+                <Input type="select" name="select" id="sportSelect" class="Select-sports">
                     <option>MLB</option>
                     <option>NBA</option>
                     <option>NFL</option>
