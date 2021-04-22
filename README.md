@@ -4,6 +4,10 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 In the project directory, you can run:
 
+### `npm install axios`
+
+The odds api uses axios, this command will be needed to get the project up and working with the odds api.
+
 ### `npm start`
 
 Runs the app in the development mode.<br />
