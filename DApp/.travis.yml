@@ -1,0 +1,35 @@
+os: linux
+
+language: java
+
+before_script:
+  # Install NPM
+  - nvm install --lts
+  - npm rebuild --prefix client
+
+  # Download Code Climate Test Reporter
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
+
+install:
+  - npm install --prefix client
+
+cache:
+  directories:
+    # Client Dependencies
+    - client/node_modules
+
+script:
+  # Run Tests
+  - npm test || travis_terminate 2
+
+  # Check Valid Code
+  - npm start || travis_terminate 3
+
+after_script:
+  # Send Coverage Information to Code Climate
+  - JACOCO_SOURCE_PATH=server/src/main/java ./cc-test-reporter format-coverage -t jacoco target/site/jacoco/jacoco.xml --output "codeclimate.java.json"
+  - ./cc-test-reporter format-coverage -t clover target/coverage/client/clover.xml --output "codeclimate.js.json"
+  - ./cc-test-reporter sum-coverage --output "codeclimate.combined.json" codeclimate.*.json
+  - ./cc-test-reporter upload-coverage --input "codeclimate.combined.json"
