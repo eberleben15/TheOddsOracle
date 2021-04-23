@@ -51,8 +51,30 @@ export default class Odds extends Component {
             .then(response => {
                 console.log("IN THEN")
                 console.log(JSON.stringify(response.data.data))
-                let array = JSON.parse()
-                console.log()
+                let responseString = JSON.stringify(response.data.data);
+                let mainObj = JSON.parse(responseString);
+                let scheduleArray = [];
+                for(let i =0; i < mainObj.length; i++) {
+                    scheduleArray.push({
+                        teams: mainObj[i].teams
+                    })
+                }
+
+
+
+                // for(let j =0; j < mainObj.length; j++)
+                // {
+                //    for(let k =0; k < mainObj.sites.length; k++)
+                //    {
+                //         oddsArray += mainObj[j].sites[k];
+                //           //oddsArray += mainObj[j].sites[k].odds.h2h[k + 1]+ "\n";
+                //    }
+                // }
+
+                //mainObj[0].sites[0].odds.h2h[0]
+                //console.log("aray " + mainObj[0].sites[0].odds.h2h[0] );
+                alert("Upcoming games:\n\n"  + scheduleArray);
+
                 //let array = response.data.data
                 //let result = array.filter((x)=>x.active === true);
                 //console.log(result[0].group)
@@ -62,8 +84,8 @@ export default class Odds extends Component {
             })
             .catch(error => {
                 console.log("IN CATCH")
-                //console.log('Error status', error.response)
-                //console.log(error.response)
+                console.log('Error status', error.response)
+                console.log(error.response)
                 this.setState({ loading: false })
             })
 
