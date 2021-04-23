@@ -53,6 +53,8 @@ export default class Odds extends Component {
         })
             .then(response => {
                 console.log("IN THEN")
+                console.log('Remaining requests', response.headers['x-requests-remaining'])
+                console.log('Used requests', response.headers['x-requests-used'])
                 console.log(JSON.stringify(response.data.data))
                 let responseString = JSON.stringify(response.data.data);
                 let mainObj = JSON.parse(responseString);
@@ -64,11 +66,16 @@ export default class Odds extends Component {
                 }
                 titleArray = [...new Set(titleArray.map(item => item.title))];
                 console.log(titleArray.sort())
+                this.setState({activeLeagues: titleArray})
+
         })
            .catch(error => {
                 console.log('Error status', error.response.status)
                 console.log(error.response.data)
             })
+    }
+}
+
 
 
         /*
@@ -139,8 +146,7 @@ export default class Odds extends Component {
         //         console.log(error.response.data)
         //     })
 
-    }
-}
+
 
 //                 stuff = JSON.stringify(response.data.data);
 //                 let mainObj = JSON.parse(stuff);
