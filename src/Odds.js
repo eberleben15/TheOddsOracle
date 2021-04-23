@@ -73,6 +73,9 @@ export default class Odds extends Component {
                 console.log('Error status', error.response.status)
                 console.log(error.response.data)
             })
+    }
+}
+
 
 
         /*
@@ -143,8 +146,7 @@ export default class Odds extends Component {
         //         console.log(error.response.data)
         //     })
 
-    }
-}
+
 
 //                 stuff = JSON.stringify(response.data.data);
 //                 let mainObj = JSON.parse(stuff);
