@@ -19,7 +19,7 @@ export default class Odds extends Component {
             <Container>
                 <button onClick={() => this.runOdds()}>Get the Odds</button>
                 <p>{
-                    this.state.data[0]
+                    this.state.data.toString()
                 }</p>
             </Container>
         );
@@ -50,7 +50,9 @@ export default class Odds extends Component {
         })
             .then(response => {
                 console.log("IN THEN")
-                console.log(response.data.data)
+                console.log(JSON.stringify(response.data.data))
+                let array = JSON.parse()
+                console.log()
                 //let array = response.data.data
                 //let result = array.filter((x)=>x.active === true);
                 //console.log(result[0].group)
