@@ -1,14 +1,31 @@
-import React from 'react';
+import React, {Component} from 'react';
 import Button, { Badge, Form, FormGroup, Input, Label } from 'reactstrap';
-import logo from './logo.svg';
 import './App.css';
 import Odds from './Odds.js';
+import Header from './Header.js';
 
-function App() {
+export default class App extends Component {
+
+  render() {
   return (
-    <Odds/>
-);
+      <>
+        {this.renderHeader()}
+        {this.renderOdds()}
+      </>
+  );
+  }
+
+  renderHeader() {
+    return(
+        <Header/>
+    )
+  }
+
+  renderOdds() {
+    return(
+        <Odds/>
+    )
+  }
+
 }
 
-
-export default App;
