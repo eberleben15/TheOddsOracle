@@ -29,17 +29,17 @@ export default class Odds extends Component {
         return (
             <Container>
                 <ListGroup>
-                    {this.state.activeLeagues.map((title) => (<ListGroupItem tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
+                    {this.state.activeLeagues.map((title) => (<ListGroupItem style={{ width: '40rem' }} tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
                 </ListGroup>
                 {this.state.selectedLeague.map((league) => (
-                    <Alert color="primary">
+                    <Alert color="primary" style={{ width: '40rem' }}>
                         {league}
                     </Alert>
                 ))}
                     {this.state.games.map((game) => (
                         <Row>
                             <Col>
-                                <Card>
+                                <Card style={{ width: '40rem' }}>
                                     <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
                                     <CardBody>
                                         <Button color="primary">{game.teams[0]} {convertOddsDecimalToAmerican(game.odds[0])}</Button>
