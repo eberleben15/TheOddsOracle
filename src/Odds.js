@@ -41,7 +41,7 @@ export default class Odds extends Component {
                         <Row>
                             <Col>
                                 <Card style={{ width: '40rem' }}>
-                                    <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
+                                    <CardHeader>{game.teams[0]} <small className="text-muted">vs</small> {game.teams[1]}</CardHeader>
                                     <CardBody>
                                         <CardTitle>Place Bet</CardTitle>
                                         <Button color="primary">{game.teams[0]} {appendPlusSign(game.odds[0])}</Button>
