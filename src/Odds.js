@@ -42,9 +42,10 @@ export default class Odds extends Component {
                                 <Card style={{ width: '40rem' }}>
                                     <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
                                     <CardBody>
-                                        <Button color="primary">{game.teams[0]} {convertOddsDecimalToAmerican(game.odds[0])}</Button>
+                                        <CardTitle>Place Bet</CardTitle>
+                                        <Button color="primary">{game.teams[0]} {appendPlusSign(game.odds[0])}</Button>
                                         {' '}
-                                        <Button color="primary">{game.teams[1]} {convertOddsDecimalToAmerican(game.odds[1])}</Button>
+                                        <Button color="primary">{game.teams[1]} {appendPlusSign(game.odds[1])}</Button>
                                         <Row>
                                             <CardText>
                                                 <small className="text-muted">{String(new Date(game.commence_time)).substring(0,28)}</small>
@@ -135,6 +136,8 @@ export default class Odds extends Component {
 
         const dateFormat = 'iso' //unix or iso
 
+        const oddsFormat = 'american'
+
 
 
         /*
@@ -147,13 +150,15 @@ export default class Odds extends Component {
                 sport: key,
                 region: region,
                 mkt: market,
-                dateFormat: dateFormat
+                dateFormat: dateFormat,
+                oddsFormat: oddsFormat
+
             }
         })
             .then(response => {
                 console.log('Remaining requests', response.headers['x-requests-remaining'])
                 console.log('Used requests', response.headers['x-requests-used'])
-                console.log(response.data.data)
+                console.log(response)
                 let responseString = JSON.stringify(response.data.data);
                 let mainObj = JSON.parse(responseString);
                 let gameArray = [];
@@ -185,9 +190,11 @@ export default class Odds extends Component {
 
 }
 
-function convertOddsDecimalToAmerican(decimal) {
-    let moneyline;
-    decimal < 2.0 ? moneyline = ((-100) / (decimal - 1)).toPrecision(3) : moneyline = ((decimal - 1) * 100).toPrecision(3);
-    return moneyline;
+function appendPlusSign(odds) {
+    if(odds > 0) {
+        return '+' + odds
+    } else {
+        return odds
+    }
 }
 
