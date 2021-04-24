@@ -41,7 +41,7 @@ export default class Odds extends Component {
                         <Row>
                             <Col>
                                 <Card style={{ width: '40rem' }}>
-                                    <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
+                                    <CardHeader>{game.teams[0]} <small className="text-muted">vs</small> {game.teams[1]}</CardHeader>
                                     <CardBody>
                                         <CardTitle>Place Bet</CardTitle>
                                         <Button color="primary">{game.teams[0]} {appendPlusSign(game.odds[0])}</Button>
@@ -73,7 +73,7 @@ export default class Odds extends Component {
 
         // An api key is emailed to you when you sign up to a plan
         // Get a free API key at https://api.the-odds-api.com/
-        const api_key = '03b0ed79afb3e22a0458b0f9cb51bfc3'
+        const api_key = '55ad2308b709c463ceccce0d162aaad5'
 
         const sport_key = 'upcoming' // use the sport_key from the /sports endpoint below, or use 'upcoming' to see the next 8 games across all sports
 
@@ -127,7 +127,7 @@ export default class Odds extends Component {
 
         // An api key is emailed to you when you sign up to a plan
         // Get a free API key at https://api.the-odds-api.com/
-        const api_key = '03b0ed79afb3e22a0458b0f9cb51bfc3'
+        const api_key = '55ad2308b709c463ceccce0d162aaad5'
 
         const region = 'us' // uk | us | eu | au
 
