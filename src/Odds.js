@@ -1,7 +1,7 @@
 
 import React, {useState, Component} from "react";
 import {oddsForGames} from "./App";
-import {Button, Col, Container, Collapse, Input, InputGroup, InputGroupAddon, ListGroup, ListGroupItem, ModalHeader, Nav, NavItem, NavLink,
+import {Button, Card, CardHeader, CardBody, CardTitle, CardText, Col, Container, Collapse, Input, InputGroup, InputGroupAddon, ListGroup, ListGroupItem, ModalHeader, Nav, NavItem, NavLink,
     Row, TabContent, TabPane, UncontrolledTooltip} from 'reactstrap';
 
 export default class Odds extends Component {
@@ -11,22 +11,46 @@ export default class Odds extends Component {
         this.state = {
             loading: true,
             error: false,
+            isActiveLeaguesOpen: false,
+            isGamesOpen: false,
             activeLeagues: [],
             leagueKeys: [],
+            games: [],
             data: [],
         };
+    }
+
+    componentDidMount() {
+        {this.getActiveLeagues()}
     }
 
     render() {
         return (
             <Container>
-                <Button onClick={() => this.getActiveLeagues()}>View Active Leagues</Button>
-                <ListGroup>
-                    {this.state.activeLeagues.map((title) => (<ListGroupItem onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
-                </ListGroup>
+                <Row>
+                    <Button onClick={() => this.toggleActiveLeagues()}>View Active Leagues</Button>
+                </Row>
+                <Collapse isOpen={this.state.isActiveLeaguesOpen}>
+                    <ListGroup>
+                        {this.state.activeLeagues.map((title) => (<ListGroupItem tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
+                    </ListGroup>
+                </Collapse>
+                    {this.state.games.map((game) => (
+                    <Card>
+                        <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
+                        <CardBody>
+                            <CardText>{convertOddsDecimalToAmerican(game.odds)}</CardText>
+                            <Button>Place Bet</Button>
+                        </CardBody>
+                    </Card>
+                    ))}
 
             </Container>
         );
+    }
+
+    toggleActiveLeagues() {
+        this.setState({isActiveLeaguesOpen: !this.state.isActiveLeaguesOpen})
     }
 
     getActiveLeagues() {
@@ -112,18 +136,24 @@ export default class Odds extends Component {
                 console.log("IN THEN")
                 console.log('Remaining requests', response.headers['x-requests-remaining'])
                 console.log('Used requests', response.headers['x-requests-used'])
-                console.log(JSON.stringify(response))
-                //let responseString = JSON.stringify(response.data.data);
-                //let mainObj = JSON.parse(responseString);
-                // let titleArray = [];
-                // for(let i =0; i < mainObj.length; i++) {
-                //     titleArray.push({
-                //         title: mainObj[i].title
-                //     })
-                // }
-                //titleArray = [...new Set(titleArray.map(item => item.title))];
-                //console.log(titleArray.sort())
-                //this.setState({activeLeagues: titleArray})
+                console.log(response.data.data)
+                let responseString = JSON.stringify(response.data.data);
+                let mainObj = JSON.parse(responseString);
+                let gameArray = [];
+                for(let i =0; i < mainObj.length; i++) {
+                    gameArray.push({
+                        teams: mainObj[i].teams,
+                        commence_time: mainObj[i].commence_time,
+                        home_team: mainObj[i].home_team,
+                        odds: mainObj[i].sites[0].odds.h2h[0]
+                    })
+                }
+                this.setState({activeLeagues: [], leagueKeys: []})
+                this.setState({games: gameArray})
+                console.log(this.state.games)
+                console.log(this.state.games[0].teams[0])
+                console.log(this.state.games[0].odds)
+
 
             })
             .catch(error => {
@@ -131,6 +161,13 @@ export default class Odds extends Component {
                 console.log(error.response.data)
             })
     }
+
+}
+
+function convertOddsDecimalToAmerican(decimal) {
+    let moneyline;
+    decimal < 2.0 ? moneyline = ((-100) / (decimal - 1)).toPrecision(3) : moneyline = ((decimal - 1) * 100).toPrecision(3);
+    return moneyline;
 }
 
 
