@@ -1,7 +1,6 @@
 
 import React, {useState, Component} from "react";
-import {oddsForGames} from "./App";
-import {Button, Card, CardHeader, CardBody, CardTitle, CardText, Col, Container, Collapse, Input, InputGroup, InputGroupAddon, ListGroup, ListGroupItem, ModalHeader, Nav, NavItem, NavLink,
+import {Alert, Button, Card, CardHeader, CardBody, CardTitle, CardText, Col, Container, Collapse, Input, InputGroup, InputGroupAddon, ListGroup, ListGroupItem, ModalHeader, Nav, NavItem, NavLink,
     Row, TabContent, TabPane, UncontrolledTooltip} from 'reactstrap';
 
 export default class Odds extends Component {
@@ -12,12 +11,14 @@ export default class Odds extends Component {
             loading: true,
             error: false,
             isActiveLeaguesOpen: false,
+            selectedLeague: [],
             isGamesOpen: false,
             activeLeagues: [],
             leagueKeys: [],
             games: [],
             data: [],
         };
+
     }
 
     componentDidMount() {
@@ -27,30 +28,32 @@ export default class Odds extends Component {
     render() {
         return (
             <Container>
-                <Row>
-                    <Button onClick={() => this.toggleActiveLeagues()}>View Active Leagues</Button>
-                </Row>
-                <Collapse isOpen={this.state.isActiveLeaguesOpen}>
-                    <ListGroup>
-                        {this.state.activeLeagues.map((title) => (<ListGroupItem tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
-                    </ListGroup>
-                </Collapse>
+                <ListGroup>
+                    {this.state.activeLeagues.map((title) => (<ListGroupItem tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
+                </ListGroup>
+                {this.state.selectedLeague.map((league) => (
+                    <Alert color="primary">
+                        {league}
+                    </Alert>
+                ))}
                     {this.state.games.map((game) => (
-                    <Card>
-                        <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
-                        <CardBody>
-                            <CardText>{convertOddsDecimalToAmerican(game.odds)}</CardText>
-                            <Button>Place Bet</Button>
-                        </CardBody>
-                    </Card>
+                        <Card>
+                            <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
+                            <CardBody>
+                                <Button color="primary">{game.teams[0]} {convertOddsDecimalToAmerican(game.odds[0])}</Button>
+                                {' '}
+                                <Button color="primary">{game.teams[1]} {convertOddsDecimalToAmerican(game.odds[1])}</Button>
+                            </CardBody>
+                        </Card>
                     ))}
-
+                <br></br>
             </Container>
         );
     }
 
     toggleActiveLeagues() {
         this.setState({isActiveLeaguesOpen: !this.state.isActiveLeaguesOpen})
+        this.setState({games: []})
     }
 
     getActiveLeagues() {
@@ -95,8 +98,8 @@ export default class Odds extends Component {
 
         })
            .catch(error => {
-                console.log('Error status', error.response.status)
-                console.log(error.response.data)
+                console.log('Error status', error.response)
+                console.log(error.response)
             })
     }
 
@@ -140,16 +143,19 @@ export default class Odds extends Component {
                 let responseString = JSON.stringify(response.data.data);
                 let mainObj = JSON.parse(responseString);
                 let gameArray = [];
+                let selectedLeagueArray = []
                 for(let i =0; i < mainObj.length; i++) {
                     gameArray.push({
                         teams: mainObj[i].teams,
                         commence_time: mainObj[i].commence_time,
                         home_team: mainObj[i].home_team,
-                        odds: mainObj[i].sites[0].odds.h2h[0]
+                        odds: mainObj[i].sites[0].odds.h2h,
+                        sport_nice: mainObj[i].sport_nice
                     })
                 }
+                selectedLeagueArray.push(gameArray[0].sport_nice)
                 this.setState({activeLeagues: [], leagueKeys: []})
-                this.setState({games: gameArray})
+                this.setState({games: gameArray, selectedLeague: selectedLeagueArray})
                 console.log(this.state.games)
                 console.log(this.state.games[0].teams[0])
                 console.log(this.state.games[0].odds)
@@ -157,8 +163,8 @@ export default class Odds extends Component {
 
             })
             .catch(error => {
-                console.log('Error status', error.response.status)
-                console.log(error.response.data)
+                console.log('Error status', error.response)
+                console.log(error.response)
             })
     }
 
@@ -169,127 +175,4 @@ function convertOddsDecimalToAmerican(decimal) {
     decimal < 2.0 ? moneyline = ((-100) / (decimal - 1)).toPrecision(3) : moneyline = ((decimal - 1) * 100).toPrecision(3);
     return moneyline;
 }
-
-
-
-
-
-        /*
-            Now get a list of live & upcoming games for the sport you want, along with odds for different bookmakers
-        */
-//         axios.get('https://api.the-odds-api.com/v3/odds', {
-//             params: {
-//                 api_key: api_key,
-//                 sport: sport_key,
-//                 region: region,
-//                 mkt: market,
-//             }
-//         })
-//             .then(response => {
-                // response.data.data contains a list of live and
-                //   upcoming events and odds for different bookmakers.
-                // Events are ordered by start time (live events are first)
-                //console.log(JSON.stringify(response.data.data))    //response.data.data
-
-
-               //this.setState({data: response.data.data});
-                //console.log(this.state.data);
-
-
-
-                // for(let j =0; j < mainObj.length; j++)
-                // {
-                //    for(let k =0; k < mainObj.sites.length; k++)
-                //    {
-                //         oddsArray += mainObj[j].sites[k];
-                //           //oddsArray += mainObj[j].sites[k].odds.h2h[k + 1]+ "\n";
-                //    }
-                // }
-
-                //mainObj[0].sites[0].odds.h2h[0]
-                //console.log("aray " + mainObj[0].sites[0].odds.h2h[0] );
-                //alert("Upcoming games:\n\n"  + scheduleArray);
-
-                //let array = response.data.data
-                //let result = array.filter((x)=>x.active === true);
-                //console.log(result[0].group)
-
-
-        /*
-            Now get a list of live & upcoming games for the sport you want, along with odds for different bookmakers
-        */
-        // axios.get('https://api.the-odds-api.com/v3/odds', {
-        //     params: {
-        //         api_key: api_key,
-        //         sport: sport_key,
-        //         region: region,
-        //         mkt: market,
-        //     }
-        // })
-        //     .then(response => {
-        //         // response.data.data contains a list of live and
-        //         //   upcoming events and odds for different bookmakers.
-        //         // Events are ordered by start time (live events are first)
-        //         //console.log(JSON.stringify(response.data.data))
-        //
-        //         // Check your usage
-        //         console.log('Remaining requests', response.headers['x-requests-remaining'])
-        //         console.log('Used requests', response.headers['x-requests-used'])
-        //
-        //     })
-        //     .catch(error => {
-        //         console.log('Error status', error.response.status)
-        //         console.log(error.response.data)
-        //     })
-
-
-
-//                 stuff = JSON.stringify(response.data.data);
-//                 let mainObj = JSON.parse(stuff);
-//                 let scheduleArray = [];
-//                 let oddsArray = [];
-//                     for(let i =0; i < mainObj.length; i++)
-//                         scheduleArray += mainObj[i].teams + "\n";
-
-
-//                      //oddsArray += mainObj[prep].sites[prep].odds.h2h[prep] + "\n";
-
-//                      // for(let j =0; j < mainObj.length; j++)
-//                      // {
-//                      //    for(let k =0; k < mainObj.sites.length; k++)
-//                      //    {
-//                      //         oddsArray += mainObj[j].sites[k];
-//                      //           //oddsArray += mainObj[j].sites[k].odds.h2h[k + 1]+ "\n";
-//                      //    }
-//                      // }
-
-//                         //mainObj[0].sites[0].odds.h2h[0]
-//                         //console.log("aray " + mainObj[0].sites[0].odds.h2h[0] );
-//                     alert("Upcoming games:\n\n"  + scheduleArray);
-
-
-
-//                 //console.log(showOdds());
-//                 //console.log("this is show" + showOdds());
-//                // console.log(JSON.stringify(response.data.data))
-//                 console.log(JSON.parse(stuff));//make data into objects for manipulation
-//                 // return
-
-//                 //console.log("main " + mainObj[0].teams + " " + mainObj[0].sites[0].odds.h2h[0] + " " + mainObj[0].sites[0].odds.h2h[1]);
-
-//                 // Check your usage
-//                 // console.log('Remaining requests', response.headers['x-requests-remaining'])
-//                 // console.log('Used requests', response.headers['x-requests-used'])
-
-//             })
-//             .catch(error => {
-//                 console.log('Error status', error.response.status)
-//                 console.log(error.response.data)
-//             })
-
-//     }
-
-
-//}
-//export let mainObj;
 
