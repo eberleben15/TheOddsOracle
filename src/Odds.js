@@ -29,11 +29,11 @@ export default class Odds extends Component {
         return (
             <Container>
                 <ListGroup>
-                    {this.state.activeLeagues.map((title) => (<ListGroupItem style={{ width: '40rem' }} tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
+                    {this.state.activeLeagues.map((title) => (<ListGroupItem style={{ width: '40rem', cursor: 'pointer' }} tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
                 </ListGroup>
                 {this.state.selectedLeague.map((league) => (
                     <Alert color="primary" style={{ width: '40rem' }}>
-                        {league}
+                        Selected League: {league}
                     </Alert>
                 ))}
                     {this.state.games.map((game) => (
@@ -46,13 +46,11 @@ export default class Odds extends Component {
                                         <Button color="primary">{game.teams[0]} {appendPlusSign(game.odds[0])}</Button>
                                         {' '}
                                         <Button color="primary">{game.teams[1]} {appendPlusSign(game.odds[1])}</Button>
-                                        <Row>
-                                            <CardText>
-                                                <small className="text-muted">{String(new Date(game.commence_time)).substring(0,28)}</small>
-                                                <br></br>
-                                                <small className="text-muted">Odds Provided By: {game.site_nice}</small>
-                                            </CardText>
-                                        </Row>
+                                        <CardText>
+                                            <small className="text-muted">{String(new Date(game.commence_time)).substring(0,28)}</small>
+                                            <br></br>
+                                            <small className="text-muted">Odds Provided By: {game.site_nice}</small>
+                                        </CardText>
                                     </CardBody>
                                 </Card>
                             </Col>
