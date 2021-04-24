@@ -37,14 +37,25 @@ export default class Odds extends Component {
                     </Alert>
                 ))}
                     {this.state.games.map((game) => (
-                        <Card>
-                            <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
-                            <CardBody>
-                                <Button color="primary">{game.teams[0]} {convertOddsDecimalToAmerican(game.odds[0])}</Button>
-                                {' '}
-                                <Button color="primary">{game.teams[1]} {convertOddsDecimalToAmerican(game.odds[1])}</Button>
-                            </CardBody>
-                        </Card>
+                        <Row>
+                            <Col>
+                                <Card>
+                                    <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
+                                    <CardBody>
+                                        <Button color="primary">{game.teams[0]} {convertOddsDecimalToAmerican(game.odds[0])}</Button>
+                                        {' '}
+                                        <Button color="primary">{game.teams[1]} {convertOddsDecimalToAmerican(game.odds[1])}</Button>
+                                        <Row>
+                                            <CardText>
+                                                <small className="text-muted">{String(new Date(game.commence_time)).substring(0,28)}</small>
+                                                <br></br>
+                                                <small className="text-muted">Odds Provided By: {game.site_nice}</small>
+                                            </CardText>
+                                        </Row>
+                                    </CardBody>
+                                </Card>
+                            </Col>
+                        </Row>
                     ))}
                 <br></br>
             </Container>
@@ -80,7 +91,6 @@ export default class Odds extends Component {
             }
         })
             .then(response => {
-                console.log("IN THEN")
                 console.log('Remaining requests', response.headers['x-requests-remaining'])
                 console.log('Used requests', response.headers['x-requests-used'])
                 let responseString = JSON.stringify(response.data.data);
@@ -123,6 +133,10 @@ export default class Odds extends Component {
 
         const market = 'h2h' // h2h | spreads | totals
 
+        const dateFormat = 'iso' //unix or iso
+
+
+
         /*
             First get a list of in-season sports
                 the sport 'key' from the response can be used to get odds in the next request
@@ -133,10 +147,10 @@ export default class Odds extends Component {
                 sport: key,
                 region: region,
                 mkt: market,
+                dateFormat: dateFormat
             }
         })
             .then(response => {
-                console.log("IN THEN")
                 console.log('Remaining requests', response.headers['x-requests-remaining'])
                 console.log('Used requests', response.headers['x-requests-used'])
                 console.log(response.data.data)
@@ -150,7 +164,8 @@ export default class Odds extends Component {
                         commence_time: mainObj[i].commence_time,
                         home_team: mainObj[i].home_team,
                         odds: mainObj[i].sites[0].odds.h2h,
-                        sport_nice: mainObj[i].sport_nice
+                        sport_nice: mainObj[i].sport_nice,
+                        site_nice: mainObj[i].sites[0].site_nice
                     })
                 }
                 selectedLeagueArray.push(gameArray[0].sport_nice)
