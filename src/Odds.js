@@ -29,7 +29,8 @@ export default class Odds extends Component {
         return (
             <Container>
                 <ListGroup>
-                    {this.state.activeLeagues.map((title) => (<ListGroupItem style={{ width: '40rem', cursor: 'pointer' }} tag="a" onClick={() => this.getLeagueGames({title})}>{title}</ListGroupItem>))}
+                    {this.state.activeLeagues.map((title) =>
+                        (<ListGroupItem style={{ width: '40rem', cursor: 'pointer' }} tag="a" onClick={() => {this.getLeagueGames({title}); scrollToTopTimeout();}}>{title}</ListGroupItem>))}
                 </ListGroup>
                 {this.state.selectedLeague.map((league) => (
                     <Alert color="primary" style={{ width: '40rem' }}>
@@ -196,3 +197,10 @@ function appendPlusSign(odds) {
     }
 }
 
+function scrollToTopTimeout() {
+    window.setTimeout(scrollToTop, 750)
+}
+
+function scrollToTop() {
+    window.scrollTo({top: 0, behavior: 'smooth'})
+}
