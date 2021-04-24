@@ -39,7 +39,7 @@ export default class Odds extends Component {
                     {this.state.games.map((game) => (
                         <Row>
                             <Col>
-                                <Card>
+                                <Card style={{ width: '40rem' }}>
                                     <CardHeader>{game.teams[0]} vs {game.teams[1]}</CardHeader>
                                     <CardBody>
                                         <Button color="primary">{game.teams[0]} {convertOddsDecimalToAmerican(game.odds[0])}</Button>
