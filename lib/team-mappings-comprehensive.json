@@ -1,0 +1,22 @@
+{
+  "comment": "Direct mapping from The Odds API team names to API-Sports.io team IDs. Use scripts/discover-team-ids.ts to find correct IDs. Format: { 'Odds API Name': { id: number, name: 'API-Sports.io Name' } }",
+  "mappings": {
+    "Michigan Wolverines": {
+      "id": 1994,
+      "name": "Michigan"
+    },
+    "Villanova Wildcats": {
+      "id": 2188,
+      "name": "Villanova"
+    },
+    "BYU Cougars": {
+      "id": 6756,
+      "name": "BYU"
+    },
+    "Clemson Tigers": {
+      "id": 180,
+      "name": "Clemson"
+    }
+  },
+  "note": "Add more teams as you discover them. Run: npx tsx scripts/discover-team-ids.ts \"Team Name\" to find IDs"
+}

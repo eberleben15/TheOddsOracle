@@ -71,10 +71,20 @@ npm run dev
 ### Stats API (API Basketball)
 
 1. Sign up at [RapidAPI](https://rapidapi.com/api-sports/api/api-basketball) or [api-basketball.com](https://www.api-basketball.com/)
-2. Get your API key
-3. Add it to `.env.local` as `STATS_API_KEY`
+2. **Subscribe to the API**: Go to https://rapidapi.com/api-sports/api/api-basketball and subscribe (free tier available)
+3. Get your API key from the RapidAPI dashboard
+4. Add it to `.env.local` as `STATS_API_KEY`
 
-**Note**: The stats API integration includes mock data fallbacks for development. You'll need to configure the actual API endpoints based on the API Basketball documentation.
+**Important Notes**:
+- Make sure you're subscribed to the API-Basketball API on RapidAPI (not just signed up)
+- If using RapidAPI teams, ensure your team is added to the subscription
+- Check the "Endpoints" tab in RapidAPI to verify the exact endpoint structure
+- The stats API integration includes mock data fallbacks for development
+
+**Troubleshooting**:
+- If you get "not subscribed" errors, verify your subscription is active in RapidAPI
+- If you get 403 errors, check that the endpoint structure matches the RapidAPI documentation
+- Rate limits (429) are normal on free tiers - the app will fall back to mock data
 
 ## Project Structure
 

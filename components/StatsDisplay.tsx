@@ -1,8 +1,10 @@
 "use client";
 
-import { Card, CardBody, CardHeader, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell } from "@nextui-org/react";
+import { Card, CardBody, CardHeader, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip } from "@nextui-org/react";
 import { TeamStats, GameResult, HeadToHead } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { getTeamData } from "@/lib/team-data";
+import { TeamLogo } from "./TeamLogo";
 
 interface StatsDisplayProps {
   homeTeamStats: TeamStats;
@@ -20,6 +22,9 @@ export function StatsDisplay({
   recentGames,
   headToHead,
 }: StatsDisplayProps) {
+  const awayTeamData = getTeamData(awayTeamStats.name);
+  const homeTeamData = getTeamData(homeTeamStats.name);
+
   return (
     <div className="space-y-6">
       {/* Team Records */}
@@ -31,16 +36,42 @@ export function StatsDisplay({
           <CardBody>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="font-medium">{awayTeamStats.name}</span>
-                <span className="text-lg">
-                  {awayTeamStats.wins} - {awayTeamStats.losses}
-                </span>
+                <div className="flex items-center gap-3">
+                  <TeamLogo teamName={awayTeamStats.name} size={32} />
+                  <span
+                    className="font-medium"
+                    style={{ color: awayTeamData.primaryColor }}
+                  >
+                    {awayTeamStats.name}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-semibold">
+                    {awayTeamStats.wins} - {awayTeamStats.losses}
+                  </span>
+                  <div className="text-xs text-gray-500">
+                    {((awayTeamStats.wins / (awayTeamStats.wins + awayTeamStats.losses)) * 100).toFixed(1)}% Win Rate
+                  </div>
+                </div>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-medium">{homeTeamStats.name}</span>
-                <span className="text-lg">
-                  {homeTeamStats.wins} - {homeTeamStats.losses}
-                </span>
+                <div className="flex items-center gap-3">
+                  <TeamLogo teamName={homeTeamStats.name} size={32} />
+                  <span
+                    className="font-medium"
+                    style={{ color: homeTeamData.primaryColor }}
+                  >
+                    {homeTeamStats.name}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-semibold">
+                    {homeTeamStats.wins} - {homeTeamStats.losses}
+                  </span>
+                  <div className="text-xs text-gray-500">
+                    {((homeTeamStats.wins / (homeTeamStats.wins + homeTeamStats.losses)) * 100).toFixed(1)}% Win Rate
+                  </div>
+                </div>
               </div>
             </div>
           </CardBody>
@@ -49,34 +80,93 @@ export function StatsDisplay({
         {/* Points Per Game */}
         <Card>
           <CardHeader>
-            <h3 className="text-lg font-semibold">Points Per Game</h3>
+            <h3 className="text-lg font-semibold">Scoring Stats</h3>
           </CardHeader>
           <CardBody>
             <div className="space-y-4">
               <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">Points Scored (Offense)</span>
+                </div>
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">Offense</span>
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={awayTeamStats.name} size={24} />
+                    <span className="text-sm font-medium">{awayTeamStats.name.split(" ")[0]}</span>
+                  </div>
+                  <span className="font-bold" style={{ color: awayTeamData.primaryColor }}>
+                    {awayTeamStats.pointsPerGame.toFixed(1)} PPG
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">{awayTeamStats.name}</span>
-                  <span>{awayTeamStats.pointsPerGame.toFixed(1)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">{homeTeamStats.name}</span>
-                  <span>{homeTeamStats.pointsPerGame.toFixed(1)}</span>
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={homeTeamStats.name} size={24} />
+                    <span className="text-sm font-medium">{homeTeamStats.name.split(" ")[0]}</span>
+                  </div>
+                  <span className="font-bold" style={{ color: homeTeamData.primaryColor }}>
+                    {homeTeamStats.pointsPerGame.toFixed(1)} PPG
+                  </span>
                 </div>
               </div>
-              <div className="pt-2 border-t">
+              <div className="pt-3 border-t">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">Points Allowed (Defense)</span>
+                </div>
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">Defense</span>
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={awayTeamStats.name} size={24} />
+                    <span className="text-sm font-medium">{awayTeamStats.name.split(" ")[0]}</span>
+                  </div>
+                  <span className="font-bold" style={{ color: awayTeamData.primaryColor }}>
+                    {awayTeamStats.pointsAllowedPerGame.toFixed(1)} PAPG
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">{awayTeamStats.name}</span>
-                  <span>{awayTeamStats.pointsAllowedPerGame.toFixed(1)}</span>
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={homeTeamStats.name} size={24} />
+                    <span className="text-sm font-medium">{homeTeamStats.name.split(" ")[0]}</span>
+                  </div>
+                  <span className="font-bold" style={{ color: homeTeamData.primaryColor }}>
+                    {homeTeamStats.pointsAllowedPerGame.toFixed(1)} PAPG
+                  </span>
+                </div>
+              </div>
+              <div className="pt-3 border-t">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">Net Rating</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">{homeTeamStats.name}</span>
-                  <span>{homeTeamStats.pointsAllowedPerGame.toFixed(1)}</span>
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={awayTeamStats.name} size={24} />
+                    <span className="text-sm font-medium">{awayTeamStats.name.split(" ")[0]}</span>
+                  </div>
+                  <Chip
+                    size="sm"
+                    color={
+                      awayTeamStats.pointsPerGame - awayTeamStats.pointsAllowedPerGame > 0
+                        ? "success"
+                        : "danger"
+                    }
+                    variant="flat"
+                  >
+                    {(awayTeamStats.pointsPerGame - awayTeamStats.pointsAllowedPerGame).toFixed(1)}
+                  </Chip>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={homeTeamStats.name} size={24} />
+                    <span className="text-sm font-medium">{homeTeamStats.name.split(" ")[0]}</span>
+                  </div>
+                  <Chip
+                    size="sm"
+                    color={
+                      homeTeamStats.pointsPerGame - homeTeamStats.pointsAllowedPerGame > 0
+                        ? "success"
+                        : "danger"
+                    }
+                    variant="flat"
+                  >
+                    {(homeTeamStats.pointsPerGame - homeTeamStats.pointsAllowedPerGame).toFixed(1)}
+                  </Chip>
                 </div>
               </div>
             </div>
@@ -101,32 +191,63 @@ export function StatsDisplay({
                 <TableColumn>Result</TableColumn>
               </TableHeader>
               <TableBody>
-                {recentGames.away.slice(0, 5).map((game) => (
-                  <TableRow key={game.id}>
-                    <TableCell>{formatDate(game.date).split(",")[0]}</TableCell>
-                    <TableCell>
-                      {game.homeTeam === awayTeamStats.name
-                        ? game.awayTeam
-                        : game.homeTeam}
-                    </TableCell>
-                    <TableCell>
-                      {game.homeTeam === awayTeamStats.name
-                        ? `${game.homeScore} - ${game.awayScore}`
-                        : `${game.awayScore} - ${game.homeScore}`}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          game.winner === awayTeamStats.name
-                            ? "text-green-600 font-semibold"
-                            : "text-red-600"
-                        }
-                      >
-                        {game.winner === awayTeamStats.name ? "W" : "L"}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {recentGames.away.slice(0, 5).map((game) => {
+                  const opponent =
+                    game.homeTeam === awayTeamStats.name
+                      ? game.awayTeam
+                      : game.homeTeam;
+                  const opponentData = getTeamData(opponent);
+                  const isHome = game.homeTeam === awayTeamStats.name;
+                  const teamScore = isHome ? game.homeScore : game.awayScore;
+                  const oppScore = isHome ? game.awayScore : game.homeScore;
+                  const won = game.winner === awayTeamStats.name;
+                  const margin = Math.abs(teamScore - oppScore);
+
+                  return (
+                    <TableRow key={game.id}>
+                      <TableCell className="text-sm">
+                        {formatDate(game.date).split(",")[0]}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <TeamLogo teamName={opponent} size={20} />
+                          <span className="text-sm">{opponent.split(" ")[0]}</span>
+                          {isHome && (
+                            <Chip size="sm" variant="flat" color="default">
+                              H
+                            </Chip>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-semibold ${
+                              won ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {teamScore}
+                          </span>
+                          <span className="text-gray-400">-</span>
+                          <span className="text-gray-600">{oppScore}</span>
+                          <span className="text-xs text-gray-500">
+                            ({won ? "+" : "-"}
+                            {margin})
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="sm"
+                          color={won ? "success" : "danger"}
+                          variant="flat"
+                        >
+                          {won ? "W" : "L"}
+                        </Chip>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardBody>
@@ -147,32 +268,63 @@ export function StatsDisplay({
                 <TableColumn>Result</TableColumn>
               </TableHeader>
               <TableBody>
-                {recentGames.home.slice(0, 5).map((game) => (
-                  <TableRow key={game.id}>
-                    <TableCell>{formatDate(game.date).split(",")[0]}</TableCell>
-                    <TableCell>
-                      {game.homeTeam === homeTeamStats.name
-                        ? game.awayTeam
-                        : game.homeTeam}
-                    </TableCell>
-                    <TableCell>
-                      {game.homeTeam === homeTeamStats.name
-                        ? `${game.homeScore} - ${game.awayScore}`
-                        : `${game.awayScore} - ${game.homeScore}`}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          game.winner === homeTeamStats.name
-                            ? "text-green-600 font-semibold"
-                            : "text-red-600"
-                        }
-                      >
-                        {game.winner === homeTeamStats.name ? "W" : "L"}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {recentGames.home.slice(0, 5).map((game) => {
+                  const opponent =
+                    game.homeTeam === homeTeamStats.name
+                      ? game.awayTeam
+                      : game.homeTeam;
+                  const opponentData = getTeamData(opponent);
+                  const isHome = game.homeTeam === homeTeamStats.name;
+                  const teamScore = isHome ? game.homeScore : game.awayScore;
+                  const oppScore = isHome ? game.awayScore : game.homeScore;
+                  const won = game.winner === homeTeamStats.name;
+                  const margin = Math.abs(teamScore - oppScore);
+
+                  return (
+                    <TableRow key={game.id}>
+                      <TableCell className="text-sm">
+                        {formatDate(game.date).split(",")[0]}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <TeamLogo teamName={opponent} size={20} />
+                          <span className="text-sm">{opponent.split(" ")[0]}</span>
+                          {isHome && (
+                            <Chip size="sm" variant="flat" color="default">
+                              H
+                            </Chip>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-semibold ${
+                              won ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {teamScore}
+                          </span>
+                          <span className="text-gray-400">-</span>
+                          <span className="text-gray-600">{oppScore}</span>
+                          <span className="text-xs text-gray-500">
+                            ({won ? "+" : "-"}
+                            {margin})
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="sm"
+                          color={won ? "success" : "danger"}
+                          variant="flat"
+                        >
+                          {won ? "W" : "L"}
+                        </Chip>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardBody>
@@ -186,33 +338,99 @@ export function StatsDisplay({
             <h3 className="text-lg font-semibold">Head-to-Head History</h3>
           </CardHeader>
           <CardBody>
-            <div className="mb-4">
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
               <div className="flex justify-between items-center">
-                <span className="font-medium">{awayTeamStats.name}</span>
-                <span className="text-lg font-semibold">
-                  {headToHead.homeTeamWins} - {headToHead.awayTeamWins}
-                </span>
-                <span className="font-medium">{homeTeamStats.name}</span>
+                <div className="flex items-center gap-3">
+                  <TeamLogo teamName={awayTeamStats.name} size={32} />
+                  <span
+                    className="font-medium"
+                    style={{ color: awayTeamData.primaryColor }}
+                  >
+                    {awayTeamStats.name.split(" ")[0]}
+                  </span>
+                </div>
+                <div className="text-center">
+                  <span className="text-2xl font-bold">
+                    {headToHead.awayTeamWins} - {headToHead.homeTeamWins}
+                  </span>
+                  <div className="text-xs text-gray-500 mt-1">All-Time Record</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="font-medium"
+                    style={{ color: homeTeamData.primaryColor }}
+                  >
+                    {homeTeamStats.name.split(" ")[0]}
+                  </span>
+                  <TeamLogo teamName={homeTeamStats.name} size={32} />
+                </div>
               </div>
             </div>
             <Table aria-label="Head-to-head table" removeWrapper>
               <TableHeader>
                 <TableColumn>Date</TableColumn>
-                <TableColumn>Home</TableColumn>
+                <TableColumn>Matchup</TableColumn>
                 <TableColumn>Score</TableColumn>
-                <TableColumn>Away</TableColumn>
+                <TableColumn>Winner</TableColumn>
               </TableHeader>
               <TableBody>
-                {headToHead.games.slice(0, 5).map((game) => (
-                  <TableRow key={game.id}>
-                    <TableCell>{formatDate(game.date).split(",")[0]}</TableCell>
-                    <TableCell>{game.homeTeam}</TableCell>
-                    <TableCell>
-                      {game.homeScore} - {game.awayScore}
-                    </TableCell>
-                    <TableCell>{game.awayTeam}</TableCell>
-                  </TableRow>
-                ))}
+                {headToHead.games.slice(0, 5).map((game) => {
+                  const homeTeamData = getTeamData(game.homeTeam);
+                  const awayTeamData = getTeamData(game.awayTeam);
+                  const winnerData =
+                    game.winner === game.homeTeam ? homeTeamData : awayTeamData;
+
+                  return (
+                    <TableRow key={game.id}>
+                      <TableCell className="text-sm">
+                        {formatDate(game.date).split(",")[0]}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <TeamLogo teamName={game.awayTeam} size={20} />
+                          <span className="text-sm">{game.awayTeam.split(" ")[0]}</span>
+                          <span className="text-gray-400">@</span>
+                          <TeamLogo teamName={game.homeTeam} size={20} />
+                          <span className="text-sm">{game.homeTeam.split(" ")[0]}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-semibold ${
+                              game.winner === game.homeTeam
+                                ? "text-green-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {game.homeScore}
+                          </span>
+                          <span className="text-gray-400">-</span>
+                          <span
+                            className={`font-semibold ${
+                              game.winner === game.awayTeam
+                                ? "text-green-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {game.awayScore}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <TeamLogo teamName={game.winner} size={20} />
+                          <span
+                            className="text-sm font-medium"
+                            style={{ color: winnerData.primaryColor }}
+                          >
+                            {game.winner.split(" ")[0]}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardBody>
