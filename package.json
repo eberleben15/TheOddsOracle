@@ -1,0 +1,43 @@
+{
+  "name": "theoddsoracle",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev -p 3005",
+    "build": "next build",
+    "start": "next start -p 3005",
+    "lint": "next lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheOddsOracle/TheOddsOracle.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TheOddsOracle/TheOddsOracle/issues"
+  },
+  "homepage": "https://github.com/TheOddsOracle/TheOddsOracle#readme",
+  "dependencies": {
+    "@nextui-org/react": "^2.6.11",
+    "@types/node": "^24.10.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.25",
+    "next": "^16.0.8",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tailwind-merge": "^3.4.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@prisma/client": "^7.1.0",
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "prisma": "^7.1.0",
+    "tailwindcss": "^3.4.1"
+  }
+}

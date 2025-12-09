@@ -1,0 +1,20 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Prisma is scaffolded for future use - no database connection configured yet
+
+generator client {
+  provider = "prisma-client"
+}
+
+// Placeholder models for future use
+// Uncomment and configure when ready to connect to a database
+
+// model Matchup {
+//   id        String   @id @default(cuid())
+//   homeTeam String
+//   awayTeam String
+//   gameDate DateTime
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
