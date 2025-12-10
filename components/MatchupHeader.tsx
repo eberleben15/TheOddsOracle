@@ -7,6 +7,7 @@ import { formatDate, formatTime } from "@/lib/utils";
 import { TeamLogo } from "./TeamLogo";
 import { getTeamData } from "@/lib/team-data";
 import { parseOdds, formatDecimalOdds, formatSpread } from "@/lib/odds-utils";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 interface MatchupHeaderProps {
   game: OddsGame;
@@ -18,144 +19,139 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
   const parsedOdds = parseOdds(game);
 
   return (
-    <>
-      <div className="mb-6">
-        <Link href="/">
-          <Button 
-            variant="flat" 
-            color="primary"
-            size="md"
-            startContent={
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            }
-            className="font-medium"
-          >
-            Back to Dashboard
-          </Button>
-        </Link>
-      </div>
+    <div className="space-y-6">
+      {/* Back Button */}
+      <Link href="/">
+        <Button
+          variant="flat"
+          startContent={<ArrowLeftIcon className="h-4 w-4" />}
+          className="bg-white border border-border-gray text-text-dark hover:bg-body-bg"
+        >
+          Back to Dashboard
+        </Button>
+      </Link>
 
-      <div className="mb-8">
-        <Card className="bg-baltic-blue/60 backdrop-blur-md border-2 border-baltic-blue/80 shadow-2xl">
-          <CardHeader className="border-b border-strong-cyan/20">
-            <div className="w-full">
-              <h1 className="text-3xl font-bold mb-2 text-white">Matchup Details</h1>
-              <div className="flex items-center gap-4 text-sm text-gray-200">
-                <span>{formatDate(game.commence_time)}</span>
-                <span>•</span>
-                <span className="text-honey-bronze font-bold">{formatTime(game.commence_time)}</span>
+      {/* Matchup Details Card */}
+      <Card className="bg-white border border-border-gray shadow-sm">
+        <CardHeader className="border-b border-border-gray">
+          <div className="w-full">
+            <h1 className="text-2xl font-bold mb-2 text-text-dark">Matchup Details</h1>
+            <div className="flex items-center gap-4 text-sm text-text-body">
+              <span>{formatDate(game.commence_time)}</span>
+              <span>•</span>
+              <span className="text-primary font-semibold">{formatTime(game.commence_time)}</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody className="p-6">
+          <div className="flex justify-between items-center">
+            {/* Away Team */}
+            <div className="text-center flex-1 flex flex-col items-center gap-4">
+              <TeamLogo teamName={game.away_team} size={80} />
+              <div>
+                <h2 className="text-xl font-semibold mb-1 text-text-dark">
+                  {game.away_team}
+                </h2>
+                <p className="text-sm text-text-body">Away</p>
               </div>
             </div>
+            
+            {/* VS Divider */}
+            <div className="text-3xl font-bold mx-8 text-primary">@</div>
+            
+            {/* Home Team */}
+            <div className="text-center flex-1 flex flex-col items-center gap-4">
+              <TeamLogo teamName={game.home_team} size={80} />
+              <div>
+                <h2 className="text-xl font-semibold mb-1 text-text-dark">
+                  {game.home_team}
+                </h2>
+                <p className="text-sm text-text-body">Home</p>
+              </div>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Betting Odds Card */}
+      {parsedOdds.length > 0 && (
+        <Card className="bg-white border border-border-gray shadow-sm">
+          <CardHeader className="border-b border-border-gray">
+            <h3 className="text-xl font-semibold text-text-dark">Betting Odds</h3>
           </CardHeader>
-          <CardBody>
-            <div className="flex justify-between items-center py-6">
-              <div className="text-center flex-1 flex flex-col items-center gap-3">
-                <TeamLogo teamName={game.away_team} size={80} />
-                <div>
-                  <h2
-                    className="text-2xl font-semibold mb-1 text-white"
-                    style={{ color: awayTeamData.primaryColor }}
-                  >
-                    {game.away_team}
-                  </h2>
-                  <p className="text-sm text-gray-200">Away</p>
-                </div>
-              </div>
-              <div className="text-4xl font-bold mx-8 text-strong-cyan">@</div>
-              <div className="text-center flex-1 flex flex-col items-center gap-3">
-                <TeamLogo teamName={game.home_team} size={80} />
-                <div>
-                  <h2
-                    className="text-2xl font-semibold mb-1 text-white"
-                    style={{ color: homeTeamData.primaryColor }}
-                  >
-                    {game.home_team}
-                  </h2>
-                  <p className="text-sm text-gray-200">Home</p>
-                </div>
-              </div>
+          <CardBody className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {parsedOdds.slice(0, 6).map((odds, idx) => (
+                <Card key={idx} className="bg-body-bg border border-border-gray">
+                  <CardHeader className="pb-2">
+                    <h4 className="font-semibold text-base text-text-dark">{odds.bookmaker}</h4>
+                  </CardHeader>
+                  <CardBody className="pt-0 space-y-3">
+                    {odds.moneyline && (odds.moneyline.away || odds.moneyline.home) && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-text-body uppercase tracking-wide">
+                          Moneyline
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {odds.moneyline.away && (
+                            <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
+                              <span className="text-sm font-medium text-text-dark">
+                                {game.away_team.split(" ")[0]}
+                              </span>
+                              <span className="text-sm font-bold text-primary">
+                                {formatDecimalOdds(odds.moneyline.away.price)}
+                              </span>
+                            </div>
+                          )}
+                          {odds.moneyline.home && (
+                            <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
+                              <span className="text-sm font-medium text-text-dark">
+                                {game.home_team.split(" ")[0]}
+                              </span>
+                              <span className="text-sm font-bold text-primary">
+                                {formatDecimalOdds(odds.moneyline.home.price)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {odds.spread && (odds.spread.away || odds.spread.home) && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-text-body uppercase tracking-wide">
+                          Spread
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {odds.spread.away && (
+                            <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
+                              <span className="text-sm font-medium text-text-dark">
+                                {game.away_team.split(" ")[0]}
+                              </span>
+                              <span className="text-sm font-bold text-text-dark">
+                                {formatSpread(odds.spread.away)}
+                              </span>
+                            </div>
+                          )}
+                          {odds.spread.home && (
+                            <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
+                              <span className="text-sm font-medium text-text-dark">
+                                {game.home_team.split(" ")[0]}
+                              </span>
+                              <span className="text-sm font-bold text-text-dark">
+                                {formatSpread(odds.spread.home)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </CardBody>
+                </Card>
+              ))}
             </div>
-
-            {parsedOdds.length > 0 && (
-              <div className="mt-6 pt-6 border-t">
-                <h3 className="text-lg font-semibold mb-4 text-white">Betting Odds</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {parsedOdds.slice(0, 6).map((odds, idx) => (
-                    <Card key={idx} className="border border-gray-200">
-                      <CardHeader className="pb-2">
-                        <h4 className="font-semibold text-base">{odds.bookmaker}</h4>
-                      </CardHeader>
-                      <CardBody className="pt-0 space-y-3">
-                        {odds.moneyline && (odds.moneyline.away || odds.moneyline.home) && (
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                              Moneyline
-                            </p>
-                            <div className="flex flex-col gap-2">
-                              {odds.moneyline.away && (
-                                <div className="flex justify-between items-center bg-blue-50 px-3 py-2 rounded border border-blue-200">
-                                  <span className="text-sm font-medium text-gray-700">
-                                    {game.away_team.split(" ")[0]}
-                                  </span>
-                                  <span className="text-sm font-bold text-blue-700">
-                                    {formatDecimalOdds(odds.moneyline.away.price)}
-                                  </span>
-                                </div>
-                              )}
-                              {odds.moneyline.home && (
-                                <div className="flex justify-between items-center bg-red-50 px-3 py-2 rounded border border-red-200">
-                                  <span className="text-sm font-medium text-gray-700">
-                                    {game.home_team.split(" ")[0]}
-                                  </span>
-                                  <span className="text-sm font-bold text-red-700">
-                                    {formatDecimalOdds(odds.moneyline.home.price)}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {odds.spread && (odds.spread.away || odds.spread.home) && (
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                              Spread
-                            </p>
-                            <div className="flex flex-col gap-2">
-                              {odds.spread.away && (
-                                <div className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded border border-gray-200">
-                                  <span className="text-sm font-medium text-gray-700">
-                                    {game.away_team.split(" ")[0]}
-                                  </span>
-                                  <span className="text-sm font-bold text-gray-800">
-                                    {formatSpread(odds.spread.away)}
-                                  </span>
-                                </div>
-                              )}
-                              {odds.spread.home && (
-                                <div className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded border border-gray-200">
-                                  <span className="text-sm font-medium text-gray-700">
-                                    {game.home_team.split(" ")[0]}
-                                  </span>
-                                  <span className="text-sm font-bold text-gray-800">
-                                    {formatSpread(odds.spread.home)}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
           </CardBody>
         </Card>
-      </div>
-    </>
+      )}
+    </div>
   );
 }
-

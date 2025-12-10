@@ -1,4 +1,5 @@
 import { OddsGame, LiveGame } from "@/types";
+import { gameOddsCache } from "./game-cache";
 
 const THE_ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4";
 
@@ -48,14 +49,28 @@ export async function getUpcomingGames(
 
   try {
     const url = `${THE_ODDS_API_BASE_URL}/sports/${sport}/odds/?regions=${regions}&markets=${markets}&apiKey=${apiKey}`;
-    const response = await fetch(url);
+    const startTime = Date.now();
+    
+    const response = await fetch(url, {
+      next: { 
+        revalidate: 30, // Cache for 30 seconds (odds change frequently)
+        tags: ['odds', sport] 
+      }
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch odds: ${response.statusText}`);
     }
 
     const data = await response.json();
-    return data as OddsGame[];
+    const elapsed = Date.now() - startTime;
+    console.log(`[ODDS API] Fetched ${data.length} games in ${elapsed}ms`);
+    
+    // Store all games in cache for quick lookup
+    const games = data as OddsGame[];
+    gameOddsCache.setMany(games);
+    
+    return games;
   } catch (error) {
     console.error("Error fetching odds:", error);
     throw error;
@@ -63,9 +78,18 @@ export async function getUpcomingGames(
 }
 
 export async function getGameOdds(gameId: string): Promise<OddsGame | null> {
+  // Try cache first
+  const cachedGame = gameOddsCache.get(gameId);
+  if (cachedGame) {
+    console.log(`[ODDS API] Cache hit for game ${gameId} - skipping API call`);
+    return cachedGame;
+  }
+
   // The Odds API v4 doesn't support fetching a single game by ID
   // Instead, we fetch all games and find the matching one
+  // (This will also populate the cache via getUpcomingGames)
   try {
+    console.log(`[ODDS API] Cache miss for game ${gameId} - fetching all games`);
     const games = await getUpcomingGames();
     const game = games.find((g) => g.id === gameId);
     return game || null;

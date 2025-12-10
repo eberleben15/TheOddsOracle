@@ -1,0 +1,105 @@
+/**
+ * Team name mapping from The Odds API to our TEAM_DATA keys
+ * This provides explicit mappings for common variations
+ */
+export const ODDS_API_TO_TEAM_DATA: Record<string, string> = {
+  // ACC
+  "Duke": "Duke Blue Devils",
+  "UNC": "North Carolina Tar Heels",
+  "North Carolina": "North Carolina Tar Heels",
+  "Virginia": "Virginia Cavaliers",
+  "Miami": "Miami Hurricanes",
+  "Syracuse": "Syracuse Orange",
+  "Louisville": "Louisville Cardinals",
+  "Clemson": "Clemson Tigers",
+  "NC State": "NC State Wolfpack",
+  "Wake Forest": "Wake Forest Demon Deacons",
+  "Boston College": "Boston College Eagles",
+  "Florida State": "Florida State Seminoles",
+  "Georgia Tech": "Georgia Tech Yellow Jackets",
+  "Notre Dame": "Notre Dame Fighting Irish",
+  "Pittsburgh": "Pittsburgh Panthers",
+  
+  // Big Ten
+  "Michigan": "Michigan Wolverines",
+  "Michigan State": "Michigan State Spartans",
+  "Ohio State": "Ohio State Buckeyes",
+  "Indiana": "Indiana Hoosiers",
+  "Purdue": "Purdue Boilermakers",
+  "Illinois": "Illinois Fighting Illini",
+  "Wisconsin": "Wisconsin Badgers",
+  "Iowa": "Iowa Hawkeyes",
+  "Minnesota": "Minnesota Golden Gophers",
+  "Maryland": "Maryland Terrapins",
+  "Penn State": "Penn State Nittany Lions",
+  "Rutgers": "Rutgers Scarlet Knights",
+  "Northwestern": "Northwestern Wildcats",
+  "Nebraska": "Nebraska Cornhuskers",
+  
+  // Big 12
+  "Kansas": "Kansas Jayhawks",
+  "Baylor": "Baylor Bears",
+  "Texas": "Texas Longhorns",
+  "Texas Tech": "Texas Tech Red Raiders",
+  "Oklahoma": "Oklahoma Sooners",
+  "Oklahoma State": "Oklahoma State Cowboys",
+  "Iowa State": "Iowa State Cyclones",
+  "West Virginia": "West Virginia Mountaineers",
+  "TCU": "TCU Horned Frogs",
+  "Kansas State": "Kansas State Wildcats",
+  
+  // SEC
+  "Kentucky": "Kentucky Wildcats",
+  "Tennessee": "Tennessee Volunteers",
+  "Alabama": "Alabama Crimson Tide",
+  "Auburn": "Auburn Tigers",
+  "Arkansas": "Arkansas Razorbacks",
+  "Florida": "Florida Gators",
+  "Georgia": "Georgia Bulldogs",
+  "LSU": "LSU Tigers",
+  "Mississippi State": "Mississippi State Bulldogs",
+  "Missouri": "Missouri Tigers",
+  "Ole Miss": "Ole Miss Rebels",
+  "South Carolina": "South Carolina Gamecocks",
+  "Texas A&M": "Texas A&M Aggies",
+  "Vanderbilt": "Vanderbilt Commodores",
+  
+  // Pac-12
+  "UCLA": "UCLA Bruins",
+  "USC": "USC Trojans",
+  "Arizona": "Arizona Wildcats",
+  "Arizona State": "Arizona State Sun Devils",
+  "Oregon": "Oregon Ducks",
+  "Washington": "Washington Huskies",
+  "Stanford": "Stanford Cardinal",
+  "California": "California Golden Bears",
+  "Colorado": "Colorado Buffaloes",
+  "Utah": "Utah Utes",
+  
+  // Big East
+  "Villanova": "Villanova Wildcats",
+  "UConn": "Connecticut Huskies",
+  "Connecticut": "Connecticut Huskies",
+  "Georgetown": "Georgetown Hoyas",
+  "Marquette": "Marquette Golden Eagles",
+  "Creighton": "Creighton Bluejays",
+  "Xavier": "Xavier Musketeers",
+  "Butler": "Butler Bulldogs",
+  "Providence": "Providence Friars",
+  "Seton Hall": "Seton Hall Pirates",
+  "St. John's": "St. John's Red Storm",
+  "DePaul": "DePaul Blue Demons",
+  
+  // Other Power Programs
+  "Gonzaga": "Gonzaga Bulldogs",
+  "Memphis": "Memphis Tigers",
+  "Cincinnati": "Cincinnati Bearcats",
+  "Houston": "Houston Cougars",
+  "Wichita State": "Wichita State Shockers",
+  "San Diego State": "San Diego State Aztecs",
+  "BYU": "BYU Cougars",
+  "Saint Mary's": "Saint Mary's Gaels",
+  "VCU": "VCU Rams",
+  "Dayton": "Dayton Flyers",
+};
+

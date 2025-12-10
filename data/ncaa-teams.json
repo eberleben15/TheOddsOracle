@@ -1,0 +1,1049 @@
+{
+  "version": "1.0.0-verified",
+  "buildDate": "2025-12-10T14:14:32.360Z",
+  "totalTeams": 93,
+  "season": "2024-2025",
+  "note": "NCAA teams database with verified 2024-2025 season data",
+  "teams": [
+    {
+      "id": 1804,
+      "name": "Air Force",
+      "code": "AIR ",
+      "logo": "https://media.api-sports.io/basketball/teams/1804.png",
+      "country": "USA",
+      "searchVariations": [
+        "air",
+        "air force",
+        "force"
+      ]
+    },
+    {
+      "id": 176,
+      "name": "Alabama",
+      "code": "ALAB",
+      "logo": "https://media.api-sports.io/basketball/teams/176.png",
+      "country": "USA",
+      "searchVariations": [
+        "alabama"
+      ]
+    },
+    {
+      "id": 1815,
+      "name": "Arizona",
+      "code": "ARIZ",
+      "logo": "https://media.api-sports.io/basketball/teams/1815.png",
+      "country": "USA",
+      "searchVariations": [
+        "arizona"
+      ]
+    },
+    {
+      "id": 1816,
+      "name": "Arizona State",
+      "code": "ARIZ",
+      "logo": "https://media.api-sports.io/basketball/teams/1816.png",
+      "country": "USA",
+      "searchVariations": [
+        "arizona",
+        "arizona st",
+        "arizona state",
+        "state"
+      ]
+    },
+    {
+      "id": 177,
+      "name": "Arkansas",
+      "code": "ARKA",
+      "logo": "https://media.api-sports.io/basketball/teams/177.png",
+      "country": "USA",
+      "searchVariations": [
+        "arkansas"
+      ]
+    },
+    {
+      "id": 1822,
+      "name": "Auburn",
+      "code": "AUBU",
+      "logo": "https://media.api-sports.io/basketball/teams/1822.png",
+      "country": "USA",
+      "searchVariations": [
+        "auburn"
+      ]
+    },
+    {
+      "id": 1825,
+      "name": "Baylor",
+      "code": "BAYL",
+      "logo": "https://media.api-sports.io/basketball/teams/1825.png",
+      "country": "USA",
+      "searchVariations": [
+        "baylor"
+      ]
+    },
+    {
+      "id": 1835,
+      "name": "Boise State",
+      "code": "BOIS",
+      "logo": "https://media.api-sports.io/basketball/teams/1835.png",
+      "country": "USA",
+      "searchVariations": [
+        "boise",
+        "boise st",
+        "boise state",
+        "state"
+      ]
+    },
+    {
+      "id": 1836,
+      "name": "Boston College",
+      "code": "BOST",
+      "logo": "https://media.api-sports.io/basketball/teams/1836.png",
+      "country": "USA",
+      "searchVariations": [
+        "boston",
+        "boston college",
+        "college"
+      ]
+    },
+    {
+      "id": 178,
+      "name": "Butler",
+      "code": "BUTL",
+      "logo": "https://media.api-sports.io/basketball/teams/178.png",
+      "country": "USA",
+      "searchVariations": [
+        "butler"
+      ]
+    },
+    {
+      "id": 1850,
+      "name": "California",
+      "code": "CALI",
+      "logo": "https://media.api-sports.io/basketball/teams/1850.png",
+      "country": "USA",
+      "searchVariations": [
+        "california"
+      ]
+    },
+    {
+      "id": 1856,
+      "name": "Central Connecticut State",
+      "code": "CENT",
+      "logo": "https://media.api-sports.io/basketball/teams/1856.png",
+      "country": "USA",
+      "searchVariations": [
+        "central",
+        "central connecticut",
+        "central connecticut st",
+        "central connecticut state",
+        "connecticut",
+        "state"
+      ]
+    },
+    {
+      "id": 211,
+      "name": "Central Michigan",
+      "code": "CENT",
+      "logo": "https://media.api-sports.io/basketball/teams/211.png",
+      "country": "USA",
+      "searchVariations": [
+        "central",
+        "central michigan",
+        "michigan"
+      ]
+    },
+    {
+      "id": 1865,
+      "name": "Cincinnati",
+      "code": "CINC",
+      "logo": "https://media.api-sports.io/basketball/teams/1865.png",
+      "country": "USA",
+      "searchVariations": [
+        "cincinnati"
+      ]
+    },
+    {
+      "id": 180,
+      "name": "Clemson",
+      "code": "CLEM",
+      "logo": "https://media.api-sports.io/basketball/teams/180.png",
+      "country": "USA",
+      "searchVariations": [
+        "clemson"
+      ]
+    },
+    {
+      "id": 181,
+      "name": "Colorado",
+      "code": "COLO",
+      "logo": "https://media.api-sports.io/basketball/teams/181.png",
+      "country": "USA",
+      "searchVariations": [
+        "colorado"
+      ]
+    },
+    {
+      "id": 1870,
+      "name": "Colorado State",
+      "code": "COLO",
+      "logo": "https://media.api-sports.io/basketball/teams/1870.png",
+      "country": "USA",
+      "searchVariations": [
+        "colorado",
+        "colorado st",
+        "colorado state",
+        "state"
+      ]
+    },
+    {
+      "id": 182,
+      "name": "Creighton",
+      "code": "CREI",
+      "logo": "https://media.api-sports.io/basketball/teams/182.png",
+      "country": "USA",
+      "searchVariations": [
+        "creighton"
+      ]
+    },
+    {
+      "id": 213,
+      "name": "DePaul",
+      "code": "DEPA",
+      "logo": "https://media.api-sports.io/basketball/teams/213.png",
+      "country": "USA",
+      "searchVariations": [
+        "depaul"
+      ]
+    },
+    {
+      "id": 1890,
+      "name": "Duke",
+      "code": "DUKE",
+      "logo": "https://media.api-sports.io/basketball/teams/1890.png",
+      "country": "USA",
+      "searchVariations": [
+        "duke"
+      ]
+    },
+    {
+      "id": 1892,
+      "name": "East Carolina",
+      "code": "EAST",
+      "logo": "https://media.api-sports.io/basketball/teams/1892.png",
+      "country": "USA",
+      "searchVariations": [
+        "carolina",
+        "east",
+        "east carolina"
+      ]
+    },
+    {
+      "id": 229,
+      "name": "East Tennessee St",
+      "code": "EAST",
+      "logo": "https://media.api-sports.io/basketball/teams/229.png",
+      "country": "USA",
+      "searchVariations": [
+        "east",
+        "east tennessee",
+        "east tennessee st",
+        "tennessee"
+      ]
+    },
+    {
+      "id": 1492,
+      "name": "East. Washington",
+      "code": "EAST",
+      "logo": "https://media.api-sports.io/basketball/teams/1492.png",
+      "country": "USA",
+      "searchVariations": [
+        "east.",
+        "east. washington",
+        "washington"
+      ]
+    },
+    {
+      "id": 1895,
+      "name": "Eastern Kentucky",
+      "code": "EAST",
+      "logo": "https://media.api-sports.io/basketball/teams/1895.png",
+      "country": "USA",
+      "searchVariations": [
+        "eastern",
+        "eastern kentucky",
+        "kentucky"
+      ]
+    },
+    {
+      "id": 1897,
+      "name": "Eastern Oregon",
+      "code": "EAST",
+      "logo": "https://media.api-sports.io/basketball/teams/1897.png",
+      "country": "USA",
+      "searchVariations": [
+        "eastern",
+        "eastern oregon",
+        "oregon"
+      ]
+    },
+    {
+      "id": 1909,
+      "name": "Florida",
+      "code": "FLOR",
+      "logo": "https://media.api-sports.io/basketball/teams/1909.png",
+      "country": "USA",
+      "searchVariations": [
+        "florida"
+      ]
+    },
+    {
+      "id": 1914,
+      "name": "Florida State",
+      "code": "FLOR",
+      "logo": "https://media.api-sports.io/basketball/teams/1914.png",
+      "country": "USA",
+      "searchVariations": [
+        "florida",
+        "florida st",
+        "florida state",
+        "state"
+      ]
+    },
+    {
+      "id": 1919,
+      "name": "Fresno State",
+      "code": "FRES",
+      "logo": "https://media.api-sports.io/basketball/teams/1919.png",
+      "country": "USA",
+      "searchVariations": [
+        "fresno",
+        "fresno st",
+        "fresno state",
+        "state"
+      ]
+    },
+    {
+      "id": 186,
+      "name": "Georgetown",
+      "code": "GEOR",
+      "logo": "https://media.api-sports.io/basketball/teams/186.png",
+      "country": "USA",
+      "searchVariations": [
+        "georgetown"
+      ]
+    },
+    {
+      "id": 1924,
+      "name": "Georgia",
+      "code": "GEOR",
+      "logo": "https://media.api-sports.io/basketball/teams/1924.png",
+      "country": "USA",
+      "searchVariations": [
+        "georgia"
+      ]
+    },
+    {
+      "id": 1926,
+      "name": "Georgia Tech",
+      "code": "GEOR",
+      "logo": "https://media.api-sports.io/basketball/teams/1926.png",
+      "country": "USA",
+      "searchVariations": [
+        "georgia",
+        "georgia tech",
+        "tech"
+      ]
+    },
+    {
+      "id": 1927,
+      "name": "Gonzaga",
+      "code": "GONZ",
+      "logo": "https://media.api-sports.io/basketball/teams/1927.png",
+      "country": "USA",
+      "searchVariations": [
+        "gonzaga"
+      ]
+    },
+    {
+      "id": 1938,
+      "name": "Houston",
+      "code": "HOUS",
+      "logo": "https://media.api-sports.io/basketball/teams/1938.png",
+      "country": "USA",
+      "searchVariations": [
+        "houston"
+      ]
+    },
+    {
+      "id": 1944,
+      "name": "Illinois",
+      "code": "ILLI",
+      "logo": "https://media.api-sports.io/basketball/teams/1944.png",
+      "country": "USA",
+      "searchVariations": [
+        "illinois",
+        "illinois"
+      ]
+    },
+    {
+      "id": 189,
+      "name": "Indiana",
+      "code": "INDI",
+      "logo": "https://media.api-sports.io/basketball/teams/189.png",
+      "country": "USA",
+      "searchVariations": [
+        "indiana"
+      ]
+    },
+    {
+      "id": 1950,
+      "name": "Iowa",
+      "code": "IOWA",
+      "logo": "https://media.api-sports.io/basketball/teams/1950.png",
+      "country": "USA",
+      "searchVariations": [
+        "iowa"
+      ]
+    },
+    {
+      "id": 1951,
+      "name": "Iowa State",
+      "code": "IOWA",
+      "logo": "https://media.api-sports.io/basketball/teams/1951.png",
+      "country": "USA",
+      "searchVariations": [
+        "iowa",
+        "iowa st",
+        "iowa state",
+        "state"
+      ]
+    },
+    {
+      "id": 1959,
+      "name": "Kansas",
+      "code": "KANS",
+      "logo": "https://media.api-sports.io/basketball/teams/1959.png",
+      "country": "USA",
+      "searchVariations": [
+        "kansas"
+      ]
+    },
+    {
+      "id": 1960,
+      "name": "Kansas State",
+      "code": "KANS",
+      "logo": "https://media.api-sports.io/basketball/teams/1960.png",
+      "country": "USA",
+      "searchVariations": [
+        "kansas",
+        "kansas st",
+        "kansas state",
+        "state"
+      ]
+    },
+    {
+      "id": 1977,
+      "name": "Louisville",
+      "code": "LOUI",
+      "logo": "https://media.api-sports.io/basketball/teams/1977.png",
+      "country": "USA",
+      "searchVariations": [
+        "louisville"
+      ]
+    },
+    {
+      "id": 1503,
+      "name": "Loyola Maryland",
+      "code": "LOYO",
+      "logo": "https://media.api-sports.io/basketball/teams/1503.png",
+      "country": "USA",
+      "searchVariations": [
+        "loyola",
+        "loyola maryland",
+        "maryland"
+      ]
+    },
+    {
+      "id": 1967,
+      "name": "LSU",
+      "code": "LSU",
+      "logo": "https://media.api-sports.io/basketball/teams/1967.png",
+      "country": "USA",
+      "searchVariations": [
+        "lsu"
+      ]
+    },
+    {
+      "id": 1983,
+      "name": "Marquette",
+      "code": "MARQ",
+      "logo": "https://media.api-sports.io/basketball/teams/1983.png",
+      "country": "USA",
+      "searchVariations": [
+        "marquette"
+      ]
+    },
+    {
+      "id": 192,
+      "name": "Memphis",
+      "code": "MEMP",
+      "logo": "https://media.api-sports.io/basketball/teams/192.png",
+      "country": "USA",
+      "searchVariations": [
+        "memphis"
+      ]
+    },
+    {
+      "id": 1993,
+      "name": "Miami (FL)",
+      "code": "MIAM",
+      "logo": "https://media.api-sports.io/basketball/teams/1993.png",
+      "country": "USA",
+      "searchVariations": [
+        "(fl)",
+        "miami",
+        "miami (fl)"
+      ]
+    },
+    {
+      "id": 1994,
+      "name": "Michigan",
+      "code": "MICH",
+      "logo": "https://media.api-sports.io/basketball/teams/1994.png",
+      "country": "USA",
+      "searchVariations": [
+        "michigan",
+        "michigan"
+      ]
+    },
+    {
+      "id": 1995,
+      "name": "Michigan State",
+      "code": "MICH",
+      "logo": "https://media.api-sports.io/basketball/teams/1995.png",
+      "country": "USA",
+      "searchVariations": [
+        "michigan",
+        "michigan st",
+        "michigan state",
+        "state"
+      ]
+    },
+    {
+      "id": 2003,
+      "name": "Minnesota",
+      "code": "MINN",
+      "logo": "https://media.api-sports.io/basketball/teams/2003.png",
+      "country": "USA",
+      "searchVariations": [
+        "minnesota"
+      ]
+    },
+    {
+      "id": 2006,
+      "name": "Missouri",
+      "code": "MISS",
+      "logo": "https://media.api-sports.io/basketball/teams/2006.png",
+      "country": "USA",
+      "searchVariations": [
+        "missouri"
+      ]
+    },
+    {
+      "id": 194,
+      "name": "NC State",
+      "code": "NC S",
+      "logo": "https://media.api-sports.io/basketball/teams/194.png",
+      "country": "USA",
+      "searchVariations": [
+        "nc st",
+        "nc state",
+        "state"
+      ]
+    },
+    {
+      "id": 195,
+      "name": "Nebraska",
+      "code": "NEBR",
+      "logo": "https://media.api-sports.io/basketball/teams/195.png",
+      "country": "USA",
+      "searchVariations": [
+        "nebraska"
+      ]
+    },
+    {
+      "id": 2032,
+      "name": "Nevada",
+      "code": "NEVA",
+      "logo": "https://media.api-sports.io/basketball/teams/2032.png",
+      "country": "USA",
+      "searchVariations": [
+        "nevada"
+      ]
+    },
+    {
+      "id": 2039,
+      "name": "North Carolina",
+      "code": "NORT",
+      "logo": "https://media.api-sports.io/basketball/teams/2039.png",
+      "country": "USA",
+      "searchVariations": [
+        "carolina",
+        "north",
+        "north carolina"
+      ]
+    },
+    {
+      "id": 2053,
+      "name": "Northwestern",
+      "code": "NORT",
+      "logo": "https://media.api-sports.io/basketball/teams/2053.png",
+      "country": "USA",
+      "searchVariations": [
+        "northwestern"
+      ]
+    },
+    {
+      "id": 2055,
+      "name": "Notre Dame",
+      "code": "NOTR",
+      "logo": "https://media.api-sports.io/basketball/teams/2055.png",
+      "country": "USA",
+      "searchVariations": [
+        "dame",
+        "notre",
+        "notre dame"
+      ]
+    },
+    {
+      "id": 2058,
+      "name": "Ohio State",
+      "code": "OHIO",
+      "logo": "https://media.api-sports.io/basketball/teams/2058.png",
+      "country": "USA",
+      "searchVariations": [
+        "ohio",
+        "ohio st",
+        "ohio state",
+        "state"
+      ]
+    },
+    {
+      "id": 2062,
+      "name": "Ole Miss",
+      "code": "OLE ",
+      "logo": "https://media.api-sports.io/basketball/teams/2062.png",
+      "country": "USA",
+      "searchVariations": [
+        "miss",
+        "ole",
+        "ole miss"
+      ]
+    },
+    {
+      "id": 2066,
+      "name": "Oregon State",
+      "code": "OREG",
+      "logo": "https://media.api-sports.io/basketball/teams/2066.png",
+      "country": "USA",
+      "searchVariations": [
+        "oregon",
+        "oregon st",
+        "oregon state",
+        "state"
+      ]
+    },
+    {
+      "id": 2073,
+      "name": "Penn State",
+      "code": "PENN",
+      "logo": "https://media.api-sports.io/basketball/teams/2073.png",
+      "country": "USA",
+      "searchVariations": [
+        "penn",
+        "penn st",
+        "penn state",
+        "state"
+      ]
+    },
+    {
+      "id": 2074,
+      "name": "Pepperdine",
+      "code": "PEPP",
+      "logo": "https://media.api-sports.io/basketball/teams/2074.png",
+      "country": "USA",
+      "searchVariations": [
+        "pepperdine"
+      ]
+    },
+    {
+      "id": 2079,
+      "name": "Pittsburgh",
+      "code": "PITT",
+      "logo": "https://media.api-sports.io/basketball/teams/2079.png",
+      "country": "USA",
+      "searchVariations": [
+        "pittsburgh"
+      ]
+    },
+    {
+      "id": 197,
+      "name": "Providence",
+      "code": "PROV",
+      "logo": "https://media.api-sports.io/basketball/teams/197.png",
+      "country": "USA",
+      "searchVariations": [
+        "providence"
+      ]
+    },
+    {
+      "id": 2085,
+      "name": "Purdue",
+      "code": "PURD",
+      "logo": "https://media.api-sports.io/basketball/teams/2085.png",
+      "country": "USA",
+      "searchVariations": [
+        "purdue"
+      ]
+    },
+    {
+      "id": 2096,
+      "name": "Rutgers",
+      "code": "RUTG",
+      "logo": "https://media.api-sports.io/basketball/teams/2096.png",
+      "country": "USA",
+      "searchVariations": [
+        "rutgers"
+      ]
+    },
+    {
+      "id": 2108,
+      "name": "San Diego State",
+      "code": "SAN ",
+      "logo": "https://media.api-sports.io/basketball/teams/2108.png",
+      "country": "USA",
+      "searchVariations": [
+        "diego",
+        "san",
+        "san diego",
+        "san diego st",
+        "san diego state",
+        "state"
+      ]
+    },
+    {
+      "id": 2110,
+      "name": "San Jose State",
+      "code": "SAN ",
+      "logo": "https://media.api-sports.io/basketball/teams/2110.png",
+      "country": "USA",
+      "searchVariations": [
+        "jose",
+        "san",
+        "san jose",
+        "san jose st",
+        "san jose state",
+        "state"
+      ]
+    },
+    {
+      "id": 2112,
+      "name": "Seton Hall",
+      "code": "SETO",
+      "logo": "https://media.api-sports.io/basketball/teams/2112.png",
+      "country": "USA",
+      "searchVariations": [
+        "hall",
+        "seton",
+        "seton hall"
+      ]
+    },
+    {
+      "id": 2099,
+      "name": "SMU Mustangs",
+      "code": "SMU ",
+      "logo": "https://media.api-sports.io/basketball/teams/2099.png",
+      "country": "USA",
+      "searchVariations": [
+        "mustangs",
+        "smu",
+        "smu mustangs"
+      ]
+    },
+    {
+      "id": 2116,
+      "name": "South Carolina",
+      "code": "SOUT",
+      "logo": "https://media.api-sports.io/basketball/teams/2116.png",
+      "country": "USA",
+      "searchVariations": [
+        "carolina",
+        "south",
+        "south carolina"
+      ]
+    },
+    {
+      "id": 218,
+      "name": "South Florida",
+      "code": "SOUT",
+      "logo": "https://media.api-sports.io/basketball/teams/218.png",
+      "country": "USA",
+      "searchVariations": [
+        "florida",
+        "south",
+        "south florida"
+      ]
+    },
+    {
+      "id": 244,
+      "name": "Southern Utah",
+      "code": "SOUT",
+      "logo": "https://media.api-sports.io/basketball/teams/244.png",
+      "country": "USA",
+      "searchVariations": [
+        "southern",
+        "southern utah",
+        "utah"
+      ]
+    },
+    {
+      "id": 2504,
+      "name": "Southern Virginia",
+      "code": "SOUT",
+      "logo": "https://media.api-sports.io/basketball/teams/2504.png",
+      "country": "USA",
+      "searchVariations": [
+        "southern",
+        "southern virginia",
+        "virginia"
+      ]
+    },
+    {
+      "id": 2133,
+      "name": "Stanford",
+      "code": "STAN",
+      "logo": "https://media.api-sports.io/basketball/teams/2133.png",
+      "country": "USA",
+      "searchVariations": [
+        "stanford"
+      ]
+    },
+    {
+      "id": 2137,
+      "name": "Syracuse",
+      "code": "SYRA",
+      "logo": "https://media.api-sports.io/basketball/teams/2137.png",
+      "country": "USA",
+      "searchVariations": [
+        "syracuse"
+      ]
+    },
+    {
+      "id": 202,
+      "name": "TCU",
+      "code": "TCU",
+      "logo": "https://media.api-sports.io/basketball/teams/202.png",
+      "country": "USA",
+      "searchVariations": [
+        "tcu"
+      ]
+    },
+    {
+      "id": 2140,
+      "name": "Temple",
+      "code": "TEMP",
+      "logo": "https://media.api-sports.io/basketball/teams/2140.png",
+      "country": "USA",
+      "searchVariations": [
+        "temple"
+      ]
+    },
+    {
+      "id": 203,
+      "name": "Texas",
+      "code": "TEXA",
+      "logo": "https://media.api-sports.io/basketball/teams/203.png",
+      "country": "USA",
+      "searchVariations": [
+        "texas",
+        "texas"
+      ]
+    },
+    {
+      "id": 2146,
+      "name": "Texas Tech",
+      "code": "TEXA",
+      "logo": "https://media.api-sports.io/basketball/teams/2146.png",
+      "country": "USA",
+      "searchVariations": [
+        "tech",
+        "texas",
+        "texas tech"
+      ]
+    },
+    {
+      "id": 2158,
+      "name": "Tulane",
+      "code": "TULA",
+      "logo": "https://media.api-sports.io/basketball/teams/2158.png",
+      "country": "USA",
+      "searchVariations": [
+        "tulane"
+      ]
+    },
+    {
+      "id": 2159,
+      "name": "Tulsa",
+      "code": "TULS",
+      "logo": "https://media.api-sports.io/basketball/teams/2159.png",
+      "country": "USA",
+      "searchVariations": [
+        "tulsa"
+      ]
+    },
+    {
+      "id": 2165,
+      "name": "UCF Knights",
+      "code": "UCF ",
+      "logo": "https://media.api-sports.io/basketball/teams/2165.png",
+      "country": "USA",
+      "searchVariations": [
+        "knights",
+        "ucf",
+        "ucf knights"
+      ]
+    },
+    {
+      "id": 2166,
+      "name": "UCLA",
+      "code": "UCLA",
+      "logo": "https://media.api-sports.io/basketball/teams/2166.png",
+      "country": "USA",
+      "searchVariations": [
+        "ucla"
+      ]
+    },
+    {
+      "id": 2171,
+      "name": "UNLV",
+      "code": "UNLV",
+      "logo": "https://media.api-sports.io/basketball/teams/2171.png",
+      "country": "USA",
+      "searchVariations": [
+        "unlv"
+      ]
+    },
+    {
+      "id": 2172,
+      "name": "USC",
+      "code": "USC",
+      "logo": "https://media.api-sports.io/basketball/teams/2172.png",
+      "country": "USA",
+      "searchVariations": [
+        "usc"
+      ]
+    },
+    {
+      "id": 2180,
+      "name": "Utah State",
+      "code": "UTAH",
+      "logo": "https://media.api-sports.io/basketball/teams/2180.png",
+      "country": "USA",
+      "searchVariations": [
+        "state",
+        "utah",
+        "utah st",
+        "utah state"
+      ]
+    },
+    {
+      "id": 2185,
+      "name": "Vanderbilt",
+      "code": "VAND",
+      "logo": "https://media.api-sports.io/basketball/teams/2185.png",
+      "country": "USA",
+      "searchVariations": [
+        "vanderbilt"
+      ]
+    },
+    {
+      "id": 2188,
+      "name": "Villanova",
+      "code": "VILL",
+      "logo": "https://media.api-sports.io/basketball/teams/2188.png",
+      "country": "USA",
+      "searchVariations": [
+        "villanova"
+      ]
+    },
+    {
+      "id": 2190,
+      "name": "Virginia Tech",
+      "code": "VIRG",
+      "logo": "https://media.api-sports.io/basketball/teams/2190.png",
+      "country": "USA",
+      "searchVariations": [
+        "tech",
+        "virginia",
+        "virginia tech"
+      ]
+    },
+    {
+      "id": 2192,
+      "name": "Wake Forest",
+      "code": "WAKE",
+      "logo": "https://media.api-sports.io/basketball/teams/2192.png",
+      "country": "USA",
+      "searchVariations": [
+        "forest",
+        "wake",
+        "wake forest"
+      ]
+    },
+    {
+      "id": 223,
+      "name": "West Virginia",
+      "code": "WEST",
+      "logo": "https://media.api-sports.io/basketball/teams/223.png",
+      "country": "USA",
+      "searchVariations": [
+        "virginia",
+        "west",
+        "west virginia"
+      ]
+    },
+    {
+      "id": 205,
+      "name": "Wichita State",
+      "code": "WICH",
+      "logo": "https://media.api-sports.io/basketball/teams/205.png",
+      "country": "USA",
+      "searchVariations": [
+        "state",
+        "wichita",
+        "wichita st",
+        "wichita state"
+      ]
+    },
+    {
+      "id": 2214,
+      "name": "Wisconsin",
+      "code": "WISC",
+      "logo": "https://media.api-sports.io/basketball/teams/2214.png",
+      "country": "USA",
+      "searchVariations": [
+        "wisconsin"
+      ]
+    },
+    {
+      "id": 1506,
+      "name": "Wyoming",
+      "code": "WYOM",
+      "logo": "https://media.api-sports.io/basketball/teams/1506.png",
+      "country": "USA",
+      "searchVariations": [
+        "wyoming"
+      ]
+    }
+  ]
+}

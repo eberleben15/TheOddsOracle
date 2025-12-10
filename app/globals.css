@@ -3,37 +3,43 @@
 @tailwind utilities;
 
 :root {
-  /* Custom Color Palette */
-  --charcoal-blue: #2f4858;      /* Dark background */
-  --baltic-blue: #33658a;        /* Card backgrounds */
-  --strong-cyan: #55dde0;        /* Primary/Interactive */
-  --honey-bronze: #f6ae2d;       /* Accents/Highlights */
-  --blaze-orange: #f26419;       /* CTAs/Urgent */
+  /* TailAdmin Color Palette */
+  --sidebar-dark: #1C2434;        /* Dark sidebar */
+  --sidebar-darker: #161D28;      /* Sidebar hover */
+  --primary-blue: #3C50E0;        /* Primary actions */
+  --body-bg: #F1F5F9;             /* Light body background */
+  --card-bg: #FFFFFF;             /* White cards */
+  --text-dark: #1C2434;           /* Dark text */
+  --text-body: #64748B;           /* Body text */
+  --border-color: #E2E8F0;        /* Borders */
+  --success: #10B981;             /* Success green */
+  --warning: #F59E0B;             /* Warning amber */
+  --danger: #F87171;              /* Danger red */
 }
 
 body {
-  background: linear-gradient(135deg, #1a2834 0%, #2f4858 50%, #1f3442 100%);
-  min-height: 100vh;
-  color: #f0f4f8;
+  background-color: var(--body-bg);
+  color: var(--text-dark);
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--charcoal-blue);
+  background: var(--body-bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--baltic-blue);
-  border-radius: 5px;
+  background: #CBD5E1;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--strong-cyan);
+  background: var(--primary-blue);
 }
+
 
 
 

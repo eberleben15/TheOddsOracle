@@ -9,6 +9,7 @@ import { apiCache } from "@/lib/api-cache";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { MatchupHeader } from "@/components/MatchupHeader";
 import { BettingInsights } from "@/components/BettingInsights";
+import { AdvancedAnalytics } from "@/components/AdvancedAnalytics";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { parseOdds } from "@/lib/odds-utils";
 import { notFound } from "next/navigation";
@@ -107,7 +108,7 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
   }
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <MatchupHeader game={game} />
 
@@ -117,25 +118,40 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
           </div>
         )}
 
-        {!apiError && homeTeamStats && awayTeamStats && (
-          <>
-            <div className="mb-8">
-              <BettingInsights
-                parsedOdds={parseOdds(game)}
-                awayTeamStats={awayTeamStats}
-                homeTeamStats={homeTeamStats}
-                awayTeamName={game.away_team}
-                homeTeamName={game.home_team}
-              />
-            </div>
-            <StatsDisplay
-              homeTeamStats={homeTeamStats}
-              awayTeamStats={awayTeamStats}
-              recentGames={recentGames}
-              headToHead={headToHead || undefined}
-            />
-          </>
-        )}
+            {!apiError && homeTeamStats && awayTeamStats && (
+              <>
+                {/* Advanced Analytics - Phase 3 */}
+                <div className="mb-8">
+                  <AdvancedAnalytics
+                    awayTeamStats={awayTeamStats}
+                    homeTeamStats={homeTeamStats}
+                    awayRecentGames={recentGames.away}
+                    homeRecentGames={recentGames.home}
+                    odds={{
+                      moneyline: parseOdds(game)[0]?.moneyline,
+                      spread: parseOdds(game)[0]?.spread?.home?.point,
+                    }}
+                  />
+                </div>
+
+                <div className="mb-8">
+                  <BettingInsights
+                    parsedOdds={parseOdds(game)}
+                    awayTeamStats={awayTeamStats}
+                    homeTeamStats={homeTeamStats}
+                    awayTeamName={game.away_team}
+                    homeTeamName={game.home_team}
+                  />
+                </div>
+                
+                <StatsDisplay
+                  homeTeamStats={homeTeamStats}
+                  awayTeamStats={awayTeamStats}
+                  recentGames={recentGames}
+                  headToHead={headToHead || undefined}
+                />
+              </>
+            )}
       </div>
     </main>
   );

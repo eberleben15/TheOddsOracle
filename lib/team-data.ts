@@ -636,6 +636,8 @@ const DEFAULT_TEAM_DATA: TeamData = {
 /**
  * Get team data by name (case-insensitive partial match)
  */
+import { ODDS_API_TO_TEAM_DATA } from "./team-name-mapping";
+
 export function getTeamData(teamName: string): TeamData {
   // Handle undefined/null team names
   if (!teamName) {
@@ -647,12 +649,18 @@ export function getTeamData(teamName: string): TeamData {
     };
   }
 
-  // 1. Try exact match first
+  // 1. Check the explicit mapping first
+  const mappedName = ODDS_API_TO_TEAM_DATA[teamName];
+  if (mappedName && TEAM_DATA[mappedName]) {
+    return TEAM_DATA[mappedName];
+  }
+
+  // 2. Try exact match in TEAM_DATA
   if (TEAM_DATA[teamName]) {
     return TEAM_DATA[teamName];
   }
 
-  // 2. Try case-insensitive exact match
+  // 3. Try case-insensitive exact match
   const normalizedName = teamName.toLowerCase();
   const exactMatch = Object.keys(TEAM_DATA).find(
     (key) => key.toLowerCase() === normalizedName
@@ -662,60 +670,7 @@ export function getTeamData(teamName: string): TeamData {
     return TEAM_DATA[exactMatch];
   }
 
-  // 3. Try matching full name variations (e.g., "UCLA Bruins" matches "UCLA")
-  const fullNameMatch = Object.keys(TEAM_DATA).find((key) => {
-    const keyLower = key.toLowerCase();
-    const inputLower = normalizedName;
-    
-    // Check if one is a subset of the other
-    return (
-      keyLower === inputLower ||
-      keyLower.startsWith(inputLower + " ") ||
-      inputLower.startsWith(keyLower + " ") ||
-      keyLower.endsWith(" " + inputLower) ||
-      inputLower.endsWith(" " + keyLower)
-    );
-  });
-
-  if (fullNameMatch) {
-    return TEAM_DATA[fullNameMatch];
-  }
-
-  // 4. Try removing common suffixes and matching
-  // e.g., "Duke Blue Devils" -> "Duke", "North Carolina Tar Heels" -> "North Carolina"
-  const commonSuffixes = [
-    'bulldogs', 'wildcats', 'tigers', 'bears', 'eagles', 'hawks',
-    'spartans', 'trojans', 'huskies', 'cougars', 'terrapins', 'hoosiers',
-    'jayhawks', 'tar heels', 'blue devils', 'crimson tide', 'volunteers',
-    'wolverines', 'buckeyes', 'longhorns', 'bruins', 'cardinals', 'fighting irish'
-  ];
-
-  for (const suffix of commonSuffixes) {
-    if (normalizedName.endsWith(' ' + suffix)) {
-      const baseName = normalizedName.slice(0, -(suffix.length + 1));
-      const baseMatch = Object.keys(TEAM_DATA).find(
-        key => key.toLowerCase() === baseName || key.toLowerCase().startsWith(baseName + ' ')
-      );
-      if (baseMatch) {
-        return TEAM_DATA[baseMatch];
-      }
-    }
-  }
-
-  // 5. Try first word match only if it's substantial (4+ chars)
-  const firstWord = normalizedName.split(" ")[0];
-  if (firstWord.length >= 4) {
-    const firstWordMatch = Object.keys(TEAM_DATA).find((key) => {
-      const keyFirstWord = key.toLowerCase().split(" ")[0];
-      return keyFirstWord === firstWord;
-    });
-
-    if (firstWordMatch) {
-      return TEAM_DATA[firstWordMatch];
-    }
-  }
-
-  // 6. No match found - generate a placeholder
+  // 4. No match found - generate a clean placeholder
   const abbreviation = teamName
     .split(" ")
     .filter(word => word.length > 2)
@@ -725,6 +680,8 @@ export function getTeamData(teamName: string): TeamData {
     .slice(0, 3);
 
   const colorHue = teamName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
+
+  console.log(`[TEAM_DATA] No match found for: "${teamName}" - showing placeholder "${abbreviation}"`);
 
   return {
     ...DEFAULT_TEAM_DATA,

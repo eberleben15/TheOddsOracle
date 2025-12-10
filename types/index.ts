@@ -54,6 +54,17 @@ export interface TeamStats {
   pointsPerGame: number;
   pointsAllowedPerGame: number;
   recentGames: GameResult[];
+  
+  // Advanced stats (Phase 1 additions)
+  fieldGoalPercentage?: number;
+  threePointPercentage?: number;
+  freeThrowPercentage?: number;
+  reboundsPerGame?: number;
+  assistsPerGame?: number;
+  turnoversPerGame?: number;
+  stealsPerGame?: number;
+  blocksPerGame?: number;
+  foulsPerGame?: number;
 }
 
 export interface GameResult {
@@ -70,8 +81,8 @@ export interface GameResult {
 
 export interface HeadToHead {
   games: GameResult[];
-  homeTeamWins: number;
-  awayTeamWins: number;
+  team1Wins: number;
+  team2Wins: number;
 }
 
 // Combined matchup type

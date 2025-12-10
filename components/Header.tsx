@@ -1,0 +1,42 @@
+"use client";
+
+import { BellIcon, MagnifyingGlassIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+
+export function Header() {
+  return (
+    <header className="sticky top-0 z-30 bg-white border-b border-border-gray shadow-sm">
+      <div className="flex items-center justify-between px-6 py-4">
+        {/* Search Bar */}
+        <div className="flex-1 max-w-md">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search teams, games..."
+              className="w-full pl-10 pr-4 py-2 bg-body-bg border border-border-gray rounded-lg text-text-dark placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Right side actions */}
+        <div className="flex items-center gap-4 ml-6">
+          {/* Notifications */}
+          <button className="relative p-2 rounded-lg hover:bg-body-bg transition-colors">
+            <BellIcon className="h-6 w-6 text-text-body" />
+            <span className="absolute top-1 right-1 h-2 w-2 bg-danger rounded-full"></span>
+          </button>
+
+          {/* User Profile */}
+          <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-body-bg transition-colors">
+            <UserCircleIcon className="h-8 w-8 text-text-body" />
+            <div className="text-left hidden sm:block">
+              <p className="text-sm font-medium text-text-dark">User</p>
+              <p className="text-xs text-text-body">Bettor</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+

@@ -2,6 +2,7 @@ import { getUpcomingGames, getLiveGames } from "@/lib/odds-api";
 import { MatchupCard } from "@/components/MatchupCard";
 import { LiveGameCard } from "@/components/LiveGameCard";
 import { StatusCard } from "@/components/StatusCard";
+import { StatsCards } from "@/components/StatsCards";
 
 export const revalidate = 30; // Revalidate every 30 seconds for live scores
 
@@ -18,78 +19,79 @@ export default async function Home() {
     ]);
     
     liveGames = live;
-    upcomingGames = upcoming;
+    
+    // Filter out live games from upcoming to avoid duplicates
+    const liveGameIds = new Set(liveGames.map(g => g.id));
+    upcomingGames = upcoming.filter(game => !liveGameIds.has(game.id));
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load games";
     console.error("Error loading games:", err);
   }
 
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-10">
-          <h1 className="text-5xl md:text-6xl font-bold mb-3 bg-gradient-to-r from-strong-cyan via-honey-bronze to-blaze-orange bg-clip-text text-transparent drop-shadow-2xl">
-            The Odds Oracle
-          </h1>
-          <p className="text-gray-200 text-lg font-medium">
-            Smart insights for smarter bets • College Basketball
-          </p>
-        </div>
+    <div className="p-4 md:p-6 lg:p-8">
+      {/* Page Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-text-dark mb-2">College Basketball</h1>
+        <p className="text-text-body">Live scores, upcoming matchups, and betting insights</p>
+      </div>
 
-        {error && (
-          <StatusCard
-            type="error"
-            message={`⚠️ ${error}. Please check your API keys in .env.local`}
-          />
-        )}
+      {error && (
+        <StatusCard
+          type="error"
+          message={`⚠️ ${error}. Please check your API keys in .env.local`}
+        />
+      )}
 
-        {!error && (
-          <>
-            {/* Live Games Section */}
-            {liveGames.length > 0 && (
-              <div className="mb-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <h2 className="text-3xl font-bold text-white">Live Games</h2>
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <span className="flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                      </span>
-                    </div>
-                    <span className="text-red-400 text-sm font-semibold">
-                      {liveGames.length} game{liveGames.length !== 1 ? 's' : ''} in progress
+      {!error && (
+        <>
+          {/* Stats Overview */}
+          <StatsCards liveCount={liveGames.length} upcomingCount={upcomingGames.length} />
+
+          {/* Live Games Section */}
+          {liveGames.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-xl font-semibold text-text-dark">Live Games</h2>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <span className="flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-danger"></span>
                     </span>
                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {liveGames.map((game) => (
-                    <LiveGameCard key={game.id} game={game} />
-                  ))}
+                  <span className="text-danger text-sm font-medium">
+                    {liveGames.length} in progress
+                  </span>
                 </div>
               </div>
-            )}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {liveGames.map((game) => (
+                  <LiveGameCard key={game.id} game={game} />
+                ))}
+              </div>
+            </div>
+          )}
 
-            {/* Upcoming Games Section */}
-            {upcomingGames.length > 0 ? (
-              <div>
-                <h2 className="text-3xl font-bold mb-6 text-white">
-                  Upcoming Matchups
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {upcomingGames.map((game) => (
-                    <MatchupCard key={game.id} game={game} />
-                  ))}
-                </div>
+          {/* Upcoming Games Section */}
+          {upcomingGames.length > 0 ? (
+            <div>
+              <h2 className="text-xl font-semibold mb-4 text-text-dark">
+                Upcoming Matchups
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {upcomingGames.map((game) => (
+                  <MatchupCard key={game.id} game={game} />
+                ))}
               </div>
-            ) : !liveGames.length ? (
-              <StatusCard
-                message="No upcoming games found. Check back later!"
-              />
-            ) : null}
-          </>
-        )}
-      </div>
-    </main>
+            </div>
+          ) : !liveGames.length ? (
+            <StatusCard
+              message="No upcoming games found. Check back later!"
+            />
+          ) : null}
+        </>
+      )}
+    </div>
   );
 }

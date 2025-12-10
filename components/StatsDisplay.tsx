@@ -27,11 +27,11 @@ export function StatsDisplay({
 
   return (
     <div className="space-y-6">
-      {/* Team Records */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Team Records</h3>
+      {/* Team Records & Advanced Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-white border border-border-gray">
+          <CardHeader className="border-b border-border-gray">
+            <h3 className="text-lg font-semibold text-text-dark">Team Records</h3>
           </CardHeader>
           <CardBody>
             <div className="space-y-4">
@@ -77,10 +77,10 @@ export function StatsDisplay({
           </CardBody>
         </Card>
 
-        {/* Points Per Game */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Scoring Stats</h3>
+        {/* Scoring Stats */}
+        <Card className="bg-white border border-border-gray">
+          <CardHeader className="border-b border-border-gray">
+            <h3 className="text-lg font-semibold text-text-dark">Scoring Stats</h3>
           </CardHeader>
           <CardBody>
             <div className="space-y-4">
@@ -167,6 +167,137 @@ export function StatsDisplay({
                   >
                     {(homeTeamStats.pointsPerGame - homeTeamStats.pointsAllowedPerGame).toFixed(1)}
                   </Chip>
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Advanced Stats - NEW in Phase 1 */}
+        <Card className="bg-white border border-border-gray">
+          <CardHeader className="border-b border-border-gray">
+            <h3 className="text-lg font-semibold text-text-dark">
+              Shooting & Efficiency
+            </h3>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-4">
+              {/* Shooting Percentages */}
+              <div>
+                <div className="text-xs font-medium text-text-body uppercase tracking-wide mb-3">
+                  Shooting %
+                </div>
+                <div className="space-y-2">
+                  {/* Field Goal % */}
+                  <div>
+                    <div className="flex justify-between items-center text-xs text-text-body mb-1">
+                      <span>FG%</span>
+                      <span>{awayTeamStats.fieldGoalPercentage?.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${awayTeamStats.fieldGoalPercentage || 0}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-success transition-all"
+                          style={{ width: `${homeTeamStats.fieldGoalPercentage || 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-text-body mt-1">
+                      <span>{homeTeamStats.fieldGoalPercentage?.toFixed(1)}%</span>
+                    </div>
+                  </div>
+
+                  {/* 3-Point % */}
+                  <div>
+                    <div className="flex justify-between items-center text-xs text-text-body mb-1">
+                      <span>3P%</span>
+                      <span>{awayTeamStats.threePointPercentage?.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${awayTeamStats.threePointPercentage || 0}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-success transition-all"
+                          style={{ width: `${homeTeamStats.threePointPercentage || 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-text-body mt-1">
+                      <span>{homeTeamStats.threePointPercentage?.toFixed(1)}%</span>
+                    </div>
+                  </div>
+
+                  {/* Free Throw % */}
+                  <div>
+                    <div className="flex justify-between items-center text-xs text-text-body mb-1">
+                      <span>FT%</span>
+                      <span>{awayTeamStats.freeThrowPercentage?.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${awayTeamStats.freeThrowPercentage || 0}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-success transition-all"
+                          style={{ width: `${homeTeamStats.freeThrowPercentage || 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-text-body mt-1">
+                      <span>{homeTeamStats.freeThrowPercentage?.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Per-Game Stats */}
+              <div className="pt-3 border-t border-border-gray">
+                <div className="text-xs font-medium text-text-body uppercase tracking-wide mb-3">
+                  Per Game Averages
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-xs text-text-body mb-1">REB</div>
+                    <div className="text-sm font-bold text-primary">
+                      {awayTeamStats.reboundsPerGame?.toFixed(1) || 'N/A'}
+                    </div>
+                    <div className="text-sm font-bold text-success mt-1">
+                      {homeTeamStats.reboundsPerGame?.toFixed(1) || 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-body mb-1">AST</div>
+                    <div className="text-sm font-bold text-primary">
+                      {awayTeamStats.assistsPerGame?.toFixed(1) || 'N/A'}
+                    </div>
+                    <div className="text-sm font-bold text-success mt-1">
+                      {homeTeamStats.assistsPerGame?.toFixed(1) || 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-body mb-1">TO</div>
+                    <div className="text-sm font-bold text-danger">
+                      {awayTeamStats.turnoversPerGame?.toFixed(1) || 'N/A'}
+                    </div>
+                    <div className="text-sm font-bold text-danger mt-1">
+                      {homeTeamStats.turnoversPerGame?.toFixed(1) || 'N/A'}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

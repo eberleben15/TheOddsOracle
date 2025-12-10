@@ -25,72 +25,70 @@ export function MatchupCard({ game }: MatchupCardProps) {
   return (
     <Link href={`/matchup/${game.id}`}>
       <Card className="
-        bg-baltic-blue/60 backdrop-blur-md
-        border-2 border-baltic-blue/80
-        hover:bg-baltic-blue/80
-        hover:border-strong-cyan/60
-        hover:shadow-2xl hover:shadow-strong-cyan/20
-        transition-all duration-300 
+        bg-white
+        border border-border-gray
+        hover:border-primary
+        hover:shadow-lg
+        transition-all duration-200
         cursor-pointer
       ">
-        <CardHeader className="flex flex-col items-start gap-2 border-b border-strong-cyan/20 pb-3">
+        <CardHeader className="flex flex-col items-start gap-2 border-b border-border-gray pb-3">
           <div className="flex justify-between items-center w-full">
-            <h3 className="text-lg font-semibold text-white">{game.sport_title}</h3>
-            <span className="text-sm text-honey-bronze font-bold">{gameTime}</span>
+            <span className="text-xs font-medium text-text-body uppercase tracking-wider">
+              {game.sport_title}
+            </span>
+            <span className="text-sm text-primary font-semibold">{gameTime}</span>
           </div>
         </CardHeader>
-        <CardBody>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center gap-4">
-              <div className="flex-1 flex items-center gap-3">
-                <TeamLogo teamName={game.away_team} size={48} />
-                <div>
-                  <p
-                    className="font-medium text-lg text-white"
-                    style={{ color: awayTeamData.primaryColor }}
-                  >
-                    {game.away_team}
-                  </p>
-                  <p className="text-sm text-gray-300">Away</p>
+        <CardBody className="p-4">
+          <div className="space-y-4">
+            {/* Teams */}
+            <div className="space-y-3">
+              {/* Away Team */}
+              <div className="flex items-center gap-3">
+                <TeamLogo teamName={game.away_team} size={40} />
+                <div className="flex-1">
+                  <p className="font-semibold text-text-dark">{game.away_team}</p>
+                  <p className="text-xs text-text-body">Away</p>
                 </div>
+                {bestMoneyline.away && (
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-primary">
+                      {formatDecimalOdds(bestMoneyline.away.price)}
+                    </p>
+                    <p className="text-xs text-text-body">{bestMoneyline.awayBookmaker}</p>
+                  </div>
+                )}
               </div>
-              <div className="text-center px-2">
-                <p className="text-xs text-strong-cyan font-bold text-xl">@</p>
+
+              {/* VS Divider */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-border-gray"></div>
+                <span className="text-xs text-text-body font-medium">VS</span>
+                <div className="flex-1 h-px bg-border-gray"></div>
               </div>
-              <div className="flex-1 flex items-center gap-3 justify-end">
-                <div className="text-right">
-                  <p
-                    className="font-medium text-lg text-white"
-                    style={{ color: homeTeamData.primaryColor }}
-                  >
-                    {game.home_team}
-                  </p>
-                  <p className="text-sm text-gray-300">Home</p>
+
+              {/* Home Team */}
+              <div className="flex items-center gap-3">
+                <TeamLogo teamName={game.home_team} size={40} />
+                <div className="flex-1">
+                  <p className="font-semibold text-text-dark">{game.home_team}</p>
+                  <p className="text-xs text-text-body">Home</p>
                 </div>
-                <TeamLogo teamName={game.home_team} size={48} />
+                {bestMoneyline.home && (
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-primary">
+                      {formatDecimalOdds(bestMoneyline.home.price)}
+                    </p>
+                    <p className="text-xs text-text-body">{bestMoneyline.homeBookmaker}</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {bestMoneyline && (bestMoneyline.away || bestMoneyline.home) && (
-              <div className="pt-2 border-t border-gray-200">
-                <p className="text-xs text-gray-500 mb-1">Best Moneyline:</p>
-                <div className="flex gap-2 flex-wrap">
-                  {bestMoneyline.away && (
-                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      {game.away_team.split(" ")[0]}: {formatDecimalOdds(bestMoneyline.away.price)}
-                    </span>
-                  )}
-                  {bestMoneyline.home && (
-                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      {game.home_team.split(" ")[0]}: {formatDecimalOdds(bestMoneyline.home.price)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="pt-2">
-              <p className="text-xs text-gray-400">{gameDate}</p>
+            {/* Date */}
+            <div className="pt-2 border-t border-border-gray">
+              <p className="text-xs text-text-body text-center">{gameDate}</p>
             </div>
           </div>
         </CardBody>
@@ -98,4 +96,3 @@ export function MatchupCard({ game }: MatchupCardProps) {
     </Link>
   );
 }
-

@@ -11,11 +11,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'charcoal-blue': '#2f4858',
-        'baltic-blue': '#33658a',
-        'strong-cyan': '#55dde0',
-        'honey-bronze': '#f6ae2d',
-        'blaze-orange': '#f26419',
+        // TailAdmin color scheme
+        'sidebar-dark': '#1C2434',
+        'sidebar-darker': '#161D28',
+        'primary': '#3C50E0',
+        'body-bg': '#F1F5F9',
+        'card-bg': '#FFFFFF',
+        'text-dark': '#1C2434',
+        'text-body': '#64748B',
+        'border-gray': '#E2E8F0',
+        'success': '#10B981',
+        'warning': '#F59E0B',
+        'danger': '#F87171',
       },
     },
   },
@@ -23,26 +30,22 @@ const config: Config = {
   plugins: [
     nextui({
       themes: {
-        dark: {
+        light: {
           colors: {
             primary: {
-              DEFAULT: '#55dde0',
-              foreground: '#000000',
-            },
-            secondary: {
-              DEFAULT: '#f6ae2d',
-              foreground: '#000000',
+              DEFAULT: '#3C50E0',
+              foreground: '#ffffff',
             },
             success: {
-              DEFAULT: '#10b981',
+              DEFAULT: '#10B981',
               foreground: '#ffffff',
             },
             warning: {
-              DEFAULT: '#f6ae2d',
-              foreground: '#000000',
+              DEFAULT: '#F59E0B',
+              foreground: '#ffffff',
             },
             danger: {
-              DEFAULT: '#f26419',
+              DEFAULT: '#F87171',
               foreground: '#ffffff',
             },
           },
