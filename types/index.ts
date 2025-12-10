@@ -28,6 +28,21 @@ export interface OddsGame {
   bookmakers?: OddsBookmaker[];
 }
 
+export interface LiveGame {
+  id: string;
+  sport_key: string;
+  sport_title: string;
+  commence_time: string;
+  completed: boolean;
+  home_team: string;
+  away_team: string;
+  scores: Array<{
+    name: string;
+    score: string;
+  }> | null;
+  last_update: string | null;
+}
+
 // Types for Stats API (API Basketball)
 export interface TeamStats {
   id: number;
@@ -49,6 +64,8 @@ export interface GameResult {
   homeScore: number;
   awayScore: number;
   winner: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
 }
 
 export interface HeadToHead {

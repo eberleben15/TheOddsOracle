@@ -21,21 +21,31 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
     <>
       <div className="mb-6">
         <Link href="/">
-          <Button variant="light" size="sm">
-            ← Back to Dashboard
+          <Button 
+            variant="flat" 
+            color="primary"
+            size="md"
+            startContent={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            }
+            className="font-medium"
+          >
+            Back to Dashboard
           </Button>
         </Link>
       </div>
 
       <div className="mb-8">
-        <Card>
-          <CardHeader>
+        <Card className="bg-baltic-blue/60 backdrop-blur-md border-2 border-baltic-blue/80 shadow-2xl">
+          <CardHeader className="border-b border-strong-cyan/20">
             <div className="w-full">
-              <h1 className="text-3xl font-bold mb-2">Matchup Details</h1>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+              <h1 className="text-3xl font-bold mb-2 text-white">Matchup Details</h1>
+              <div className="flex items-center gap-4 text-sm text-gray-200">
                 <span>{formatDate(game.commence_time)}</span>
                 <span>•</span>
-                <span>{formatTime(game.commence_time)}</span>
+                <span className="text-honey-bronze font-bold">{formatTime(game.commence_time)}</span>
               </div>
             </div>
           </CardHeader>
@@ -45,32 +55,32 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
                 <TeamLogo teamName={game.away_team} size={80} />
                 <div>
                   <h2
-                    className="text-2xl font-semibold mb-1"
+                    className="text-2xl font-semibold mb-1 text-white"
                     style={{ color: awayTeamData.primaryColor }}
                   >
                     {game.away_team}
                   </h2>
-                  <p className="text-sm text-gray-500">Away</p>
+                  <p className="text-sm text-gray-200">Away</p>
                 </div>
               </div>
-              <div className="text-4xl font-bold mx-8 text-gray-400">@</div>
+              <div className="text-4xl font-bold mx-8 text-strong-cyan">@</div>
               <div className="text-center flex-1 flex flex-col items-center gap-3">
                 <TeamLogo teamName={game.home_team} size={80} />
                 <div>
                   <h2
-                    className="text-2xl font-semibold mb-1"
+                    className="text-2xl font-semibold mb-1 text-white"
                     style={{ color: homeTeamData.primaryColor }}
                   >
                     {game.home_team}
                   </h2>
-                  <p className="text-sm text-gray-500">Home</p>
+                  <p className="text-sm text-gray-200">Home</p>
                 </div>
               </div>
             </div>
 
             {parsedOdds.length > 0 && (
               <div className="mt-6 pt-6 border-t">
-                <h3 className="text-lg font-semibold mb-4">Betting Odds</h3>
+                <h3 className="text-lg font-semibold mb-4 text-white">Betting Odds</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {parsedOdds.slice(0, 6).map((odds, idx) => (
                     <Card key={idx} className="border border-gray-200">

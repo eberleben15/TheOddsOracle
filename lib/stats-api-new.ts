@@ -184,7 +184,7 @@ export async function getTeamStats(teamId: number, teamName?: string): Promise<T
       id: teamId,
       name: teamName || r.team?.name || "Unknown",
       code: r.team?.code || teamName?.slice(0, 4).toUpperCase() || "UNK",
-      logo: r.team?.logo,
+      logo: r.team?.logo || undefined, // Use API logo
       wins: r.games?.wins?.all?.total || 0,
       losses: r.games?.loses?.all?.total || 0,
       pointsPerGame: parseFloat(r.points?.for?.average?.all || "0"),
@@ -256,20 +256,20 @@ export async function getRecentGames(
         !g.teams?.away?.name?.endsWith(" W")
       )
       .map((g: any) => {
-        const isHome = g.teams.home.id === teamId;
-        const opponent = isHome ? g.teams.away : g.teams.home;
-        const teamScore = isHome ? g.scores.home.total : g.scores.away.total;
-        const opponentScore = isHome ? g.scores.away.total : g.scores.home.total;
+        const homeScore = g.scores?.home?.total || 0;
+        const awayScore = g.scores?.away?.total || 0;
+        const winner = homeScore > awayScore ? g.teams.home.name : g.teams.away.name;
 
         return {
           id: g.id,
           date: g.date,
-          opponent: opponent.name,
-          opponentLogo: opponent.logo,
-          isHome,
-          teamScore,
-          opponentScore,
-          result: teamScore > opponentScore ? "W" : "L",
+          homeTeam: g.teams.home.name,
+          awayTeam: g.teams.away.name,
+          homeScore,
+          awayScore,
+          winner,
+          homeTeamLogo: g.teams.home.logo,
+          awayTeamLogo: g.teams.away.logo,
         };
       })
       .sort((a: GameResult, b: GameResult) => 
@@ -295,8 +295,8 @@ export async function getRecentGames(
 export async function getHeadToHead(
   team1Id: number,
   team2Id: number,
-  team1Name?: string,
-  team2Name?: string
+  team1Name: string = "Team 1",
+  team2Name: string = "Team 2"
 ): Promise<HeadToHead | null> {
   const apiKey = process.env.STATS_API_KEY;
   if (!apiKey) {
@@ -342,22 +342,26 @@ export async function getHeadToHead(
         !g.teams?.away?.name?.endsWith(" W")
       )
       .map((g: any) => {
-        const isTeam1Home = g.teams.home.id === team1Id;
+        const homeScore = g.scores?.home?.total || 0;
+        const awayScore = g.scores?.away?.total || 0;
+        const winner = homeScore > awayScore ? g.teams.home.name : g.teams.away.name;
+
         return {
           id: g.id,
           date: g.date,
-          opponent: isTeam1Home ? g.teams.away.name : g.teams.home.name,
-          opponentLogo: isTeam1Home ? g.teams.away.logo : g.teams.home.logo,
-          isHome: isTeam1Home,
-          teamScore: isTeam1Home ? g.scores.home.total : g.scores.away.total,
-          opponentScore: isTeam1Home ? g.scores.away.total : g.scores.home.total,
-          result: (isTeam1Home ? g.scores.home.total > g.scores.away.total : g.scores.away.total > g.scores.home.total) ? "W" : "L",
+          homeTeam: g.teams.home.name,
+          awayTeam: g.teams.away.name,
+          homeScore,
+          awayScore,
+          winner,
+          homeTeamLogo: g.teams.home.logo,
+          awayTeamLogo: g.teams.away.logo,
         };
       })
       .sort((a: GameResult, b: GameResult) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const team1Wins = games.filter(g => g.result === "W").length;
-    const team2Wins = games.length - team1Wins;
+    const team1Wins = games.filter(g => g.winner === team1Name).length;
+    const team2Wins = games.filter(g => g.winner === team2Name).length;
 
     const h2h: HeadToHead = {
       games,

@@ -24,11 +24,19 @@ export function MatchupCard({ game }: MatchupCardProps) {
 
   return (
     <Link href={`/matchup/${game.id}`}>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-        <CardHeader className="flex flex-col items-start gap-2">
+      <Card className="
+        bg-baltic-blue/60 backdrop-blur-md
+        border-2 border-baltic-blue/80
+        hover:bg-baltic-blue/80
+        hover:border-strong-cyan/60
+        hover:shadow-2xl hover:shadow-strong-cyan/20
+        transition-all duration-300 
+        cursor-pointer
+      ">
+        <CardHeader className="flex flex-col items-start gap-2 border-b border-strong-cyan/20 pb-3">
           <div className="flex justify-between items-center w-full">
-            <h3 className="text-lg font-semibold">{game.sport_title}</h3>
-            <span className="text-sm text-gray-500">{gameTime}</span>
+            <h3 className="text-lg font-semibold text-white">{game.sport_title}</h3>
+            <span className="text-sm text-honey-bronze font-bold">{gameTime}</span>
           </div>
         </CardHeader>
         <CardBody>
@@ -38,26 +46,26 @@ export function MatchupCard({ game }: MatchupCardProps) {
                 <TeamLogo teamName={game.away_team} size={48} />
                 <div>
                   <p
-                    className="font-medium text-lg"
+                    className="font-medium text-lg text-white"
                     style={{ color: awayTeamData.primaryColor }}
                   >
                     {game.away_team}
                   </p>
-                  <p className="text-sm text-gray-500">Away</p>
+                  <p className="text-sm text-gray-300">Away</p>
                 </div>
               </div>
-              <div className="text-center">
-                <p className="text-xs text-gray-400 font-bold">@</p>
+              <div className="text-center px-2">
+                <p className="text-xs text-strong-cyan font-bold text-xl">@</p>
               </div>
               <div className="flex-1 flex items-center gap-3 justify-end">
                 <div className="text-right">
                   <p
-                    className="font-medium text-lg"
+                    className="font-medium text-lg text-white"
                     style={{ color: homeTeamData.primaryColor }}
                   >
                     {game.home_team}
                   </p>
-                  <p className="text-sm text-gray-500">Home</p>
+                  <p className="text-sm text-gray-300">Home</p>
                 </div>
                 <TeamLogo teamName={game.home_team} size={48} />
               </div>

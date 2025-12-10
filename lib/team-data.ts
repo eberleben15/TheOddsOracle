@@ -637,46 +637,101 @@ const DEFAULT_TEAM_DATA: TeamData = {
  * Get team data by name (case-insensitive partial match)
  */
 export function getTeamData(teamName: string): TeamData {
-  // Try exact match first
+  // Handle undefined/null team names
+  if (!teamName) {
+    return {
+      logo: `https://ui-avatars.com/api/?name=Unknown&background=94a3b8&color=fff`,
+      primaryColor: "#64748b",
+      secondaryColor: "#475569",
+      abbreviation: "UNK",
+    };
+  }
+
+  // 1. Try exact match first
   if (TEAM_DATA[teamName]) {
     return TEAM_DATA[teamName];
   }
 
-  // Try case-insensitive match
+  // 2. Try case-insensitive exact match
   const normalizedName = teamName.toLowerCase();
-  const match = Object.keys(TEAM_DATA).find(
+  const exactMatch = Object.keys(TEAM_DATA).find(
     (key) => key.toLowerCase() === normalizedName
   );
 
-  if (match) {
-    return TEAM_DATA[match];
+  if (exactMatch) {
+    return TEAM_DATA[exactMatch];
   }
 
-  // Try partial match (e.g., "Duke" matches "Duke Blue Devils")
-  const partialMatch = Object.keys(TEAM_DATA).find((key) => {
+  // 3. Try matching full name variations (e.g., "UCLA Bruins" matches "UCLA")
+  const fullNameMatch = Object.keys(TEAM_DATA).find((key) => {
     const keyLower = key.toLowerCase();
+    const inputLower = normalizedName;
+    
+    // Check if one is a subset of the other
     return (
-      keyLower.includes(normalizedName) ||
-      normalizedName.includes(keyLower.split(" ")[0])
+      keyLower === inputLower ||
+      keyLower.startsWith(inputLower + " ") ||
+      inputLower.startsWith(keyLower + " ") ||
+      keyLower.endsWith(" " + inputLower) ||
+      inputLower.endsWith(" " + keyLower)
     );
   });
 
-  if (partialMatch) {
-    return TEAM_DATA[partialMatch];
+  if (fullNameMatch) {
+    return TEAM_DATA[fullNameMatch];
   }
 
-  // Generate a default team data with a colored placeholder
+  // 4. Try removing common suffixes and matching
+  // e.g., "Duke Blue Devils" -> "Duke", "North Carolina Tar Heels" -> "North Carolina"
+  const commonSuffixes = [
+    'bulldogs', 'wildcats', 'tigers', 'bears', 'eagles', 'hawks',
+    'spartans', 'trojans', 'huskies', 'cougars', 'terrapins', 'hoosiers',
+    'jayhawks', 'tar heels', 'blue devils', 'crimson tide', 'volunteers',
+    'wolverines', 'buckeyes', 'longhorns', 'bruins', 'cardinals', 'fighting irish'
+  ];
+
+  for (const suffix of commonSuffixes) {
+    if (normalizedName.endsWith(' ' + suffix)) {
+      const baseName = normalizedName.slice(0, -(suffix.length + 1));
+      const baseMatch = Object.keys(TEAM_DATA).find(
+        key => key.toLowerCase() === baseName || key.toLowerCase().startsWith(baseName + ' ')
+      );
+      if (baseMatch) {
+        return TEAM_DATA[baseMatch];
+      }
+    }
+  }
+
+  // 5. Try first word match only if it's substantial (4+ chars)
+  const firstWord = normalizedName.split(" ")[0];
+  if (firstWord.length >= 4) {
+    const firstWordMatch = Object.keys(TEAM_DATA).find((key) => {
+      const keyFirstWord = key.toLowerCase().split(" ")[0];
+      return keyFirstWord === firstWord;
+    });
+
+    if (firstWordMatch) {
+      return TEAM_DATA[firstWordMatch];
+    }
+  }
+
+  // 6. No match found - generate a placeholder
   const abbreviation = teamName
     .split(" ")
+    .filter(word => word.length > 2)
     .map((word) => word[0])
     .join("")
     .toUpperCase()
-    .slice(0, 4);
+    .slice(0, 3);
+
+  const colorHue = teamName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
 
   return {
     ...DEFAULT_TEAM_DATA,
     name: teamName,
     abbreviation,
+    primaryColor: `hsl(${colorHue}, 60%, 55%)`,
+    secondaryColor: `hsl(${colorHue}, 50%, 40%)`,
     logoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
       abbreviation
     )}&background=6B7280&color=fff&size=128&bold=true`,

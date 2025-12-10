@@ -3,6 +3,41 @@
 @tailwind utilities;
 
 :root {
+  /* Custom Color Palette */
+  --charcoal-blue: #2f4858;      /* Dark background */
+  --baltic-blue: #33658a;        /* Card backgrounds */
+  --strong-cyan: #55dde0;        /* Primary/Interactive */
+  --honey-bronze: #f6ae2d;       /* Accents/Highlights */
+  --blaze-orange: #f26419;       /* CTAs/Urgent */
+}
+
+body {
+  background: linear-gradient(135deg, #1a2834 0%, #2f4858 50%, #1f3442 100%);
+  min-height: 100vh;
+  color: #f0f4f8;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--charcoal-blue);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--baltic-blue);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--strong-cyan);
+}
+
+
+
+:root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;

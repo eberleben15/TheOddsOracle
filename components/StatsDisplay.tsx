@@ -192,15 +192,14 @@ export function StatsDisplay({
               </TableHeader>
               <TableBody>
                 {recentGames.away.slice(0, 5).map((game) => {
-                  const opponent =
-                    game.homeTeam === awayTeamStats.name
-                      ? game.awayTeam
-                      : game.homeTeam;
-                  const opponentData = getTeamData(opponent);
-                  const isHome = game.homeTeam === awayTeamStats.name;
+                  // Match team names (API returns short names like "Michigan", we have "Michigan Wolverines")
+                  const teamNameShort = awayTeamStats.name.split(' ')[0].toLowerCase();
+                  const isHome = game.homeTeam?.toLowerCase().includes(teamNameShort);
+                  const opponent = isHome ? game.awayTeam : game.homeTeam;
+                  const opponentData = getTeamData(opponent || "Unknown");
                   const teamScore = isHome ? game.homeScore : game.awayScore;
                   const oppScore = isHome ? game.awayScore : game.homeScore;
-                  const won = game.winner === awayTeamStats.name;
+                  const won = game.winner?.toLowerCase().includes(teamNameShort);
                   const margin = Math.abs(teamScore - oppScore);
 
                   return (
@@ -210,8 +209,12 @@ export function StatsDisplay({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <TeamLogo teamName={opponent} size={20} />
-                          <span className="text-sm">{opponent.split(" ")[0]}</span>
+                          <TeamLogo 
+                            teamName={opponent || "Unknown"} 
+                            size={20}
+                            logo={isHome ? game.awayTeamLogo : game.homeTeamLogo}
+                          />
+                          <span className="text-sm">{(opponent || "Unknown").split(" ")[0]}</span>
                           {isHome && (
                             <Chip size="sm" variant="flat" color="default">
                               H
@@ -269,15 +272,14 @@ export function StatsDisplay({
               </TableHeader>
               <TableBody>
                 {recentGames.home.slice(0, 5).map((game) => {
-                  const opponent =
-                    game.homeTeam === homeTeamStats.name
-                      ? game.awayTeam
-                      : game.homeTeam;
-                  const opponentData = getTeamData(opponent);
-                  const isHome = game.homeTeam === homeTeamStats.name;
+                  // Match team names (API returns short names like "Michigan", we have "Michigan Wolverines")
+                  const teamNameShort = homeTeamStats.name.split(' ')[0].toLowerCase();
+                  const isHome = game.homeTeam?.toLowerCase().includes(teamNameShort);
+                  const opponent = isHome ? game.awayTeam : game.homeTeam;
+                  const opponentData = getTeamData(opponent || "Unknown");
                   const teamScore = isHome ? game.homeScore : game.awayScore;
                   const oppScore = isHome ? game.awayScore : game.homeScore;
-                  const won = game.winner === homeTeamStats.name;
+                  const won = game.winner?.toLowerCase().includes(teamNameShort);
                   const margin = Math.abs(teamScore - oppScore);
 
                   return (
@@ -287,8 +289,12 @@ export function StatsDisplay({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <TeamLogo teamName={opponent} size={20} />
-                          <span className="text-sm">{opponent.split(" ")[0]}</span>
+                          <TeamLogo 
+                            teamName={opponent || "Unknown"} 
+                            size={20}
+                            logo={isHome ? game.awayTeamLogo : game.homeTeamLogo}
+                          />
+                          <span className="text-sm">{(opponent || "Unknown").split(" ")[0]}</span>
                           {isHome && (
                             <Chip size="sm" variant="flat" color="default">
                               H
@@ -375,8 +381,8 @@ export function StatsDisplay({
               </TableHeader>
               <TableBody>
                 {headToHead.games.slice(0, 5).map((game) => {
-                  const homeTeamData = getTeamData(game.homeTeam);
-                  const awayTeamData = getTeamData(game.awayTeam);
+                  const homeTeamData = getTeamData(game.homeTeam || "Unknown");
+                  const awayTeamData = getTeamData(game.awayTeam || "Unknown");
                   const winnerData =
                     game.winner === game.homeTeam ? homeTeamData : awayTeamData;
 
@@ -387,11 +393,19 @@ export function StatsDisplay({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <TeamLogo teamName={game.awayTeam} size={20} />
-                          <span className="text-sm">{game.awayTeam.split(" ")[0]}</span>
+                          <TeamLogo 
+                            teamName={game.awayTeam || "Unknown"} 
+                            size={20}
+                            logo={game.awayTeamLogo}
+                          />
+                          <span className="text-sm">{(game.awayTeam || "Unknown").split(" ")[0]}</span>
                           <span className="text-gray-400">@</span>
-                          <TeamLogo teamName={game.homeTeam} size={20} />
-                          <span className="text-sm">{game.homeTeam.split(" ")[0]}</span>
+                          <TeamLogo 
+                            teamName={game.homeTeam || "Unknown"} 
+                            size={20}
+                            logo={game.homeTeamLogo}
+                          />
+                          <span className="text-sm">{(game.homeTeam || "Unknown").split(" ")[0]}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -424,7 +438,7 @@ export function StatsDisplay({
                             className="text-sm font-medium"
                             style={{ color: winnerData.primaryColor }}
                           >
-                            {game.winner.split(" ")[0]}
+                            {(game.winner || "Unknown").split(" ")[0]}
                           </span>
                         </div>
                       </TableCell>
