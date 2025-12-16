@@ -135,7 +135,7 @@ export async function trackedFetch(
 ): Promise<Response> {
   const startTime = Date.now();
   const endpoint = url.replace(process.env.THE_ODDS_API_KEY || '', '[API_KEY]')
-                     .replace(process.env.STATS_API_KEY || '', '[API_KEY]');
+                     .replace(process.env.SPORTSDATA_API_KEY || '', '[API_KEY]');
   
   try {
     const response = await fetch(url, options);

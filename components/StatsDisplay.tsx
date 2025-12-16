@@ -25,6 +25,19 @@ export function StatsDisplay({
   const awayTeamData = getTeamData(awayTeamStats.name);
   const homeTeamData = getTeamData(homeTeamStats.name);
 
+  // Helper function to safely display numbers
+  const safeNumber = (value: number | undefined, decimals: number = 1): string => {
+    if (value === undefined || value === null || isNaN(value) || !isFinite(value)) {
+      return "--";
+    }
+    return value.toFixed(decimals);
+  };
+
+  // Helper to get safe stat value with fallback
+  const getStat = (value: number | undefined, fallback: number = 0): number => {
+    return value !== undefined && !isNaN(value) && isFinite(value) ? value : fallback;
+  };
+
   return (
     <div className="space-y-6">
       {/* Team Records & Advanced Stats */}
@@ -50,7 +63,7 @@ export function StatsDisplay({
                     {awayTeamStats.wins} - {awayTeamStats.losses}
                   </span>
                   <div className="text-xs text-gray-500">
-                    {((awayTeamStats.wins / (awayTeamStats.wins + awayTeamStats.losses)) * 100).toFixed(1)}% Win Rate
+                    {safeNumber((awayTeamStats.wins / (awayTeamStats.wins + awayTeamStats.losses)) * 100, 1)}% Win Rate
                   </div>
                 </div>
               </div>
@@ -69,7 +82,7 @@ export function StatsDisplay({
                     {homeTeamStats.wins} - {homeTeamStats.losses}
                   </span>
                   <div className="text-xs text-gray-500">
-                    {((homeTeamStats.wins / (homeTeamStats.wins + homeTeamStats.losses)) * 100).toFixed(1)}% Win Rate
+                    {safeNumber((homeTeamStats.wins / (homeTeamStats.wins + homeTeamStats.losses)) * 100, 1)}% Win Rate
                   </div>
                 </div>
               </div>
@@ -94,7 +107,7 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{awayTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: awayTeamData.primaryColor }}>
-                    {awayTeamStats.pointsPerGame.toFixed(1)} PPG
+                    {safeNumber(awayTeamStats?.pointsPerGame, 1)} PPG
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -103,7 +116,7 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{homeTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: homeTeamData.primaryColor }}>
-                    {homeTeamStats.pointsPerGame.toFixed(1)} PPG
+                    {safeNumber(homeTeamStats?.pointsPerGame, 1)} PPG
                   </span>
                 </div>
               </div>
@@ -117,7 +130,7 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{awayTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: awayTeamData.primaryColor }}>
-                    {awayTeamStats.pointsAllowedPerGame.toFixed(1)} PAPG
+                    {safeNumber(awayTeamStats?.pointsAllowedPerGame, 1)} PAPG
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -126,7 +139,7 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{homeTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: homeTeamData.primaryColor }}>
-                    {homeTeamStats.pointsAllowedPerGame.toFixed(1)} PAPG
+                    {safeNumber(homeTeamStats?.pointsAllowedPerGame, 1)} PAPG
                   </span>
                 </div>
               </div>
@@ -142,13 +155,13 @@ export function StatsDisplay({
                   <Chip
                     size="sm"
                     color={
-                      awayTeamStats.pointsPerGame - awayTeamStats.pointsAllowedPerGame > 0
+                      getStat(awayTeamStats?.pointsPerGame) - getStat(awayTeamStats?.pointsAllowedPerGame) > 0
                         ? "success"
                         : "danger"
                     }
                     variant="flat"
                   >
-                    {(awayTeamStats.pointsPerGame - awayTeamStats.pointsAllowedPerGame).toFixed(1)}
+                    {safeNumber(getStat(awayTeamStats?.pointsPerGame) - getStat(awayTeamStats?.pointsAllowedPerGame), 1)}
                   </Chip>
                 </div>
                 <div className="flex justify-between items-center mt-1">
@@ -159,13 +172,13 @@ export function StatsDisplay({
                   <Chip
                     size="sm"
                     color={
-                      homeTeamStats.pointsPerGame - homeTeamStats.pointsAllowedPerGame > 0
+                      getStat(homeTeamStats?.pointsPerGame) - getStat(homeTeamStats?.pointsAllowedPerGame) > 0
                         ? "success"
                         : "danger"
                     }
                     variant="flat"
                   >
-                    {(homeTeamStats.pointsPerGame - homeTeamStats.pointsAllowedPerGame).toFixed(1)}
+                    {safeNumber(getStat(homeTeamStats?.pointsPerGame) - getStat(homeTeamStats?.pointsAllowedPerGame), 1)}
                   </Chip>
                 </div>
               </div>
@@ -304,6 +317,303 @@ export function StatsDisplay({
           </CardBody>
         </Card>
       </div>
+
+      {/* Four Factors & Advanced Metrics - Industry-Standard Analysis */}
+      {(awayTeamStats.effectiveFieldGoalPercentage || homeTeamStats.effectiveFieldGoalPercentage) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Four Factors */}
+          <Card className="bg-gradient-to-br from-primary/5 to-transparent border border-primary/20">
+            <CardHeader className="border-b border-primary/20">
+              <div>
+                <h3 className="text-lg font-semibold text-text-dark">Four Factors Analysis</h3>
+                <p className="text-xs text-text-body mt-1">
+                  Dean Oliver's Four Factors - Industry standard for predicting wins
+                </p>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-4">
+                {/* eFG% - Most Important (40% weight) */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="text-sm font-semibold text-text-dark">Effective FG%</span>
+                      <span className="ml-2 text-xs text-text-body">(40% weight)</span>
+                    </div>
+                    <div className="flex gap-4 text-xs">
+                      <span className="font-medium text-primary">
+                        {awayTeamStats.effectiveFieldGoalPercentage?.toFixed(1)}%
+                      </span>
+                      <span className="font-medium text-success">
+                        {homeTeamStats.effectiveFieldGoalPercentage?.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-primary to-primary/70"
+                        style={{ width: `${(awayTeamStats.effectiveFieldGoalPercentage || 0)}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-success to-success/70"
+                        style={{ width: `${(homeTeamStats.effectiveFieldGoalPercentage || 0)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-body mt-1">
+                    Adjusts for 3-point value. Higher is better.
+                  </p>
+                </div>
+
+                {/* TOV% - Second Most Important (25% weight) */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="text-sm font-semibold text-text-dark">Turnover Rate</span>
+                      <span className="ml-2 text-xs text-text-body">(25% weight)</span>
+                    </div>
+                    <div className="flex gap-4 text-xs">
+                      <span className={`font-medium ${
+                        (awayTeamStats.turnoverRate || 0) < (homeTeamStats.turnoverRate || 0) 
+                          ? 'text-success' 
+                          : 'text-danger'
+                      }`}>
+                        {awayTeamStats.turnoverRate?.toFixed(1)}%
+                      </span>
+                      <span className={`font-medium ${
+                        (homeTeamStats.turnoverRate || 0) < (awayTeamStats.turnoverRate || 0) 
+                          ? 'text-success' 
+                          : 'text-danger'
+                      }`}>
+                        {homeTeamStats.turnoverRate?.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${
+                          (awayTeamStats.turnoverRate || 0) < 18 
+                            ? 'bg-gradient-to-r from-success to-success/70' 
+                            : 'bg-gradient-to-r from-warning to-warning/70'
+                        }`}
+                        style={{ width: `${Math.min((awayTeamStats.turnoverRate || 0) * 3, 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${
+                          (homeTeamStats.turnoverRate || 0) < 18 
+                            ? 'bg-gradient-to-r from-success to-success/70' 
+                            : 'bg-gradient-to-r from-warning to-warning/70'
+                        }`}
+                        style={{ width: `${Math.min((homeTeamStats.turnoverRate || 0) * 3, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-body mt-1">
+                    Turnovers per 100 possessions. Lower is better.
+                  </p>
+                </div>
+
+                {/* ORB% - Third (20% weight) */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="text-sm font-semibold text-text-dark">Off. Rebound Rate</span>
+                      <span className="ml-2 text-xs text-text-body">(20% weight)</span>
+                    </div>
+                    <div className="flex gap-4 text-xs">
+                      <span className="font-medium text-primary">
+                        {awayTeamStats.offensiveReboundRate?.toFixed(1)}%
+                      </span>
+                      <span className="font-medium text-success">
+                        {homeTeamStats.offensiveReboundRate?.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-primary to-primary/70"
+                        style={{ width: `${(awayTeamStats.offensiveReboundRate || 0) * 2}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-success to-success/70"
+                        style={{ width: `${(homeTeamStats.offensiveReboundRate || 0) * 2}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-body mt-1">
+                    Second-chance opportunities. Higher is better.
+                  </p>
+                </div>
+
+                {/* FTR - Fourth (15% weight) */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="text-sm font-semibold text-text-dark">Free Throw Rate</span>
+                      <span className="ml-2 text-xs text-text-body">(15% weight)</span>
+                    </div>
+                    <div className="flex gap-4 text-xs">
+                      <span className="font-medium text-primary">
+                        {awayTeamStats.freeThrowRate?.toFixed(1)}%
+                      </span>
+                      <span className="font-medium text-success">
+                        {homeTeamStats.freeThrowRate?.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-primary to-primary/70"
+                        style={{ width: `${(awayTeamStats.freeThrowRate || 0) * 2}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-success to-success/70"
+                        style={{ width: `${(homeTeamStats.freeThrowRate || 0) * 2}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-body mt-1">
+                    FTA/FGA ratio. Measures ability to get to the line.
+                  </p>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Advanced Metrics */}
+          <Card className="bg-gradient-to-br from-success/5 to-transparent border border-success/20">
+            <CardHeader className="border-b border-success/20">
+              <div>
+                <h3 className="text-lg font-semibold text-text-dark">Advanced Metrics</h3>
+                <p className="text-xs text-text-body mt-1">
+                  Tempo-free efficiency and pace analysis
+                </p>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-5">
+                {/* Offensive Efficiency */}
+                {(awayTeamStats.offensiveEfficiency || homeTeamStats.offensiveEfficiency) && (
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-semibold text-text-dark">Offensive Rating</span>
+                      <span className="text-xs text-text-body">Points per 100 possessions</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-center flex-1">
+                        <div className="text-2xl font-bold text-primary">
+                          {awayTeamStats.offensiveEfficiency?.toFixed(1) || 'N/A'}
+                        </div>
+                        <div className="text-xs text-text-body mt-1">{awayTeamStats.name.split(" ")[0]}</div>
+                      </div>
+                      <div className="text-center px-4">
+                        <span className="text-xs text-text-body">vs</span>
+                      </div>
+                      <div className="text-center flex-1">
+                        <div className="text-2xl font-bold text-success">
+                          {homeTeamStats.offensiveEfficiency?.toFixed(1) || 'N/A'}
+                        </div>
+                        <div className="text-xs text-text-body mt-1">{homeTeamStats.name.split(" ")[0]}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Defensive Efficiency */}
+                {(awayTeamStats.defensiveEfficiency || homeTeamStats.defensiveEfficiency) && (
+                  <div className="pt-4 border-t border-border-gray">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-semibold text-text-dark">Defensive Rating</span>
+                      <span className="text-xs text-text-body">Opp points per 100 poss</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-center flex-1">
+                        <div className={`text-2xl font-bold ${
+                          (awayTeamStats.defensiveEfficiency || 0) < (homeTeamStats.defensiveEfficiency || 0)
+                            ? 'text-success'
+                            : 'text-primary'
+                        }`}>
+                          {awayTeamStats.defensiveEfficiency?.toFixed(1) || 'N/A'}
+                        </div>
+                        <div className="text-xs text-text-body mt-1">{awayTeamStats.name.split(" ")[0]}</div>
+                      </div>
+                      <div className="text-center px-4">
+                        <span className="text-xs text-text-body">vs</span>
+                      </div>
+                      <div className="text-center flex-1">
+                        <div className={`text-2xl font-bold ${
+                          (homeTeamStats.defensiveEfficiency || 0) < (awayTeamStats.defensiveEfficiency || 0)
+                            ? 'text-success'
+                            : 'text-primary'
+                        }`}>
+                          {homeTeamStats.defensiveEfficiency?.toFixed(1) || 'N/A'}
+                        </div>
+                        <div className="text-xs text-text-body mt-1">{homeTeamStats.name.split(" ")[0]}</div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-text-body text-center mt-2">
+                      Lower is better (fewer points allowed)
+                    </p>
+                  </div>
+                )}
+
+                {/* Pace */}
+                {(awayTeamStats.pace || homeTeamStats.pace) && (
+                  <div className="pt-4 border-t border-border-gray">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-semibold text-text-dark">Pace</span>
+                      <span className="text-xs text-text-body">Possessions per game</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-center flex-1">
+                        <div className="text-2xl font-bold text-primary">
+                          {awayTeamStats.pace?.toFixed(1) || 'N/A'}
+                        </div>
+                        <div className="text-xs text-text-body mt-1">{awayTeamStats.name.split(" ")[0]}</div>
+                      </div>
+                      <div className="text-center px-4">
+                        <div className="text-xs text-text-body">Expected</div>
+                        <div className="text-lg font-bold text-text-dark">
+                          {((awayTeamStats.pace || 0) + (homeTeamStats.pace || 0)) / 2 > 0
+                            ? (((awayTeamStats.pace || 0) + (homeTeamStats.pace || 0)) / 2).toFixed(1)
+                            : 'N/A'}
+                        </div>
+                      </div>
+                      <div className="text-center flex-1">
+                        <div className="text-2xl font-bold text-success">
+                          {homeTeamStats.pace?.toFixed(1) || 'N/A'}
+                        </div>
+                        <div className="text-xs text-text-body mt-1">{homeTeamStats.name.split(" ")[0]}</div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-text-body text-center mt-2">
+                      Game tempo: {
+                        ((awayTeamStats.pace || 0) + (homeTeamStats.pace || 0)) / 2 > 72 
+                          ? 'Fast-paced' 
+                          : ((awayTeamStats.pace || 0) + (homeTeamStats.pace || 0)) / 2 > 68
+                          ? 'Average'
+                          : 'Slow-paced'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
 
       {/* Recent Form */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

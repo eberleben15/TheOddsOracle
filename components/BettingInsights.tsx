@@ -32,27 +32,47 @@ export function BettingInsights({
   const awayTeamData = getTeamData(awayTeamName);
   const homeTeamData = getTeamData(homeTeamName);
 
+  // Helper function to safely display numbers
+  const safeNumber = (value: number | undefined, decimals: number = 1): string => {
+    if (value === undefined || value === null || isNaN(value) || !isFinite(value)) {
+      return "--";
+    }
+    return value.toFixed(decimals);
+  };
+
+  // Helper to get safe stat value with fallback
+  const getStat = (value: number | undefined, fallback: number = 0): number => {
+    return value !== undefined && !isNaN(value) && isFinite(value) ? value : fallback;
+  };
+
+  // Check if we have valid stats
+  const hasValidStats = 
+    awayTeamStats?.pointsPerGame !== undefined &&
+    awayTeamStats?.pointsAllowedPerGame !== undefined &&
+    homeTeamStats?.pointsPerGame !== undefined &&
+    homeTeamStats?.pointsAllowedPerGame !== undefined;
+
   // Find best odds
   const bestAwayML = findBestOdds(parsedOdds, "away", "moneyline");
   const bestHomeML = findBestOdds(parsedOdds, "home", "moneyline");
   const bestAwaySpread = findBestOdds(parsedOdds, "away", "spread");
   const bestHomeSpread = findBestOdds(parsedOdds, "home", "spread");
 
-  // Calculate probabilities
-  const winProb = calculateWinProbability(
+  // Calculate probabilities (with safe defaults)
+  const winProb = hasValidStats ? calculateWinProbability(
     awayTeamStats.pointsPerGame,
     awayTeamStats.pointsAllowedPerGame,
     homeTeamStats.pointsPerGame,
     homeTeamStats.pointsAllowedPerGame
-  );
+  ) : { team1: 0.5, team2: 0.5 };
 
-  // Calculate expected total
-  const expectedTotal = calculateExpectedTotal(
+  // Calculate expected total (with safe defaults)
+  const expectedTotal = hasValidStats ? calculateExpectedTotal(
     awayTeamStats.pointsPerGame,
     awayTeamStats.pointsAllowedPerGame,
     homeTeamStats.pointsPerGame,
     homeTeamStats.pointsAllowedPerGame
-  );
+  ) : 0;
 
   // Calculate implied probabilities from odds
   const awayImpliedProb = bestAwayML
@@ -142,7 +162,7 @@ export function BettingInsights({
                 {awayTeamName.split(" ")[0]}
               </span>
               <span className="font-bold">
-                {(winProb.team1 * 100).toFixed(1)}%
+                {safeNumber(winProb.team1 * 100, 1)}%
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -164,7 +184,7 @@ export function BettingInsights({
                 {homeTeamName.split(" ")[0]}
               </span>
               <span className="font-bold">
-                {(winProb.team2 * 100).toFixed(1)}%
+                {safeNumber(winProb.team2 * 100, 1)}%
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -188,10 +208,10 @@ export function BettingInsights({
         <CardBody>
           <div className="text-center">
             <div className="text-3xl font-bold mb-2">
-              {expectedTotal.toFixed(1)}
+              {safeNumber(expectedTotal, 1)}
             </div>
             <p className="text-sm text-gray-600">
-              Based on team averages
+              {hasValidStats ? "Based on team averages" : "Stats unavailable"}
             </p>
           </div>
         </CardBody>
@@ -213,7 +233,7 @@ export function BettingInsights({
                 {awayTeamName.split(" ")[0]}
               </span>
               <span className="font-bold text-green-600">
-                ${awayReturn.toFixed(2)}
+                ${safeNumber(awayReturn, 2)}
               </span>
             </div>
           )}
@@ -226,7 +246,7 @@ export function BettingInsights({
                 {homeTeamName.split(" ")[0]}
               </span>
               <span className="font-bold text-green-600">
-                ${homeReturn.toFixed(2)}
+                ${safeNumber(homeReturn, 2)}
               </span>
             </div>
           )}
@@ -249,7 +269,7 @@ export function BettingInsights({
                   {awayTeamName.split(" ")[0]} ML
                 </span>
                 <Chip size="sm" color="success">
-                  {(winProb.team1 * 100 - awayImpliedProb * 100).toFixed(1)}% edge
+                  {safeNumber(winProb.team1 * 100 - awayImpliedProb * 100, 1)}% edge
                 </Chip>
               </div>
             )}
@@ -262,7 +282,7 @@ export function BettingInsights({
                   {homeTeamName.split(" ")[0]} ML
                 </span>
                 <Chip size="sm" color="success">
-                  {(winProb.team2 * 100 - homeImpliedProb * 100).toFixed(1)}% edge
+                  {safeNumber(winProb.team2 * 100 - homeImpliedProb * 100, 1)}% edge
                 </Chip>
               </div>
             )}
@@ -281,10 +301,10 @@ export function BettingInsights({
               <span className="text-gray-600">Offensive Rating</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
-                  {awayTeamStats.pointsPerGame.toFixed(1)}
+                  {safeNumber(awayTeamStats?.pointsPerGame, 1)}
                 </span>
                 <span style={{ color: homeTeamData.primaryColor }}>
-                  {homeTeamStats.pointsPerGame.toFixed(1)}
+                  {safeNumber(homeTeamStats?.pointsPerGame, 1)}
                 </span>
               </div>
             </div>
@@ -292,10 +312,10 @@ export function BettingInsights({
               <span className="text-gray-600">Defensive Rating</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
-                  {awayTeamStats.pointsAllowedPerGame.toFixed(1)}
+                  {safeNumber(awayTeamStats?.pointsAllowedPerGame, 1)}
                 </span>
                 <span style={{ color: homeTeamData.primaryColor }}>
-                  {homeTeamStats.pointsAllowedPerGame.toFixed(1)}
+                  {safeNumber(homeTeamStats?.pointsAllowedPerGame, 1)}
                 </span>
               </div>
             </div>
@@ -303,10 +323,16 @@ export function BettingInsights({
               <span className="text-gray-600">Net Rating</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
-                  {(awayTeamStats.pointsPerGame - awayTeamStats.pointsAllowedPerGame).toFixed(1)}
+                  {safeNumber(
+                    getStat(awayTeamStats?.pointsPerGame) - getStat(awayTeamStats?.pointsAllowedPerGame),
+                    1
+                  )}
                 </span>
                 <span style={{ color: homeTeamData.primaryColor }}>
-                  {(homeTeamStats.pointsPerGame - homeTeamStats.pointsAllowedPerGame).toFixed(1)}
+                  {safeNumber(
+                    getStat(homeTeamStats?.pointsPerGame) - getStat(homeTeamStats?.pointsAllowedPerGame),
+                    1
+                  )}
                 </span>
               </div>
             </div>

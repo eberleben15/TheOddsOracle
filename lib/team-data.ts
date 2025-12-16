@@ -703,8 +703,8 @@ export function getTeamAbbreviation(teamName: string): string {
 }
 
 /**
- * Normalize team name from Odds API and return search variations
- * Returns an array of possible search terms to try with API-Sports.io
+ * Normalize team name and return search variations for matching
+ * Returns an array of possible search terms to try when looking up teams
  * 
  * Examples:
  * - "BYU Cougars" -> ["BYU", "Brigham Young", "BYU Cougars"]

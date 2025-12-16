@@ -43,7 +43,7 @@ export interface LiveGame {
   last_update: string | null;
 }
 
-// Types for Stats API (API Basketball)
+// Types for Stats API (SportsData.io)
 export interface TeamStats {
   id: number;
   name: string;
@@ -55,7 +55,7 @@ export interface TeamStats {
   pointsAllowedPerGame: number;
   recentGames: GameResult[];
   
-  // Advanced stats (Phase 1 additions)
+  // Basic stats
   fieldGoalPercentage?: number;
   threePointPercentage?: number;
   freeThrowPercentage?: number;
@@ -65,16 +65,31 @@ export interface TeamStats {
   stealsPerGame?: number;
   blocksPerGame?: number;
   foulsPerGame?: number;
+  
+  // Four Factors (from SportsData.io)
+  effectiveFieldGoalPercentage?: number;  // eFG%
+  turnoverRate?: number;                   // TOV%
+  offensiveReboundRate?: number;           // ORB%
+  freeThrowRate?: number;                  // FTR (FTA/FGA)
+  
+  // Advanced metrics
+  offensiveEfficiency?: number;            // Points per 100 possessions
+  defensiveEfficiency?: number;            // Opp points per 100 possessions
+  pace?: number;                           // Possessions per game
+  assistTurnoverRatio?: number;            // AST/TO
 }
 
 export interface GameResult {
   id: number;
   date: string;
-  homeTeam: string;
-  awayTeam: string;
+  homeTeam: string;        // Full team name (e.g., "Wisconsin")
+  awayTeam: string;        // Full team name (e.g., "Duke")
+  homeTeamKey: string;     // Team key (e.g., "WIS")
+  awayTeamKey: string;     // Team key (e.g., "DUKE")
   homeScore: number;
   awayScore: number;
-  winner: string;
+  winner: string;          // Full team name of winner
+  winnerKey: string;       // Team key of winner
   homeTeamLogo?: string;
   awayTeamLogo?: string;
 }
@@ -83,6 +98,8 @@ export interface HeadToHead {
   games: GameResult[];
   team1Wins: number;
   team2Wins: number;
+  awayTeamWins: number;    // Alias for clarity in matchup context
+  homeTeamWins: number;    // Alias for clarity in matchup context
 }
 
 // Combined matchup type

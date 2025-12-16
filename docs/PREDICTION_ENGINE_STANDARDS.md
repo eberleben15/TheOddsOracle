@@ -363,3 +363,4 @@ Most pros use fractional Kelly (1/4 or 1/2) to reduce variance
 
 The key is: **Track performance religiously** and **iterate based on results**. No model is perfect, but consistent 54-55% ATS is profitable!
 
+

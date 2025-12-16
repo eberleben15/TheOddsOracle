@@ -74,14 +74,15 @@ export function calculateTeamAnalytics(
   const LEAGUE_AVG_FT = 72.0;
   const LEAGUE_AVG_REB = 36.0;
   
-  // Calculate offensive/defensive ratings (per 100 possessions estimate)
-  const offensiveRating = (stats.pointsPerGame / LEAGUE_AVG_PPG) * 100;
-  const defensiveRating = (stats.pointsAllowedPerGame / LEAGUE_AVG_PPG) * 100;
+  // Use actual efficiency ratings from SportsData.io if available, otherwise calculate estimates
+  // Offensive/Defensive ratings (per 100 possessions)
+  const offensiveRating = stats.offensiveEfficiency ?? (stats.pointsPerGame / LEAGUE_AVG_PPG) * 100;
+  const defensiveRating = stats.defensiveEfficiency ?? (stats.pointsAllowedPerGame / LEAGUE_AVG_PPG) * 100;
   const netRating = offensiveRating - defensiveRating;
   
-  // Efficiency estimates (simplified - real calculation requires possession data)
-  const offensiveEfficiency = stats.pointsPerGame * 1.05;
-  const defensiveEfficiency = stats.pointsAllowedPerGame * 1.05;
+  // Efficiency estimates (use actual if available from SportsData.io)
+  const offensiveEfficiency = stats.offensiveEfficiency ?? (stats.pointsPerGame * 1.05);
+  const defensiveEfficiency = stats.defensiveEfficiency ?? (stats.pointsAllowedPerGame * 1.05);
   
   // Momentum calculation from recent games
   const momentum = calculateMomentum(recentGames, stats.name);
@@ -107,8 +108,8 @@ export function calculateTeamAnalytics(
   // Rebounding advantage
   const reboundingAdvantage = ((stats.reboundsPerGame || LEAGUE_AVG_REB) / LEAGUE_AVG_REB) * 100;
   
-  // Assist-to-turnover ratio
-  const assistToTurnoverRatio = (stats.assistsPerGame || 0) / Math.max(stats.turnoversPerGame || 1, 1);
+  // Assist-to-turnover ratio (use actual if available, otherwise calculate)
+  const assistToTurnoverRatio = stats.assistTurnoverRatio ?? ((stats.assistsPerGame || 0) / Math.max(stats.turnoversPerGame || 1, 1));
   
   // Consistency score
   const consistency = calculateConsistency(recentGames);
@@ -137,6 +138,33 @@ export function calculateTeamAnalytics(
 }
 
 /**
+ * Check if a team name matches a game participant
+ * Handles various name formats: full name, first word, team key
+ */
+function teamMatchesGame(teamName: string, gameTeamName: string, gameTeamKey?: string): boolean {
+  if (!teamName || !gameTeamName) return false;
+  
+  const teamNameLower = teamName.toLowerCase();
+  const gameTeamLower = gameTeamName.toLowerCase();
+  
+  // Exact match
+  if (teamNameLower === gameTeamLower) return true;
+  
+  // First word match (e.g., "Wisconsin" matches "Wisconsin Badgers")
+  const teamFirstWord = teamNameLower.split(' ')[0];
+  const gameFirstWord = gameTeamLower.split(' ')[0];
+  if (teamFirstWord === gameFirstWord) return true;
+  
+  // Team key match (e.g., "WIS" matches "Wisconsin")
+  if (gameTeamKey && teamNameLower.includes(gameTeamKey.toLowerCase())) return true;
+  
+  // Partial match
+  if (gameTeamLower.includes(teamFirstWord) || teamNameLower.includes(gameFirstWord)) return true;
+  
+  return false;
+}
+
+/**
  * Calculate team momentum based on recent performance
  */
 function calculateMomentum(games: GameResult[], teamName: string): number {
@@ -147,21 +175,21 @@ function calculateMomentum(games: GameResult[], teamName: string): number {
   
   recentGames.forEach((game, index) => {
     const weight = (5 - index) / 5; // More recent = higher weight
-    const isWin = game.winner?.includes(teamName.split(' ')[0]);
+    
+    // Check if this team won - use both winner name and key for matching
+    const isWin = teamMatchesGame(teamName, game.winner, game.winnerKey);
+    
+    // Determine if this team was home or away
+    const isHome = teamMatchesGame(teamName, game.homeTeam, game.homeTeamKey);
+    const teamScore = isHome ? game.homeScore : game.awayScore;
+    const oppScore = isHome ? game.awayScore : game.homeScore;
+    const margin = Math.abs(teamScore - oppScore);
     
     if (isWin) {
       // Win momentum
-      const margin = Math.abs(
-        (game.homeTeam?.includes(teamName.split(' ')[0]) ? game.homeScore : game.awayScore) -
-        (game.homeTeam?.includes(teamName.split(' ')[0]) ? game.awayScore : game.homeScore)
-      );
       momentum += (20 + Math.min(margin, 20)) * weight; // 20-40 points per win
     } else {
       // Loss momentum (negative)
-      const margin = Math.abs(
-        (game.homeTeam?.includes(teamName.split(' ')[0]) ? game.homeScore : game.awayScore) -
-        (game.homeTeam?.includes(teamName.split(' ')[0]) ? game.awayScore : game.homeScore)
-      );
       momentum -= (20 + Math.min(margin, 20)) * weight; // -20 to -40 per loss
     }
   });
@@ -191,7 +219,8 @@ function analyzeRecentForm(games: GameResult[], teamName: string): {
   
   for (let i = 0; i < recentGames.length; i++) {
     const game = recentGames[i];
-    const isWin = game.winner?.includes(teamName.split(' ')[0]);
+    // Use improved matching that handles full names, first words, and keys
+    const isWin = teamMatchesGame(teamName, game.winner, game.winnerKey);
     
     // Build form string
     recentForm += isWin ? 'W' : 'L';
@@ -205,7 +234,7 @@ function analyzeRecentForm(games: GameResult[], teamName: string): {
     if (i === 0) {
       winStreak = isWin ? 1 : -1;
       for (let j = 1; j < recentGames.length; j++) {
-        const nextWin = recentGames[j].winner?.includes(teamName.split(' ')[0]);
+        const nextWin = teamMatchesGame(teamName, recentGames[j].winner, recentGames[j].winnerKey);
         if (nextWin === isWin) {
           winStreak += isWin ? 1 : -1;
         } else {
@@ -249,7 +278,8 @@ function calculateConsistency(games: GameResult[]): number {
 }
 
 /**
- * Predict matchup outcome with sophisticated model
+ * Predict matchup outcome using Four Factors Model (Dean Oliver)
+ * Industry-standard methodology for basketball predictions
  */
 export function predictMatchup(
   awayAnalytics: TeamAnalytics,
@@ -257,56 +287,136 @@ export function predictMatchup(
   awayStats: TeamStats,
   homeStats: TeamStats
 ): MatchupPrediction {
-  // Multiple prediction factors
-  const factors = {
-    // Net rating difference (40% weight)
-    netRating: (homeAnalytics.netRating - awayAnalytics.netRating) * 0.4,
-    
-    // Offensive vs Defensive matchup (30% weight)
-    matchup: ((homeAnalytics.offensiveRating - awayAnalytics.defensiveRating) -
-              (awayAnalytics.offensiveRating - homeAnalytics.defensiveRating)) * 0.3,
-    
-    // Momentum difference (15% weight)
-    momentum: ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 15,
-    
-    // Home court advantage (15% weight)
-    home: (homeAnalytics.homeAdvantage || 0) * 0.15,
-  };
+  // Use Four Factors if available (from SportsData.io)
+  const hasFourFactors = awayStats.effectiveFieldGoalPercentage && homeStats.effectiveFieldGoalPercentage;
   
-  // Total prediction score
-  const totalScore = Object.values(factors).reduce((a, b) => a + b, 0);
+  let totalScore = 0;
+  let keyFactors: string[] = [];
   
-  // Convert to win probability (using logistic function)
-  const homeWinProb = 1 / (1 + Math.exp(-totalScore / 10));
+  if (hasFourFactors) {
+    // FOUR FACTORS MODEL (Industry Standard)
+    // Reference: Basketball on Paper by Dean Oliver
+    
+    // 1. Effective Field Goal % (40% weight - MOST IMPORTANT)
+    const efgDiff = (homeStats.effectiveFieldGoalPercentage || 0) - (awayStats.effectiveFieldGoalPercentage || 0);
+    const efgScore = efgDiff * 0.40 * 100; // Scale to points
+    
+    // 2. Turnover Rate (25% weight - lower is better)
+    const tovDiff = (awayStats.turnoverRate || 0) - (homeStats.turnoverRate || 0); // Reversed (lower TOV is good)
+    const tovScore = tovDiff * 0.25 * 50; // Scale to points
+    
+    // 3. Offensive Rebound Rate (20% weight)
+    const orbDiff = (homeStats.offensiveReboundRate || 0) - (awayStats.offensiveReboundRate || 0);
+    const orbScore = orbDiff * 0.20 * 75; // Scale to points
+    
+    // 4. Free Throw Rate (15% weight)
+    const ftrDiff = (homeStats.freeThrowRate || 0) - (awayStats.freeThrowRate || 0);
+    const ftrScore = ftrDiff * 0.15 * 60; // Scale to points
+    
+    // Combine Four Factors
+    const fourFactorsScore = efgScore + tovScore + orbScore + ftrScore;
+    
+    // Add tempo/efficiency adjustment if available
+    let tempoAdjustment = 0;
+    if (homeStats.pace && awayStats.pace && homeStats.offensiveEfficiency && awayStats.offensiveEfficiency) {
+      const expectedPace = (homeStats.pace + awayStats.pace) / 2;
+      const efficiencyDiff = (homeStats.offensiveEfficiency || 0) - (awayStats.defensiveEfficiency || 0) -
+                             ((awayStats.offensiveEfficiency || 0) - (homeStats.defensiveEfficiency || 0));
+      tempoAdjustment = (efficiencyDiff / 100) * (expectedPace / 70) * 3; // Scale by pace
+    }
+    
+    // Home court advantage (3.5 points standard in college basketball)
+    const homeAdvantage = 3.5;
+    
+    // Momentum (smaller weight with Four Factors)
+    const momentumScore = ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 2;
+    
+    totalScore = fourFactorsScore + tempoAdjustment + homeAdvantage + momentumScore;
+    
+    // Identify key factors
+    if (Math.abs(efgDiff) > 3) {
+      keyFactors.push(`${efgDiff > 0 ? homeStats.name : awayStats.name} has ${Math.abs(efgDiff).toFixed(1)}% better eFG% (40% of prediction)`);
+    }
+    if (Math.abs(tovDiff) > 2) {
+      keyFactors.push(`${tovDiff > 0 ? homeStats.name : awayStats.name} turns ball over ${Math.abs(tovDiff).toFixed(1)}% less (25% of prediction)`);
+    }
+    if (Math.abs(orbDiff) > 3) {
+      keyFactors.push(`${orbDiff > 0 ? homeStats.name : awayStats.name} has ${Math.abs(orbDiff).toFixed(1)}% better ORB% (20% of prediction)`);
+    }
+    if (homeStats.pace && awayStats.pace) {
+      const expectedPace = (homeStats.pace + awayStats.pace) / 2;
+      keyFactors.push(`Expected pace: ${expectedPace.toFixed(1)} possessions (${expectedPace > 72 ? 'fast' : expectedPace > 68 ? 'average' : 'slow'})`);
+    }
+    
+  } else {
+    // FALLBACK: Basic model without Four Factors
+    const factors = {
+      // Net rating difference (40% weight)
+      netRating: (homeAnalytics.netRating - awayAnalytics.netRating) * 0.4,
+      
+      // Offensive vs Defensive matchup (30% weight)
+      matchup: ((homeAnalytics.offensiveRating - awayAnalytics.defensiveRating) -
+                (awayAnalytics.offensiveRating - homeAnalytics.defensiveRating)) * 0.3,
+      
+      // Momentum difference (15% weight)
+      momentum: ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 15,
+      
+      // Home court advantage (15% weight)
+      home: (homeAnalytics.homeAdvantage || 0) * 0.15,
+    };
+    
+    totalScore = Object.values(factors).reduce((a, b) => a + b, 0);
+    
+    // Identify key factors
+    if (Math.abs(factors.netRating) > 5) {
+      keyFactors.push(`${factors.netRating > 0 ? homeStats.name : awayStats.name} has superior overall rating`);
+    }
+    if (Math.abs(factors.momentum) > 3) {
+      keyFactors.push(`${factors.momentum > 0 ? homeStats.name : awayStats.name} has strong momentum`);
+    }
+    if (homeAnalytics.shootingEfficiency > awayAnalytics.shootingEfficiency + 10) {
+      keyFactors.push(`${homeStats.name} has better shooting efficiency`);
+    } else if (awayAnalytics.shootingEfficiency > homeAnalytics.shootingEfficiency + 10) {
+      keyFactors.push(`${awayStats.name} has better shooting efficiency`);
+    }
+  }
+  
+  // Convert to win probability (using logistic function calibrated for college basketball)
+  const homeWinProb = 1 / (1 + Math.exp(-totalScore / 8));
   const awayWinProb = 1 - homeWinProb;
   
-  // Predict scores
-  const avgTotal = (awayStats.pointsPerGame + homeStats.pointsPerGame + 
-                    awayStats.pointsAllowedPerGame + homeStats.pointsAllowedPerGame) / 4;
+  // Predict scores using tempo-free approach if data available
+  let homePredicted: number;
+  let awayPredicted: number;
   
-  const homePredicted = avgTotal / 2 + (totalScore / 2) + (homeAnalytics.homeAdvantage || 0);
-  const awayPredicted = avgTotal / 2 - (totalScore / 2);
+  if (homeStats.pace && awayStats.pace && homeStats.offensiveEfficiency && awayStats.offensiveEfficiency) {
+    // ADVANCED: Use efficiency ratings and pace
+    const expectedPace = (homeStats.pace + awayStats.pace) / 2;
+    
+    // Points = (Offensive Efficiency) * (Pace / 100)
+    homePredicted = (homeStats.offensiveEfficiency / 100) * expectedPace + 3.5; // +3.5 home court
+    awayPredicted = (awayStats.offensiveEfficiency / 100) * expectedPace;
+  } else {
+    // FALLBACK: Simple average + spread adjustment
+    const avgTotal = (awayStats.pointsPerGame + homeStats.pointsPerGame + 
+                      awayStats.pointsAllowedPerGame + homeStats.pointsAllowedPerGame) / 4;
+    
+    homePredicted = avgTotal / 2 + (totalScore / 2) + (homeAnalytics.homeAdvantage || 0);
+    awayPredicted = avgTotal / 2 - (totalScore / 2);
+  }
   
   // Predicted spread
   const predictedSpread = homePredicted - awayPredicted;
   
-  // Calculate confidence (based on consistency and sample size)
+  // Calculate confidence based on:
+  // 1. Data quality (Four Factors available = higher confidence)
+  // 2. Game consistency
+  // 3. Win probability (closer to 50% = lower confidence)
+  const dataQuality = hasFourFactors ? 85 : 70;
   const avgConsistency = (awayAnalytics.consistency + homeAnalytics.consistency) / 2;
-  const confidence = Math.min(95, Math.max(60, avgConsistency));
+  const certaintyBonus = Math.abs(homeWinProb - 0.5) * 20; // More certain predictions = higher confidence
   
-  // Identify key factors
-  const keyFactors: string[] = [];
-  if (Math.abs(factors.netRating) > 5) {
-    keyFactors.push(`${factors.netRating > 0 ? homeStats.name : awayStats.name} has superior overall rating`);
-  }
-  if (Math.abs(factors.momentum) > 3) {
-    keyFactors.push(`${factors.momentum > 0 ? homeStats.name : awayStats.name} has strong momentum`);
-  }
-  if (homeAnalytics.shootingEfficiency > awayAnalytics.shootingEfficiency + 10) {
-    keyFactors.push(`${homeStats.name} has better shooting efficiency`);
-  } else if (awayAnalytics.shootingEfficiency > homeAnalytics.shootingEfficiency + 10) {
-    keyFactors.push(`${awayStats.name} has better shooting efficiency`);
-  }
+  const confidence = Math.min(95, Math.max(60, (dataQuality + avgConsistency + certaintyBonus) / 3));
   
   return {
     winProbability: {

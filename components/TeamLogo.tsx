@@ -7,11 +7,13 @@ interface TeamLogoProps {
   teamName: string;
   size?: number;
   className?: string;
+  logo?: string; // Optional logo URL to override the default
 }
 
-export function TeamLogo({ teamName, size = 64, className = "" }: TeamLogoProps) {
+export function TeamLogo({ teamName, size = 64, className = "", logo }: TeamLogoProps) {
   const teamData = getTeamData(teamName);
-  const [imgSrc, setImgSrc] = useState(teamData.logoUrl);
+  // Use provided logo if available, otherwise use team data logo
+  const [imgSrc, setImgSrc] = useState(logo || teamData.logoUrl);
 
   const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
     teamData.abbreviation

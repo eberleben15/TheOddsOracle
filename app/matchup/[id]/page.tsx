@@ -1,10 +1,9 @@
 import { getUpcomingGames, getGameOdds } from "@/lib/odds-api";
 import {
-  getTeamStats,
-  getRecentGames,
-  getHeadToHead,
-  searchTeamByName,
-} from "@/lib/stats-api-new";
+  getTeamSeasonStats,
+  findTeamByName,
+  getHeadToHead as getSportsDataH2H,
+} from "@/lib/sportsdata-api";
 import { apiCache } from "@/lib/api-cache";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { MatchupHeader } from "@/components/MatchupHeader";
@@ -13,6 +12,7 @@ import { AdvancedAnalytics } from "@/components/AdvancedAnalytics";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { parseOdds } from "@/lib/odds-utils";
 import { notFound } from "next/navigation";
+import { TeamStats, HeadToHead } from "@/types";
 
 interface MatchupPageProps {
   params: Promise<{
@@ -39,78 +39,90 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
     notFound();
   }
 
-  // Search for team IDs by name if API key is set
-  let homeTeamId: number | null = null;
-  let awayTeamId: number | null = null;
-  let subscriptionError = false;
+  // Check for API key
+  const hasAPIKey = !!process.env.SPORTSDATA_API_KEY;
   
-  const hasAPIKey = !!process.env.STATS_API_KEY;
-  if (hasAPIKey) {
-    try {
-      [homeTeamId, awayTeamId] = await Promise.all([
-        searchTeamByName(game.home_team),
-        searchTeamByName(game.away_team),
-      ]);
-      
-      if (!homeTeamId || !awayTeamId) {
-        console.warn(`Could not find team IDs for "${game.home_team}" (${homeTeamId}) or "${game.away_team}" (${awayTeamId})`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      if (errorMsg === "API_SUBSCRIPTION_REQUIRED" || errorMsg.includes("not subscribed")) {
-        subscriptionError = true;
-        console.error("❌ API Subscription Required: You are not subscribed to the API-Basketball API on RapidAPI.");
-        console.error("   Please subscribe at: https://rapidapi.com/api-sports/api/api-basketball");
-      }
-    }
-  } else {
-    // No API key - show error
-    subscriptionError = true;
-  }
-
-  let homeTeamStats = null;
-  let awayTeamStats = null;
+  let homeTeamStats: TeamStats | null = null;
+  let awayTeamStats: TeamStats | null = null;
   let recentGames = { home: [], away: [] };
-  let headToHead = null;
+  let headToHead: HeadToHead | null = null;
   let apiError: string | null = null;
 
-  // Only fetch data if we have API key, no subscription error, and valid team IDs
-  if (hasAPIKey && !subscriptionError && homeTeamId && awayTeamId) {
+  if (!hasAPIKey) {
+    apiError = "⚠️ SportsData.io API Key Required: Please configure SPORTSDATA_API_KEY in your .env.local file. Visit https://sportsdata.io for access.";
+  } else {
     try {
-      // Fetch real stats from API - no mock data fallback
-      [homeTeamStats, awayTeamStats] = await Promise.all([
-        getTeamStats(homeTeamId, game.home_team),
-        getTeamStats(awayTeamId, game.away_team),
+      console.log(`[MATCHUP] Fetching stats for ${game.away_team} vs ${game.home_team}`);
+      
+      // Find teams in SportsData.io
+      const [awayTeam, homeTeam] = await Promise.all([
+        findTeamByName(game.away_team),
+        findTeamByName(game.home_team),
       ]);
 
-      const [homeRecent, awayRecent] = await Promise.all([
-        getRecentGames(homeTeamId, 10, game.home_team),
-        getRecentGames(awayTeamId, 10, game.away_team),
-      ]);
+      if (!awayTeam || !homeTeam) {
+        apiError = `❌ Team Not Found: Could not find "${!awayTeam ? game.away_team : game.home_team}" in SportsData.io database. This team may not be available in the NCAA basketball data.`;
+        console.error(apiError);
+      } else {
+        // Fetch real stats from SportsData.io - NO FALLBACK DATA
+        const [awayStats, homeStats] = await Promise.all([
+          getTeamSeasonStats(game.away_team),
+          getTeamSeasonStats(game.home_team),
+        ]);
 
-      recentGames = {
-        home: homeRecent,
-        away: awayRecent,
-      };
+        if (!awayStats || !homeStats) {
+          apiError = `❌ Stats Unavailable: Could not retrieve season statistics for one or both teams. Data may not be available yet for the current season.`;
+          console.error(apiError);
+        } else {
+          homeTeamStats = homeStats;
+          awayTeamStats = awayStats;
 
-      headToHead = await getHeadToHead(awayTeamId, homeTeamId, game.away_team, game.home_team);
+          // Recent games are already included in TeamStats from SportsData.io
+          recentGames = {
+            home: homeStats.recentGames || [],
+            away: awayStats.recentGames || [],
+          };
+
+          // Fetch head-to-head history
+          try {
+            const h2hGames = await getSportsDataH2H(awayTeam.Key, homeTeam.Key, 5);
+            
+            if (h2hGames.length > 0) {
+              // Count wins for each team - use winnerKey for reliable matching
+              const awayWins = h2hGames.filter(g => g.winnerKey === awayTeam.Key).length;
+              const homeWins = h2hGames.filter(g => g.winnerKey === homeTeam.Key).length;
+              
+              headToHead = {
+                games: h2hGames,
+                team1Wins: awayWins,
+                team2Wins: homeWins,
+                awayTeamWins: awayWins,
+                homeTeamWins: homeWins,
+              };
+            }
+          } catch (h2hError) {
+            console.warn("Could not fetch head-to-head data:", h2hError);
+            // H2H is optional, don't fail the entire page
+          }
+
+          console.log(`[MATCHUP] ✅ Successfully loaded stats for both teams`);
+        }
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      apiError = errorMessage;
-      console.error("Failed to fetch stats from API:", errorMessage);
+      apiError = `❌ API Error: ${errorMessage}`;
+      console.error("Failed to fetch stats from SportsData.io:", error);
     }
-  } else if (!hasAPIKey) {
-    apiError = "STATS_API_KEY is not set in environment variables";
-  } else if (subscriptionError) {
-    apiError = "API subscription required. Please subscribe to the API-Basketball API.";
-  } else if (!homeTeamId || !awayTeamId) {
-    apiError = `Could not find team IDs for "${game.home_team}" or "${game.away_team}". The teams may not exist in the API database.`;
   }
 
   return (
     <main className="p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <MatchupHeader game={game} />
+        <MatchupHeader 
+          game={game} 
+          awayTeamStats={awayTeamStats || undefined}
+          homeTeamStats={homeTeamStats || undefined}
+        />
 
         {apiError && (
           <div className="mb-6">

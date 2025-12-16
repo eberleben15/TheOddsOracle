@@ -42,6 +42,21 @@ export function AdvancedAnalytics({
     prediction = identifyValueBets(prediction, odds);
   }
 
+  // Helper function to safely display numbers
+  const safeNumber = (value: number, decimals: number = 1): string => {
+    if (isNaN(value) || !isFinite(value)) {
+      return "--";
+    }
+    return value.toFixed(decimals);
+  };
+
+  // Check if we have valid prediction data
+  const hasValidPrediction = 
+    !isNaN(prediction.predictedScore.away) && 
+    !isNaN(prediction.predictedScore.home) &&
+    !isNaN(prediction.winProbability.away) &&
+    !isNaN(prediction.winProbability.home);
+
   return (
     <div className="space-y-6">
       {/* Win Probability & Prediction */}
@@ -50,9 +65,11 @@ export function AdvancedAnalytics({
           <div className="flex items-center gap-2">
             <FaTrophy className="text-primary" size={20} />
             <h3 className="text-xl font-semibold text-text-dark">AI-Powered Prediction</h3>
-            <Chip size="sm" color="success" variant="flat">
-              {prediction.confidence.toFixed(0)}% Confidence
-            </Chip>
+            {hasValidPrediction && (
+              <Chip size="sm" color="success" variant="flat">
+                {safeNumber(prediction.confidence, 0)}% Confidence
+              </Chip>
+            )}
           </div>
         </CardHeader>
         <CardBody className="p-6">
@@ -65,7 +82,7 @@ export function AdvancedAnalytics({
                   <span className="font-semibold text-text-dark">{awayTeamStats.name}</span>
                 </div>
                 <span className="text-2xl font-bold text-primary">
-                  {prediction.winProbability.away.toFixed(1)}%
+                  {safeNumber(prediction.winProbability.away, 1)}%
                 </span>
               </div>
               
@@ -89,7 +106,7 @@ export function AdvancedAnalytics({
                   <span className="font-semibold text-text-dark">{homeTeamStats.name}</span>
                 </div>
                 <span className="text-2xl font-bold text-success">
-                  {prediction.winProbability.home.toFixed(1)}%
+                  {safeNumber(prediction.winProbability.home, 1)}%
                 </span>
               </div>
             </div>
@@ -99,26 +116,36 @@ export function AdvancedAnalytics({
               <h4 className="text-sm font-medium text-text-body uppercase tracking-wide mb-3">
                 Predicted Final Score
               </h4>
-              <div className="flex justify-center items-center gap-8">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-primary mb-1">
-                    {prediction.predictedScore.away}
+              {hasValidPrediction ? (
+                <>
+                  <div className="flex justify-center items-center gap-8">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-primary mb-1">
+                        {safeNumber(prediction.predictedScore.away, 0)}
+                      </div>
+                      <div className="text-sm text-text-body">{awayTeamStats.name.split(' ')[0]}</div>
+                    </div>
+                    <div className="text-2xl font-bold text-text-body">-</div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-success mb-1">
+                        {safeNumber(prediction.predictedScore.home, 0)}
+                      </div>
+                      <div className="text-sm text-text-body">{homeTeamStats.name.split(' ')[0]}</div>
+                    </div>
                   </div>
-                  <div className="text-sm text-text-body">{awayTeamStats.name.split(' ')[0]}</div>
-                </div>
-                <div className="text-2xl font-bold text-text-body">-</div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-success mb-1">
-                    {prediction.predictedScore.home}
+                  <div className="text-center mt-3">
+                    <span className="text-sm text-text-body">
+                      Predicted Spread: <span className="font-semibold">{homeTeamStats.name.split(' ')[0]} {prediction.predictedSpread > 0 ? '-' : '+'}{safeNumber(Math.abs(prediction.predictedSpread), 1)}</span>
+                    </span>
                   </div>
-                  <div className="text-sm text-text-body">{homeTeamStats.name.split(' ')[0]}</div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="text-sm text-text-body">
+                    ⚠️ Predictions unavailable - Configure SportsData.io API key to enable predictions
+                  </div>
                 </div>
-              </div>
-              <div className="text-center mt-3">
-                <span className="text-sm text-text-body">
-                  Predicted Spread: <span className="font-semibold">{homeTeamStats.name.split(' ')[0]} {prediction.predictedSpread > 0 ? '-' : '+'}{Math.abs(prediction.predictedSpread).toFixed(1)}</span>
-                </span>
-              </div>
+              )}
             </div>
 
             {/* Key Factors */}
@@ -167,7 +194,7 @@ export function AdvancedAnalytics({
                       </div>
                     </div>
                     <Chip size="sm" color="warning" variant="solid">
-                      {bet.confidence.toFixed(0)}% Confidence
+                      {safeNumber(bet.confidence, 0)}% Confidence
                     </Chip>
                   </div>
                   <p className="text-sm text-text-body">{bet.reason}</p>
@@ -202,7 +229,7 @@ export function AdvancedAnalytics({
                     color={awayAnalytics.momentum > 0 ? "success" : "danger"}
                     variant="flat"
                   >
-                    {awayAnalytics.momentum > 0 ? '+' : ''}{awayAnalytics.momentum.toFixed(0)}
+                    {awayAnalytics.momentum > 0 ? '+' : ''}{safeNumber(awayAnalytics.momentum, 0)}
                   </Chip>
                 </div>
                 <div className="text-sm text-text-body mb-2">
@@ -221,7 +248,7 @@ export function AdvancedAnalytics({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <TeamLogo teamName={homeTeamStats.name} size={24} />
+                    <TeamLogo teamName={homeTeamStats.name} size={24} logo={homeTeamStats.logo} />
                     <span className="font-medium text-text-dark">{homeTeamStats.name.split(' ')[0]}</span>
                   </div>
                   <Chip
@@ -229,7 +256,7 @@ export function AdvancedAnalytics({
                     color={homeAnalytics.momentum > 0 ? "success" : "danger"}
                     variant="flat"
                   >
-                    {homeAnalytics.momentum > 0 ? '+' : ''}{homeAnalytics.momentum.toFixed(0)}
+                    {homeAnalytics.momentum > 0 ? '+' : ''}{safeNumber(homeAnalytics.momentum, 0)}
                   </Chip>
                 </div>
                 <div className="text-sm text-text-body mb-2">
@@ -264,11 +291,11 @@ export function AdvancedAnalytics({
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{awayAnalytics.netRating.toFixed(1)}</span>
+                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.netRating, 1)}</span>
                   </div>
                   <div className="w-32 text-center text-xs text-text-body">vs</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{homeAnalytics.netRating.toFixed(1)}</span>
+                    <span className="font-bold text-success">{safeNumber(homeAnalytics.netRating, 1)}</span>
                   </div>
                 </div>
               </div>
@@ -280,11 +307,11 @@ export function AdvancedAnalytics({
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{awayAnalytics.offensiveRating.toFixed(1)}</span>
+                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.offensiveRating, 1)}</span>
                   </div>
                   <div className="w-32 text-center text-xs text-text-body">O-Rating</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{homeAnalytics.offensiveRating.toFixed(1)}</span>
+                    <span className="font-bold text-success">{safeNumber(homeAnalytics.offensiveRating, 1)}</span>
                   </div>
                 </div>
               </div>
@@ -296,11 +323,11 @@ export function AdvancedAnalytics({
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{awayAnalytics.defensiveRating.toFixed(1)}</span>
+                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.defensiveRating, 1)}</span>
                   </div>
                   <div className="w-32 text-center text-xs text-text-body">D-Rating</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{homeAnalytics.defensiveRating.toFixed(1)}</span>
+                    <span className="font-bold text-success">{safeNumber(homeAnalytics.defensiveRating, 1)}</span>
                   </div>
                 </div>
               </div>
@@ -312,11 +339,11 @@ export function AdvancedAnalytics({
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{awayAnalytics.assistToTurnoverRatio.toFixed(2)}</span>
+                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.assistToTurnoverRatio, 2)}</span>
                   </div>
                   <div className="w-32 text-center text-xs text-text-body">AST/TO</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{homeAnalytics.assistToTurnoverRatio.toFixed(2)}</span>
+                    <span className="font-bold text-success">{safeNumber(homeAnalytics.assistToTurnoverRatio, 2)}</span>
                   </div>
                 </div>
               </div>

@@ -2,7 +2,7 @@
 
 import { Card, CardBody, CardHeader, Button } from "@nextui-org/react";
 import Link from "next/link";
-import { OddsGame } from "@/types";
+import { OddsGame, TeamStats } from "@/types";
 import { formatDate, formatTime } from "@/lib/utils";
 import { TeamLogo } from "./TeamLogo";
 import { getTeamData } from "@/lib/team-data";
@@ -11,11 +11,17 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 interface MatchupHeaderProps {
   game: OddsGame;
+  awayTeamStats?: TeamStats;
+  homeTeamStats?: TeamStats;
 }
 
-export function MatchupHeader({ game }: MatchupHeaderProps) {
-  const awayTeamData = getTeamData(game.away_team);
-  const homeTeamData = getTeamData(game.home_team);
+export function MatchupHeader({ game, awayTeamStats, homeTeamStats }: MatchupHeaderProps) {
+  // Use SportsData.io team names if available, otherwise fall back to Odds API names
+  const awayTeamName = awayTeamStats?.name || game.away_team;
+  const homeTeamName = homeTeamStats?.name || game.home_team;
+  
+  const awayTeamData = getTeamData(awayTeamName);
+  const homeTeamData = getTeamData(homeTeamName);
   const parsedOdds = parseOdds(game);
 
   return (
@@ -47,10 +53,10 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
           <div className="flex justify-between items-center">
             {/* Away Team */}
             <div className="text-center flex-1 flex flex-col items-center gap-4">
-              <TeamLogo teamName={game.away_team} size={80} />
+              <TeamLogo teamName={awayTeamName} size={80} />
               <div>
                 <h2 className="text-xl font-semibold mb-1 text-text-dark">
-                  {game.away_team}
+                  {awayTeamName}
                 </h2>
                 <p className="text-sm text-text-body">Away</p>
               </div>
@@ -61,10 +67,10 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
             
             {/* Home Team */}
             <div className="text-center flex-1 flex flex-col items-center gap-4">
-              <TeamLogo teamName={game.home_team} size={80} />
+              <TeamLogo teamName={homeTeamName} size={80} />
               <div>
                 <h2 className="text-xl font-semibold mb-1 text-text-dark">
-                  {game.home_team}
+                  {homeTeamName}
                 </h2>
                 <p className="text-sm text-text-body">Home</p>
               </div>
@@ -96,7 +102,7 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
                           {odds.moneyline.away && (
                             <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
                               <span className="text-sm font-medium text-text-dark">
-                                {game.away_team.split(" ")[0]}
+                                {awayTeamName.split(" ")[0]}
                               </span>
                               <span className="text-sm font-bold text-primary">
                                 {formatDecimalOdds(odds.moneyline.away.price)}
@@ -106,7 +112,7 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
                           {odds.moneyline.home && (
                             <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
                               <span className="text-sm font-medium text-text-dark">
-                                {game.home_team.split(" ")[0]}
+                                {homeTeamName.split(" ")[0]}
                               </span>
                               <span className="text-sm font-bold text-primary">
                                 {formatDecimalOdds(odds.moneyline.home.price)}
@@ -125,7 +131,7 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
                           {odds.spread.away && (
                             <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
                               <span className="text-sm font-medium text-text-dark">
-                                {game.away_team.split(" ")[0]}
+                                {awayTeamName.split(" ")[0]}
                               </span>
                               <span className="text-sm font-bold text-text-dark">
                                 {formatSpread(odds.spread.away)}
@@ -135,7 +141,7 @@ export function MatchupHeader({ game }: MatchupHeaderProps) {
                           {odds.spread.home && (
                             <div className="flex justify-between items-center bg-white px-3 py-2 rounded border border-border-gray">
                               <span className="text-sm font-medium text-text-dark">
-                                {game.home_team.split(" ")[0]}
+                                {homeTeamName.split(" ")[0]}
                               </span>
                               <span className="text-sm font-bold text-text-dark">
                                 {formatSpread(odds.spread.home)}
