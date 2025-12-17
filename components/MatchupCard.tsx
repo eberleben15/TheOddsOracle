@@ -27,7 +27,7 @@ export function MatchupCard({ game }: MatchupCardProps) {
       <Card className="
         bg-white
         border border-border-gray
-        hover:border-primary
+        hover:border-gray-400
         hover:shadow-lg
         transition-all duration-200
         cursor-pointer
@@ -37,7 +37,7 @@ export function MatchupCard({ game }: MatchupCardProps) {
             <span className="text-xs font-medium text-text-body uppercase tracking-wider">
               {game.sport_title}
             </span>
-            <span className="text-sm text-primary font-semibold">{gameTime}</span>
+            <span className="text-sm text-gray-600 font-semibold">{gameTime}</span>
           </div>
         </CardHeader>
         <CardBody className="p-4">
@@ -53,7 +53,7 @@ export function MatchupCard({ game }: MatchupCardProps) {
                 </div>
                 {bestMoneyline.away && (
                   <div className="text-right">
-                    <p className="text-sm font-bold text-primary">
+                    <p className="text-sm font-bold text-gray-700">
                       {formatDecimalOdds(bestMoneyline.away.price)}
                     </p>
                     <p className="text-xs text-text-body">{bestMoneyline.awayBookmaker}</p>
@@ -77,7 +77,7 @@ export function MatchupCard({ game }: MatchupCardProps) {
                 </div>
                 {bestMoneyline.home && (
                   <div className="text-right">
-                    <p className="text-sm font-bold text-primary">
+                    <p className="text-sm font-bold text-gray-700">
                       {formatDecimalOdds(bestMoneyline.home.price)}
                     </p>
                     <p className="text-xs text-text-body">{bestMoneyline.homeBookmaker}</p>

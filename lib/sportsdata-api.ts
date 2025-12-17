@@ -12,8 +12,32 @@ import { apiTracker } from "./api-tracker";
 const BASE_URL = "https://api.sportsdata.io/v3/cbb";
 const API_KEY = process.env.SPORTSDATA_API_KEY;
 
-// Current season (format: "2025" for 2024-25 season)
-const CURRENT_SEASON = "2025";
+/**
+ * Calculate current NCAA basketball season
+ * SportsData uses the ending year of the season (e.g., "2026" for the 2025-2026 season)
+ * NCAA basketball season runs November to April:
+ * - Nov 2025 - Apr 2026 = season "2026"
+ * - Nov 2024 - Apr 2025 = season "2025"
+ */
+function calculateCurrentSeason(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-11 (0=Jan, 10=Nov, 11=Dec)
+  
+  // If November (10) or December (11), we're in the season that ends next year
+  // If January (0) through October (9), we're in the season that ends this year
+  if (month >= 10) {
+    // November or December - season ends next year
+    return String(year + 1);
+  } else {
+    // January through October - season ends this year
+    return String(year);
+  }
+}
+
+// Current season (format: "2026" for 2025-26 season)
+const CURRENT_SEASON = calculateCurrentSeason();
+console.log(`[SportsData.io] Using season: ${CURRENT_SEASON} (${parseInt(CURRENT_SEASON) - 1}-${CURRENT_SEASON.slice(2)} season)`);
 
 // Cache for team mappings (SportsData team key -> full data)
 const teamCache = new Map<string, any>();
@@ -260,6 +284,18 @@ function logApiCall(endpoint: string, duration: number, cached: boolean, resultC
 }
 
 /**
+ * Normalize percentage values - handles null, 0-1 format, and 0-100 format
+ */
+function normalizePercentage(value: number | null | undefined): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  // If value is between 0 and 1, it's likely a decimal - convert to percentage
+  if (value > 0 && value < 1) {
+    return value * 100;
+  }
+  return value;
+}
+
+/**
  * Check if API key is configured
  */
 export function isConfigured(): boolean {
@@ -467,57 +503,129 @@ export async function getTeamSeasonStats(teamName: string): Promise<TeamStats | 
     // Fetch recent games
     const recentGames = await getTeamRecentGames(team.Key, 5);
     
+    // Calculate per-game stats (API may return totals or per-game, handle both)
+    const games = teamStats.Games || 1;
+    
+    // Extract raw values for calculations
+    const points = teamStats.Points || 0;
+    const oppPoints = teamStats.OpponentPoints || 0;
+    const fga = teamStats.FieldGoalsAttempted || 0;
+    const fgm = teamStats.FieldGoalsMade || 0;
+    const tpm = teamStats.ThreePointersMade || 0;
+    const fta = teamStats.FreeThrowsAttempted || 0;
+    const ftm = teamStats.FreeThrowsMade || 0;
+    const turnovers = teamStats.Turnovers || 0;
+    const offReb = teamStats.OffensiveRebounds || 0;
+    const defReb = teamStats.DefensiveRebounds || 0;
+    const possessions = teamStats.Possessions || (fga + 0.44 * fta + turnovers - offReb);
+    
+    // Points per game - use PointsPerGame if available, otherwise calculate
+    const ppg = teamStats.PointsPerGame || (points / games);
+    
+    // Opponent PPG - calculate from recent games if not available from API
+    let oppPpg = teamStats.OpponentPointsPerGame;
+    if (!oppPpg && oppPoints > 0) {
+      oppPpg = oppPoints / games;
+    } else if (!oppPpg && recentGames.length > 0) {
+      // Calculate from recent games
+      const oppScores = recentGames.map(g => {
+        const isHome = g.homeTeamKey === team.Key;
+        return isHome ? g.awayScore : g.homeScore;
+      });
+      oppPpg = oppScores.reduce((a, b) => a + b, 0) / oppScores.length;
+    } else if (!oppPpg) {
+      oppPpg = 70; // League average fallback
+    }
+    
+    // === CALCULATE FOUR FACTORS ===
+    // 1. eFG% = (FGM + 0.5 * 3PM) / FGA * 100
+    const eFGpct = teamStats.EffectiveFieldGoalsPercentage || 
+      (fga > 0 ? ((fgm + 0.5 * tpm) / fga * 100) : undefined);
+    
+    // 2. TOV% = Turnovers / (FGA + 0.44 * FTA + Turnovers) * 100
+    const tovPossessions = fga + 0.44 * fta + turnovers;
+    const tovRate = teamStats.TurnOversPercentage ?? 
+      (tovPossessions > 0 ? (turnovers / tovPossessions * 100) : undefined);
+    
+    // 3. ORB% = Offensive Rebounds / Total Rebounds * 100 (approximation)
+    const totalReb = offReb + defReb;
+    const orbRate = teamStats.OffensiveReboundsPercentage ?? 
+      (totalReb > 0 ? (offReb / totalReb * 100) : undefined);
+    
+    // 4. FTR (Free Throw Rate) = FTA / FGA
+    const ftr = teamStats.FreeThrowAttemptRate ?? 
+      (fga > 0 ? (fta / fga * 100) : undefined);
+    
+    // === CALCULATE ADVANCED METRICS ===
+    // Offensive Rating = Points / Possessions * 100
+    const offRtg = teamStats.OffensiveRating ?? 
+      (possessions > 0 ? (points / possessions * 100) : ppg * 1.05);
+    
+    // Defensive Rating = Opponent Points / Possessions * 100
+    const defRtg = teamStats.DefensiveRating ?? 
+      (possessions > 0 && oppPoints > 0 ? (oppPoints / possessions * 100) : oppPpg * 1.05);
+    
+    // Pace = Possessions / Games
+    const pace = possessions / games || 70;
+    
     // Transform to our TeamStats interface
     const stats: TeamStats = {
       id: team.TeamID,
       name: team.School,
       code: team.Key,
       logo: team.TeamLogoUrl,
-      wins: teamStats.Wins,
-      losses: teamStats.Losses,
-      pointsPerGame: teamStats.PointsPerGame,
-      pointsAllowedPerGame: teamStats.OpponentPointsPerGame,
+      wins: teamStats.Wins || 0,
+      losses: teamStats.Losses || 0,
+      pointsPerGame: ppg,
+      pointsAllowedPerGame: oppPpg,
       recentGames,
       
-      // Basic stats
-      fieldGoalPercentage: teamStats.FieldGoalsPercentage,
-      threePointPercentage: teamStats.ThreePointersPercentage,
-      freeThrowPercentage: teamStats.FreeThrowsPercentage,
-      reboundsPerGame: teamStats.Rebounds / (teamStats.Games || 1),
-      assistsPerGame: teamStats.Assists / (teamStats.Games || 1),
-      turnoversPerGame: teamStats.Turnovers / (teamStats.Games || 1),
-      stealsPerGame: teamStats.Steals / (teamStats.Games || 1),
-      blocksPerGame: teamStats.BlockedShots / (teamStats.Games || 1),
-      foulsPerGame: teamStats.PersonalFouls / (teamStats.Games || 1),
+      // Basic stats - handle both percentage formats (0-1 or 0-100)
+      fieldGoalPercentage: normalizePercentage(teamStats.FieldGoalsPercentage),
+      threePointPercentage: normalizePercentage(teamStats.ThreePointersPercentage),
+      freeThrowPercentage: normalizePercentage(teamStats.FreeThrowsPercentage),
+      reboundsPerGame: (teamStats.Rebounds || 0) / games,
+      assistsPerGame: (teamStats.Assists || 0) / games,
+      turnoversPerGame: turnovers / games,
+      stealsPerGame: (teamStats.Steals || 0) / games,
+      blocksPerGame: (teamStats.BlockedShots || 0) / games,
+      foulsPerGame: (teamStats.PersonalFouls || 0) / games,
       
-      // Four Factors ⭐
-      effectiveFieldGoalPercentage: teamStats.EffectiveFieldGoalsPercentage,
-      turnoverRate: teamStats.TurnOversPercentage,
-      offensiveReboundRate: teamStats.OffensiveReboundsPercentage,
-      freeThrowRate: teamStats.FreeThrowAttemptRate,
+      // Four Factors ⭐ - calculated from raw data
+      effectiveFieldGoalPercentage: eFGpct,
+      turnoverRate: tovRate,
+      offensiveReboundRate: orbRate,
+      freeThrowRate: ftr,
       
-      // Advanced metrics ⭐
-      offensiveEfficiency: teamStats.OffensiveRating,
-      defensiveEfficiency: teamStats.DefensiveRating,
-      pace: teamStats.Possessions / (teamStats.Games || 1),
-      assistTurnoverRatio: teamStats.Assists / (teamStats.Turnovers || 1),
+      // Advanced metrics ⭐ - calculated from raw data
+      offensiveEfficiency: offRtg,
+      defensiveEfficiency: defRtg,
+      pace: pace,
+      assistTurnoverRatio: (teamStats.Assists || 0) / Math.max(turnovers, 1),
     };
     
-    // DEBUG: Log what we're returning
+    // DEBUG: Log what we're returning (all values)
     console.log(`[SPORTSDATA] Transformed stats for ${team.School}:`, {
-      wins: stats.wins,
-      losses: stats.losses,
-      ppg: stats.pointsPerGame,
+      record: `${stats.wins}-${stats.losses}`,
+      scoring: {
+        ppg: stats.pointsPerGame?.toFixed(1),
+        oppPpg: stats.pointsAllowedPerGame?.toFixed(1),
+      },
+      shooting: {
+        fg: stats.fieldGoalPercentage?.toFixed(1),
+        tp: stats.threePointPercentage?.toFixed(1),
+        ft: stats.freeThrowPercentage?.toFixed(1),
+      },
       fourFactors: {
-        eFG: stats.effectiveFieldGoalPercentage,
-        TOV: stats.turnoverRate,
-        ORB: stats.offensiveReboundRate,
-        FTR: stats.freeThrowRate,
+        eFG: stats.effectiveFieldGoalPercentage?.toFixed(1),
+        TOV: stats.turnoverRate?.toFixed(1),
+        ORB: stats.offensiveReboundRate?.toFixed(1),
+        FTR: stats.freeThrowRate?.toFixed(1),
       },
       advanced: {
-        ORtg: stats.offensiveEfficiency,
-        DRtg: stats.defensiveEfficiency,
-        pace: stats.pace,
+        ORtg: stats.offensiveEfficiency?.toFixed(1),
+        DRtg: stats.defensiveEfficiency?.toFixed(1),
+        pace: stats.pace?.toFixed(1),
       },
       recentGamesCount: stats.recentGames.length,
     });
@@ -720,8 +828,9 @@ export async function getHeadToHead(
     const teams = await getAllTeams();
     const teamMap = new Map(teams.map(t => [t.Key, t]));
     
-    // Fetch all games for current season and previous seasons
-    const seasons = [CURRENT_SEASON, "2024", "2023"];
+    // Fetch all games for current season and previous seasons (dynamic)
+    const currentSeasonNum = parseInt(CURRENT_SEASON);
+    const seasons = [CURRENT_SEASON, String(currentSeasonNum - 1), String(currentSeasonNum - 2)];
     const h2hGames: GameResult[] = [];
     
     for (const season of seasons) {

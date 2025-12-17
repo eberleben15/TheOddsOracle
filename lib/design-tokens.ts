@@ -1,80 +1,51 @@
 /**
  * Design System - Color Tokens for The Odds Oracle
  * 
- * A professional sports betting color scheme with excellent contrast
+ * A clean white and gray theme with excellent contrast
  * and clear visual hierarchy.
  */
 
 export const colors = {
-  // Primary - Professional Blue (trust, stability)
+  // Primary - Gray scale (main theme)
   primary: {
-    50: '#e6f1ff',
-    100: '#b3d7ff',
-    200: '#80bdff',
-    300: '#4da3ff',
-    400: '#1a89ff',
-    500: '#0070f3', // Main primary
-    600: '#005dd1',
-    700: '#004aaf',
-    800: '#00378d',
-    900: '#00246b',
+    50: '#F9FAFB',   // Body background
+    100: '#F3F4F6',  // Light backgrounds
+    200: '#E5E7EB',  // Borders
+    300: '#D1D5DB',  // Subtle borders
+    400: '#9CA3AF',  // Disabled text
+    500: '#6B7280',  // Body text
+    600: '#4B5563',  // Primary actions
+    700: '#374151',  // Dark text
+    800: '#1F2937',  // Very dark text
+    900: '#111827',  // Darkest text
   },
   
-  // Secondary - Emerald Green (winning, money, success)
-  secondary: {
-    50: '#ecfdf5',
-    100: '#d1fae5',
-    200: '#a7f3d0',
-    300: '#6ee7b7',
-    400: '#34d399',
-    500: '#10b981', // Main secondary
-    600: '#059669',
-    700: '#047857',
-    800: '#065f46',
-    900: '#064e3b',
-  },
+  // Semantic colors (all gray scale)
+  success: '#6B7280',  // Gray-500
+  warning: '#6B7280',  // Gray-500
+  danger: '#6B7280',   // Gray-500
+  info: '#4B5563',     // Gray-600
   
-  // Accent - Amber (highlights, calls-to-action)
-  accent: {
-    50: '#fffbeb',
-    100: '#fef3c7',
-    200: '#fde68a',
-    300: '#fcd34d',
-    400: '#fbbf24',
-    500: '#f59e0b', // Main accent
-    600: '#d97706',
-    700: '#b45309',
-    800: '#92400e',
-    900: '#78350f',
-  },
-  
-  // Semantic colors
-  success: '#10b981', // Green
-  warning: '#f59e0b', // Amber
-  danger: '#ef4444',  // Red
-  info: '#3b82f6',    // Blue
-  
-  // Grayscale (for dark mode)
+  // Grayscale (Tailwind standard)
   gray: {
-    50: '#fafafa',
-    100: '#f4f4f5',
-    200: '#e4e4e7',
-    300: '#d4d4d8',
-    400: '#a1a1aa',
-    500: '#71717a',
-    600: '#52525b',
-    700: '#3f3f46',
-    800: '#27272a',
-    900: '#18181b',
-    950: '#0a0a0b',
+    50: '#F9FAFB',
+    100: '#F3F4F6',
+    200: '#E5E7EB',
+    300: '#D1D5DB',
+    400: '#9CA3AF',
+    500: '#6B7280',
+    600: '#4B5563',
+    700: '#374151',
+    800: '#1F2937',
+    900: '#111827',
   },
 };
 
 export const gradients = {
-  primary: 'from-blue-500 to-blue-700',
-  secondary: 'from-emerald-500 to-emerald-700',
-  accent: 'from-amber-500 to-amber-700',
-  subtle: 'from-gray-800 to-gray-900',
+  primary: 'from-gray-600 to-gray-700',
+  secondary: 'from-gray-500 to-gray-600',
+  accent: 'from-gray-400 to-gray-500',
+  subtle: 'from-gray-100 to-gray-50',
 };
 
 export const shadows = {

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { searchTeamByName } from "@/lib/stats-api-new";
-import { getNCAATeamFromDatabase } from "@/lib/teams-database";
+import { getTeamInfo, lookupTeamInDatabase } from "@/lib/teams-database";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -19,8 +19,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Check database first
-    const dbTeam = getNCAATeamFromDatabase(teamName);
+    // Check database first - use lookupTeamInDatabase which searches by name
+    const dbTeamId = lookupTeamInDatabase(teamName);
+    const dbTeam = dbTeamId ? getTeamInfo(dbTeamId) : null;
     
     // Check API search
     const apiTeamId = await searchTeamByName(teamName);

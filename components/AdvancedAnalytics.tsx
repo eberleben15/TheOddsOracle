@@ -11,6 +11,11 @@ import {
 } from "@/lib/advanced-analytics";
 import { TeamLogo } from "./TeamLogo";
 import { FaChartLine, FaFire, FaTrophy, FaBullseye, FaLightbulb } from "react-icons/fa";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { OddsGame } from "@/types";
+import { ParsedOdds } from "@/lib/odds-utils";
+import { useState, useEffect } from "react";
+import React from "react";
 
 interface AdvancedAnalyticsProps {
   awayTeamStats: TeamStats;
@@ -21,6 +26,8 @@ interface AdvancedAnalyticsProps {
     moneyline?: { away: number; home: number };
     spread?: number;
   };
+  game?: OddsGame;
+  parsedOdds?: ParsedOdds[];
 }
 
 export function AdvancedAnalytics({
@@ -29,6 +36,8 @@ export function AdvancedAnalytics({
   awayRecentGames,
   homeRecentGames,
   odds,
+  game,
+  parsedOdds,
 }: AdvancedAnalyticsProps) {
   // Calculate analytics for both teams
   const awayAnalytics = calculateTeamAnalytics(awayTeamStats, awayRecentGames, false);
@@ -41,6 +50,34 @@ export function AdvancedAnalytics({
   if (odds) {
     prediction = identifyValueBets(prediction, odds);
   }
+
+  // Analyze favorable bets using the new engine (client-side only)
+  const [favorableBetAnalysis, setFavorableBetAnalysis] = useState<any>(null);
+  const [FavorableBetsComponent, setFavorableBetsComponent] = useState<React.ComponentType<{ analysis: any }> | null>(null);
+
+  useEffect(() => {
+    if (game && parsedOdds && parsedOdds.length > 0) {
+      // Dynamic import to ensure it only runs on client
+      Promise.all([
+        import("@/lib/favorable-bet-engine"),
+        import("./FavorableBets")
+      ]).then(([{ analyzeFavorableBets }, { FavorableBets }]) => {
+        try {
+          const analysis = analyzeFavorableBets(
+            game,
+            parsedOdds,
+            prediction,
+            awayTeamStats,
+            homeTeamStats
+          );
+          setFavorableBetAnalysis(analysis);
+          setFavorableBetsComponent(() => FavorableBets);
+        } catch (error) {
+          console.warn("Error analyzing favorable bets:", error);
+        }
+      });
+    }
+  }, [game, parsedOdds, prediction, awayTeamStats, homeTeamStats]);
 
   // Helper function to safely display numbers
   const safeNumber = (value: number, decimals: number = 1): string => {
@@ -60,13 +97,13 @@ export function AdvancedAnalytics({
   return (
     <div className="space-y-6">
       {/* Win Probability & Prediction */}
-      <Card className="bg-white border border-border-gray shadow-lg">
-        <CardHeader className="border-b border-border-gray">
+      <Card className="bg-white border border-gray-200 shadow-lg">
+        <CardHeader className="border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <FaTrophy className="text-primary" size={20} />
+            <FaTrophy className="text-gray-600" size={20} />
             <h3 className="text-xl font-semibold text-text-dark">AI-Powered Prediction</h3>
             {hasValidPrediction && (
-              <Chip size="sm" color="success" variant="flat">
+              <Chip size="sm" className="bg-gray-100 text-gray-700" variant="flat">
                 {safeNumber(prediction.confidence, 0)}% Confidence
               </Chip>
             )}
@@ -81,23 +118,27 @@ export function AdvancedAnalytics({
                   <TeamLogo teamName={awayTeamStats.name} size={32} />
                   <span className="font-semibold text-text-dark">{awayTeamStats.name}</span>
                 </div>
-                <span className="text-2xl font-bold text-primary">
+                <span className="text-2xl font-bold text-gray-700">
                   {safeNumber(prediction.winProbability.away, 1)}%
                 </span>
               </div>
               
               <Progress
                 value={prediction.winProbability.away}
-                color="primary"
-                size="lg"
                 className="mb-4"
+                classNames={{
+                  indicator: "bg-gray-600"
+                }}
+                size="lg"
               />
               
               <Progress
                 value={prediction.winProbability.home}
-                color="success"
-                size="lg"
                 className="mb-3"
+                classNames={{
+                  indicator: "bg-gray-600"
+                }}
+                size="lg"
               />
               
               <div className="flex justify-between items-center">
@@ -105,32 +146,32 @@ export function AdvancedAnalytics({
                   <TeamLogo teamName={homeTeamStats.name} size={32} />
                   <span className="font-semibold text-text-dark">{homeTeamStats.name}</span>
                 </div>
-                <span className="text-2xl font-bold text-success">
+                <span className="text-2xl font-bold text-gray-700">
                   {safeNumber(prediction.winProbability.home, 1)}%
                 </span>
               </div>
             </div>
 
             {/* Predicted Score */}
-            <div className="pt-4 border-t border-border-gray">
-              <h4 className="text-sm font-medium text-text-body uppercase tracking-wide mb-3">
+            <div className="pt-4 border-t border-gray-200">
+              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
                 Predicted Final Score
               </h4>
               {hasValidPrediction ? (
                 <>
                   <div className="flex justify-center items-center gap-8">
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-primary mb-1">
+                      <div className="text-3xl font-bold text-gray-700 mb-1">
                         {safeNumber(prediction.predictedScore.away, 0)}
                       </div>
-                      <div className="text-sm text-text-body">{awayTeamStats.name.split(' ')[0]}</div>
+                      <div className="text-sm text-gray-500">{awayTeamStats.name.split(' ')[0]}</div>
                     </div>
-                    <div className="text-2xl font-bold text-text-body">-</div>
+                    <div className="text-2xl font-bold text-gray-400">-</div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-success mb-1">
+                      <div className="text-3xl font-bold text-gray-700 mb-1">
                         {safeNumber(prediction.predictedScore.home, 0)}
                       </div>
-                      <div className="text-sm text-text-body">{homeTeamStats.name.split(' ')[0]}</div>
+                      <div className="text-sm text-gray-500">{homeTeamStats.name.split(' ')[0]}</div>
                     </div>
                   </div>
                   <div className="text-center mt-3">
@@ -141,8 +182,9 @@ export function AdvancedAnalytics({
                 </>
               ) : (
                 <div className="text-center py-4">
-                  <div className="text-sm text-text-body">
-                    ⚠️ Predictions unavailable - Configure SportsData.io API key to enable predictions
+                  <div className="flex items-center justify-center gap-2 text-sm text-text-body">
+                    <ExclamationTriangleIcon className="h-4 w-4 text-gray-500" />
+                    <span>Predictions unavailable - Configure SportsData.io API key to enable predictions</span>
                   </div>
                 </div>
               )}
@@ -150,14 +192,14 @@ export function AdvancedAnalytics({
 
             {/* Key Factors */}
             {prediction.keyFactors.length > 0 && (
-              <div className="pt-4 border-t border-border-gray">
-                <h4 className="text-sm font-medium text-text-body uppercase tracking-wide mb-3">
+              <div className="pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
                   Key Factors
                 </h4>
                 <div className="space-y-2">
                   {prediction.keyFactors.map((factor, idx) => (
                     <div key={idx} className="flex items-start gap-2">
-                      <FaBullseye className="text-primary mt-0.5 flex-shrink-0" size={14} />
+                      <FaBullseye className="text-gray-600 mt-0.5 flex-shrink-0" size={14} />
                       <span className="text-sm text-text-dark">{factor}</span>
                     </div>
                   ))}
@@ -168,12 +210,17 @@ export function AdvancedAnalytics({
         </CardBody>
       </Card>
 
-      {/* Value Bets */}
-      {prediction.valueBets.length > 0 && (
-        <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-2 border-warning">
-          <CardHeader className="border-b border-warning/30">
+      {/* Favorable Bet Engine Results */}
+      {favorableBetAnalysis && favorableBetAnalysis.totalValueBets > 0 && FavorableBetsComponent && (
+        <FavorableBetsComponent analysis={favorableBetAnalysis} />
+      )}
+
+      {/* Legacy Value Bets (fallback) */}
+      {prediction.valueBets.length > 0 && !favorableBetAnalysis && (
+        <Card className="bg-value-light border-2 border-value/30">
+          <CardHeader className="border-b border-value/20">
             <div className="flex items-center gap-2">
-              <FaLightbulb className="text-warning" size={20} />
+              <FaLightbulb className="text-value" size={20} />
               <h3 className="text-xl font-semibold text-text-dark">Value Bet Opportunities</h3>
             </div>
           </CardHeader>
@@ -182,18 +229,18 @@ export function AdvancedAnalytics({
               {prediction.valueBets.map((bet, idx) => (
                 <div
                   key={idx}
-                  className="bg-white p-4 rounded-lg border border-warning/30"
+                  className="bg-white p-4 rounded-lg border border-value/30"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className="font-semibold text-text-dark mb-1">
                         {bet.recommendation}
                       </div>
-                      <div className="text-xs text-text-body uppercase tracking-wide">
+                      <div className="text-xs text-value uppercase tracking-wide font-medium">
                         {bet.type}
                       </div>
                     </div>
-                    <Chip size="sm" color="warning" variant="solid">
+                    <Chip size="sm" className="bg-value text-white" variant="solid">
                       {safeNumber(bet.confidence, 0)}% Confidence
                     </Chip>
                   </div>
@@ -208,10 +255,10 @@ export function AdvancedAnalytics({
       {/* Team Analytics Comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Momentum & Form */}
-        <Card className="bg-white border border-border-gray">
-          <CardHeader className="border-b border-border-gray">
+        <Card className="bg-white border border-gray-200">
+          <CardHeader className="border-b border-gray-200">
             <div className="flex items-center gap-2">
-              <FaFire className="text-danger" size={18} />
+              <FaFire className="text-gray-600" size={18} />
               <h3 className="text-lg font-semibold text-text-dark">Momentum & Form</h3>
             </div>
           </CardHeader>
@@ -226,7 +273,7 @@ export function AdvancedAnalytics({
                   </div>
                   <Chip
                     size="sm"
-                    color={awayAnalytics.momentum > 0 ? "success" : "danger"}
+                    className={awayAnalytics.momentum > 0 ? "bg-gray-100 text-gray-700" : "bg-gray-200 text-gray-600"}
                     variant="flat"
                   >
                     {awayAnalytics.momentum > 0 ? '+' : ''}{safeNumber(awayAnalytics.momentum, 0)}
@@ -253,7 +300,7 @@ export function AdvancedAnalytics({
                   </div>
                   <Chip
                     size="sm"
-                    color={homeAnalytics.momentum > 0 ? "success" : "danger"}
+                    className={homeAnalytics.momentum > 0 ? "bg-gray-100 text-gray-700" : "bg-gray-200 text-gray-600"}
                     variant="flat"
                   >
                     {homeAnalytics.momentum > 0 ? '+' : ''}{safeNumber(homeAnalytics.momentum, 0)}
@@ -275,10 +322,10 @@ export function AdvancedAnalytics({
         </Card>
 
         {/* Advanced Metrics */}
-        <Card className="bg-white border border-border-gray">
-          <CardHeader className="border-b border-border-gray">
+        <Card className="bg-white border border-gray-200">
+          <CardHeader className="border-b border-gray-200">
             <div className="flex items-center gap-2">
-              <FaChartLine className="text-primary" size={18} />
+              <FaChartLine className="text-gray-600" size={18} />
               <h3 className="text-lg font-semibold text-text-dark">Advanced Metrics</h3>
             </div>
           </CardHeader>
@@ -286,64 +333,64 @@ export function AdvancedAnalytics({
             <div className="space-y-4">
               {/* Net Rating */}
               <div>
-                <div className="text-xs text-text-body uppercase tracking-wide mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
                   Net Rating
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.netRating, 1)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(awayAnalytics.netRating, 1)}</span>
                   </div>
-                  <div className="w-32 text-center text-xs text-text-body">vs</div>
+                  <div className="w-32 text-center text-xs text-gray-500">vs</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{safeNumber(homeAnalytics.netRating, 1)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(homeAnalytics.netRating, 1)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Offensive Efficiency */}
               <div>
-                <div className="text-xs text-text-body uppercase tracking-wide mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
                   Offensive Rating
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.offensiveRating, 1)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(awayAnalytics.offensiveRating, 1)}</span>
                   </div>
-                  <div className="w-32 text-center text-xs text-text-body">O-Rating</div>
+                  <div className="w-32 text-center text-xs text-gray-500">O-Rating</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{safeNumber(homeAnalytics.offensiveRating, 1)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(homeAnalytics.offensiveRating, 1)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Defensive Efficiency */}
               <div>
-                <div className="text-xs text-text-body uppercase tracking-wide mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
                   Defensive Rating
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.defensiveRating, 1)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(awayAnalytics.defensiveRating, 1)}</span>
                   </div>
-                  <div className="w-32 text-center text-xs text-text-body">D-Rating</div>
+                  <div className="w-32 text-center text-xs text-gray-500">D-Rating</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{safeNumber(homeAnalytics.defensiveRating, 1)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(homeAnalytics.defensiveRating, 1)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Assist/TO Ratio */}
               <div>
-                <div className="text-xs text-text-body uppercase tracking-wide mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
                   Assist/Turnover Ratio
                 </div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="flex-1 text-right">
-                    <span className="font-bold text-primary">{safeNumber(awayAnalytics.assistToTurnoverRatio, 2)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(awayAnalytics.assistToTurnoverRatio, 2)}</span>
                   </div>
-                  <div className="w-32 text-center text-xs text-text-body">AST/TO</div>
+                  <div className="w-32 text-center text-xs text-gray-500">AST/TO</div>
                   <div className="flex-1">
-                    <span className="font-bold text-success">{safeNumber(homeAnalytics.assistToTurnoverRatio, 2)}</span>
+                    <span className="font-bold text-gray-700">{safeNumber(homeAnalytics.assistToTurnoverRatio, 2)}</span>
                   </div>
                 </div>
               </div>

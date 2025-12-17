@@ -13,7 +13,7 @@ export function Header() {
             <input
               type="text"
               placeholder="Search teams, games..."
-              className="w-full pl-10 pr-4 py-2 bg-body-bg border border-border-gray rounded-lg text-text-dark placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              className="w-full pl-10 pr-4 py-2 bg-body-bg border border-border-gray rounded-lg text-text-dark placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-300 transition-colors"
             />
           </div>
         </div>
@@ -23,7 +23,7 @@ export function Header() {
           {/* Notifications */}
           <button className="relative p-2 rounded-lg hover:bg-body-bg transition-colors">
             <BellIcon className="h-6 w-6 text-text-body" />
-            <span className="absolute top-1 right-1 h-2 w-2 bg-danger rounded-full"></span>
+            <span className="absolute top-1 right-1 h-2 w-2 bg-gray-500 rounded-full"></span>
           </button>
 
           {/* User Profile */}

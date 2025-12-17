@@ -8,7 +8,13 @@
     "build": "next build",
     "start": "next start -p 3005",
     "lint": "next lint",
-    "build-teams-db": "node scripts/build-teams-database.js"
+    "build-teams-db": "node scripts/build-teams-database.js",
+    "db:generate": "prisma generate && node scripts/postinstall-prisma.js",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "create-admin": "node scripts/create-admin-user.js",
+    "postinstall": "node scripts/postinstall-prisma.js"
   },
   "repository": {
     "type": "git",
@@ -22,14 +28,21 @@
   },
   "homepage": "https://github.com/TheOddsOracle/TheOddsOracle#readme",
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
     "@heroicons/react": "^2.2.0",
     "@nextui-org/react": "^2.6.11",
+    "@prisma/adapter-pg": "^7.2.0",
     "@types/node": "^24.10.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
+    "dotenv": "^17.2.3",
     "framer-motion": "^12.23.25",
     "next": "^16.0.8",
+    "next-auth": "^5.0.0-beta.30",
+    "nodemailer": "^7.0.11",
+    "pg": "^8.16.3",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-icons": "^5.5.0",
@@ -38,9 +51,12 @@
   },
   "devDependencies": {
     "@prisma/client": "^7.1.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/nodemailer": "^7.0.4",
     "autoprefixer": "^10.4.22",
     "postcss": "^8.5.6",
     "prisma": "^7.1.0",
-    "tailwindcss": "^3.4.1"
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.21.0"
   }
 }

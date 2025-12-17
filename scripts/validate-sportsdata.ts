@@ -7,6 +7,40 @@
  * Usage: npx tsx scripts/validate-sportsdata.ts
  */
 
+// Load environment variables from .env file BEFORE any imports
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+// Load env vars synchronously before module imports
+try {
+  const envPath = resolve(process.cwd(), '.env');
+  const envContent = readFileSync(envPath, 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith('#')) return;
+    
+    const equalIndex = trimmedLine.indexOf('=');
+    if (equalIndex === -1) return;
+    
+    const key = trimmedLine.slice(0, equalIndex).trim();
+    let value = trimmedLine.slice(equalIndex + 1).trim();
+    
+    // Remove surrounding quotes
+    if ((value.startsWith('"') && value.endsWith('"')) || 
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    
+    if (key) {
+      process.env[key] = value;
+    }
+  });
+  console.log('✅ Loaded .env file');
+} catch {
+  console.log('Note: No .env file found, using existing environment variables');
+}
+
+// Import after env vars are loaded
 import { 
   getAllTeams, 
   findTeamByName, 

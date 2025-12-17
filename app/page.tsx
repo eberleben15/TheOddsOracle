@@ -3,6 +3,7 @@ import { MatchupCard } from "@/components/MatchupCard";
 import { LiveGameCard } from "@/components/LiveGameCard";
 import { StatusCard } from "@/components/StatusCard";
 import { StatsCards } from "@/components/StatsCards";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 export const revalidate = 30; // Revalidate every 30 seconds for live scores
 
@@ -39,7 +40,7 @@ export default async function Home() {
       {error && (
         <StatusCard
           type="error"
-          message={`⚠️ ${error}. Please check your API keys in .env.local`}
+          message={`${error}. Please check your API keys in .env.local`}
         />
       )}
 
@@ -56,11 +57,11 @@ export default async function Home() {
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <span className="flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-danger"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-600 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-600"></span>
                     </span>
                   </div>
-                  <span className="text-danger text-sm font-medium">
+                  <span className="text-gray-600 text-sm font-medium">
                     {liveGames.length} in progress
                   </span>
                 </div>

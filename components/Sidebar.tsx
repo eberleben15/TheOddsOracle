@@ -33,10 +33,10 @@ export function Sidebar() {
       name: "Sports",
       icon: ChartBarIcon,
       children: [
-        { name: "🏀 College Basketball", href: "/", current: pathname === "/" },
-        { name: "🏀 NBA", href: "#", disabled: true },
-        { name: "🏈 NFL", href: "#", disabled: true },
-        { name: "🏈 College Football", href: "#", disabled: true },
+        { name: "College Basketball", href: "/", current: pathname === "/" },
+        { name: "NBA", href: "#", disabled: true },
+        { name: "NFL", href: "#", disabled: true },
+        { name: "College Football", href: "#", disabled: true },
       ]
     },
     { 
@@ -66,20 +66,22 @@ export function Sidebar() {
       <aside
         className={`
           fixed top-0 left-0 z-40 h-screen w-72 
-          bg-sidebar-dark
+          bg-white border-r border-gray-200
           transform transition-transform duration-300 ease-in-out
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
-          lg:translate-x-0 shadow-xl
+          lg:translate-x-0 shadow-lg
         `}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
-          <div className="text-3xl">🔮</div>
+        <div className="flex items-center gap-3 px-6 py-6 border-b border-gray-200">
+          <div className="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
+            <ChartBarIcon className="h-5 w-5 text-gray-600" />
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-white">
+            <h1 className="text-xl font-bold text-gray-900">
               The Odds Oracle
             </h1>
-            <p className="text-xs text-gray-400">Smart betting insights</p>
+            <p className="text-xs text-gray-500">Smart betting insights</p>
           </div>
         </div>
 
@@ -93,10 +95,10 @@ export function Sidebar() {
                   className={`
                     flex items-center gap-3 px-4 py-3 rounded-lg transition-all
                     ${item.current
-                      ? "bg-primary text-white"
+                      ? "bg-gray-100 text-gray-900"
                       : item.disabled
-                      ? "text-gray-500 cursor-not-allowed opacity-50"
-                      : "text-gray-300 hover:bg-sidebar-darker hover:text-white"
+                      ? "text-gray-400 cursor-not-allowed opacity-50"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }
                   `}
                   onClick={(e) => item.disabled && e.preventDefault()}
@@ -104,7 +106,7 @@ export function Sidebar() {
                   {item.icon && <item.icon className="h-5 w-5" />}
                   <span className="font-medium">{item.name}</span>
                   {item.disabled && (
-                    <span className="ml-auto text-xs bg-warning/20 text-warning px-2 py-0.5 rounded">
+                    <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
                       Soon
                     </span>
                   )}
@@ -113,7 +115,7 @@ export function Sidebar() {
                 <div>
                   <button
                     onClick={() => setSportsOpen(!sportsOpen)}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-sidebar-darker hover:text-white transition-all"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
                   >
                     {item.icon && <item.icon className="h-5 w-5" />}
                     <span className="font-medium flex-1 text-left">{item.name}</span>
@@ -130,17 +132,17 @@ export function Sidebar() {
                           className={`
                             flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm
                             ${child.current
-                              ? "bg-primary/10 text-white border-l-4 border-primary"
+                              ? "bg-gray-100 text-gray-900 border-l-4 border-gray-400"
                               : child.disabled
-                              ? "text-gray-500 cursor-not-allowed opacity-50"
-                              : "text-gray-400 hover:bg-sidebar-darker/50 hover:text-white"
+                              ? "text-gray-400 cursor-not-allowed opacity-50"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                             }
                           `}
                           onClick={(e) => child.disabled && e.preventDefault()}
                         >
                           <span>{child.name}</span>
                           {child.disabled && (
-                            <span className="ml-auto text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
+                            <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
                               Soon
                             </span>
                           )}
@@ -155,8 +157,8 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="text-xs text-gray-400 text-center">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+          <div className="text-xs text-gray-500 text-center">
             © 2025 The Odds Oracle
           </div>
         </div>

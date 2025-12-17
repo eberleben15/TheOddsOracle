@@ -154,10 +154,10 @@ export function StatsDisplay({
                   </div>
                   <Chip
                     size="sm"
-                    color={
+                    className={
                       getStat(awayTeamStats?.pointsPerGame) - getStat(awayTeamStats?.pointsAllowedPerGame) > 0
-                        ? "success"
-                        : "danger"
+                        ? "bg-gray-100 text-gray-700"
+                        : "bg-gray-200 text-gray-600"
                     }
                     variant="flat"
                   >
@@ -171,10 +171,10 @@ export function StatsDisplay({
                   </div>
                   <Chip
                     size="sm"
-                    color={
+                    className={
                       getStat(homeTeamStats?.pointsPerGame) - getStat(homeTeamStats?.pointsAllowedPerGame) > 0
-                        ? "success"
-                        : "danger"
+                        ? "bg-gray-100 text-gray-700"
+                        : "bg-gray-200 text-gray-600"
                     }
                     variant="flat"
                   >
@@ -210,13 +210,13 @@ export function StatsDisplay({
                     <div className="flex gap-2 items-center">
                       <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-primary transition-all"
+                          className="h-full bg-gray-600 transition-all"
                           style={{ width: `${awayTeamStats.fieldGoalPercentage || 0}%` }}
                         ></div>
                       </div>
                       <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-success transition-all"
+                          className="h-full bg-gray-500 transition-all"
                           style={{ width: `${homeTeamStats.fieldGoalPercentage || 0}%` }}
                         ></div>
                       </div>
@@ -235,13 +235,13 @@ export function StatsDisplay({
                     <div className="flex gap-2 items-center">
                       <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-primary transition-all"
+                          className="h-full bg-gray-600 transition-all"
                           style={{ width: `${awayTeamStats.threePointPercentage || 0}%` }}
                         ></div>
                       </div>
                       <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-success transition-all"
+                          className="h-full bg-gray-500 transition-all"
                           style={{ width: `${homeTeamStats.threePointPercentage || 0}%` }}
                         ></div>
                       </div>
@@ -260,13 +260,13 @@ export function StatsDisplay({
                     <div className="flex gap-2 items-center">
                       <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-primary transition-all"
+                          className="h-full bg-gray-600 transition-all"
                           style={{ width: `${awayTeamStats.freeThrowPercentage || 0}%` }}
                         ></div>
                       </div>
                       <div className="flex-1 h-2 bg-body-bg rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-success transition-all"
+                          className="h-full bg-gray-500 transition-all"
                           style={{ width: `${homeTeamStats.freeThrowPercentage || 0}%` }}
                         ></div>
                       </div>
@@ -286,28 +286,28 @@ export function StatsDisplay({
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
                     <div className="text-xs text-text-body mb-1">REB</div>
-                    <div className="text-sm font-bold text-primary">
+                    <div className="text-sm font-bold text-gray-700">
                       {awayTeamStats.reboundsPerGame?.toFixed(1) || 'N/A'}
                     </div>
-                    <div className="text-sm font-bold text-success mt-1">
+                    <div className="text-sm font-bold text-gray-600 mt-1">
                       {homeTeamStats.reboundsPerGame?.toFixed(1) || 'N/A'}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-text-body mb-1">AST</div>
-                    <div className="text-sm font-bold text-primary">
+                    <div className="text-sm font-bold text-gray-700">
                       {awayTeamStats.assistsPerGame?.toFixed(1) || 'N/A'}
                     </div>
-                    <div className="text-sm font-bold text-success mt-1">
+                    <div className="text-sm font-bold text-gray-600 mt-1">
                       {homeTeamStats.assistsPerGame?.toFixed(1) || 'N/A'}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-text-body mb-1">TO</div>
-                    <div className="text-sm font-bold text-danger">
+                    <div className="text-sm font-bold text-gray-500">
                       {awayTeamStats.turnoversPerGame?.toFixed(1) || 'N/A'}
                     </div>
-                    <div className="text-sm font-bold text-danger mt-1">
+                    <div className="text-sm font-bold text-gray-500 mt-1">
                       {homeTeamStats.turnoversPerGame?.toFixed(1) || 'N/A'}
                     </div>
                   </div>
@@ -322,8 +322,8 @@ export function StatsDisplay({
       {(awayTeamStats.effectiveFieldGoalPercentage || homeTeamStats.effectiveFieldGoalPercentage) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Four Factors */}
-          <Card className="bg-gradient-to-br from-primary/5 to-transparent border border-primary/20">
-            <CardHeader className="border-b border-primary/20">
+          <Card className="bg-gradient-to-br from-gray-50 to-transparent border border-gray-200">
+            <CardHeader className="border-b border-gray-200">
               <div>
                 <h3 className="text-lg font-semibold text-text-dark">Four Factors Analysis</h3>
                 <p className="text-xs text-text-body mt-1">
@@ -341,10 +341,10 @@ export function StatsDisplay({
                       <span className="ml-2 text-xs text-text-body">(40% weight)</span>
                     </div>
                     <div className="flex gap-4 text-xs">
-                      <span className="font-medium text-primary">
+                      <span className="font-medium text-gray-700">
                         {awayTeamStats.effectiveFieldGoalPercentage?.toFixed(1)}%
                       </span>
-                      <span className="font-medium text-success">
+                      <span className="font-medium text-gray-600">
                         {homeTeamStats.effectiveFieldGoalPercentage?.toFixed(1)}%
                       </span>
                     </div>
@@ -352,13 +352,13 @@ export function StatsDisplay({
                   <div className="flex gap-2">
                     <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-primary to-primary/70"
+                        className="h-full bg-gradient-to-r from-gray-600 to-gray-500"
                         style={{ width: `${(awayTeamStats.effectiveFieldGoalPercentage || 0)}%` }}
                       ></div>
                     </div>
                     <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-success to-success/70"
+                        className="h-full bg-gradient-to-r from-gray-500 to-gray-400"
                         style={{ width: `${(homeTeamStats.effectiveFieldGoalPercentage || 0)}%` }}
                       ></div>
                     </div>
@@ -376,18 +376,10 @@ export function StatsDisplay({
                       <span className="ml-2 text-xs text-text-body">(25% weight)</span>
                     </div>
                     <div className="flex gap-4 text-xs">
-                      <span className={`font-medium ${
-                        (awayTeamStats.turnoverRate || 0) < (homeTeamStats.turnoverRate || 0) 
-                          ? 'text-success' 
-                          : 'text-danger'
-                      }`}>
+                      <span className="font-medium text-gray-700">
                         {awayTeamStats.turnoverRate?.toFixed(1)}%
                       </span>
-                      <span className={`font-medium ${
-                        (homeTeamStats.turnoverRate || 0) < (awayTeamStats.turnoverRate || 0) 
-                          ? 'text-success' 
-                          : 'text-danger'
-                      }`}>
+                      <span className="font-medium text-gray-600">
                         {homeTeamStats.turnoverRate?.toFixed(1)}%
                       </span>
                     </div>
@@ -397,8 +389,8 @@ export function StatsDisplay({
                       <div 
                         className={`h-full ${
                           (awayTeamStats.turnoverRate || 0) < 18 
-                            ? 'bg-gradient-to-r from-success to-success/70' 
-                            : 'bg-gradient-to-r from-warning to-warning/70'
+                            ? 'bg-gradient-to-r from-gray-500 to-gray-400' 
+                            : 'bg-gradient-to-r from-gray-600 to-gray-500'
                         }`}
                         style={{ width: `${Math.min((awayTeamStats.turnoverRate || 0) * 3, 100)}%` }}
                       ></div>
@@ -407,8 +399,8 @@ export function StatsDisplay({
                       <div 
                         className={`h-full ${
                           (homeTeamStats.turnoverRate || 0) < 18 
-                            ? 'bg-gradient-to-r from-success to-success/70' 
-                            : 'bg-gradient-to-r from-warning to-warning/70'
+                            ? 'bg-gradient-to-r from-gray-500 to-gray-400' 
+                            : 'bg-gradient-to-r from-gray-600 to-gray-500'
                         }`}
                         style={{ width: `${Math.min((homeTeamStats.turnoverRate || 0) * 3, 100)}%` }}
                       ></div>
@@ -427,10 +419,10 @@ export function StatsDisplay({
                       <span className="ml-2 text-xs text-text-body">(20% weight)</span>
                     </div>
                     <div className="flex gap-4 text-xs">
-                      <span className="font-medium text-primary">
+                      <span className="font-medium text-gray-700">
                         {awayTeamStats.offensiveReboundRate?.toFixed(1)}%
                       </span>
-                      <span className="font-medium text-success">
+                      <span className="font-medium text-gray-600">
                         {homeTeamStats.offensiveReboundRate?.toFixed(1)}%
                       </span>
                     </div>
@@ -438,13 +430,13 @@ export function StatsDisplay({
                   <div className="flex gap-2">
                     <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-primary to-primary/70"
+                        className="h-full bg-gradient-to-r from-gray-600 to-gray-500"
                         style={{ width: `${(awayTeamStats.offensiveReboundRate || 0) * 2}%` }}
                       ></div>
                     </div>
                     <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-success to-success/70"
+                        className="h-full bg-gradient-to-r from-gray-500 to-gray-400"
                         style={{ width: `${(homeTeamStats.offensiveReboundRate || 0) * 2}%` }}
                       ></div>
                     </div>
@@ -462,10 +454,10 @@ export function StatsDisplay({
                       <span className="ml-2 text-xs text-text-body">(15% weight)</span>
                     </div>
                     <div className="flex gap-4 text-xs">
-                      <span className="font-medium text-primary">
+                      <span className="font-medium text-gray-700">
                         {awayTeamStats.freeThrowRate?.toFixed(1)}%
                       </span>
-                      <span className="font-medium text-success">
+                      <span className="font-medium text-gray-600">
                         {homeTeamStats.freeThrowRate?.toFixed(1)}%
                       </span>
                     </div>
@@ -473,13 +465,13 @@ export function StatsDisplay({
                   <div className="flex gap-2">
                     <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-primary to-primary/70"
+                        className="h-full bg-gradient-to-r from-gray-600 to-gray-500"
                         style={{ width: `${(awayTeamStats.freeThrowRate || 0) * 2}%` }}
                       ></div>
                     </div>
                     <div className="flex-1 h-3 bg-body-bg rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-success to-success/70"
+                        className="h-full bg-gradient-to-r from-gray-500 to-gray-400"
                         style={{ width: `${(homeTeamStats.freeThrowRate || 0) * 2}%` }}
                       ></div>
                     </div>
@@ -493,8 +485,8 @@ export function StatsDisplay({
           </Card>
 
           {/* Advanced Metrics */}
-          <Card className="bg-gradient-to-br from-success/5 to-transparent border border-success/20">
-            <CardHeader className="border-b border-success/20">
+          <Card className="bg-gradient-to-br from-gray-50 to-transparent border border-gray-200">
+            <CardHeader className="border-b border-gray-200">
               <div>
                 <h3 className="text-lg font-semibold text-text-dark">Advanced Metrics</h3>
                 <p className="text-xs text-text-body mt-1">
@@ -513,7 +505,7 @@ export function StatsDisplay({
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-center flex-1">
-                        <div className="text-2xl font-bold text-primary">
+                        <div className="text-2xl font-bold text-gray-700">
                           {awayTeamStats.offensiveEfficiency?.toFixed(1) || 'N/A'}
                         </div>
                         <div className="text-xs text-text-body mt-1">{awayTeamStats.name.split(" ")[0]}</div>
@@ -522,7 +514,7 @@ export function StatsDisplay({
                         <span className="text-xs text-text-body">vs</span>
                       </div>
                       <div className="text-center flex-1">
-                        <div className="text-2xl font-bold text-success">
+                        <div className="text-2xl font-bold text-gray-600">
                           {homeTeamStats.offensiveEfficiency?.toFixed(1) || 'N/A'}
                         </div>
                         <div className="text-xs text-text-body mt-1">{homeTeamStats.name.split(" ")[0]}</div>
@@ -540,11 +532,7 @@ export function StatsDisplay({
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-center flex-1">
-                        <div className={`text-2xl font-bold ${
-                          (awayTeamStats.defensiveEfficiency || 0) < (homeTeamStats.defensiveEfficiency || 0)
-                            ? 'text-success'
-                            : 'text-primary'
-                        }`}>
+                        <div className="text-2xl font-bold text-gray-700">
                           {awayTeamStats.defensiveEfficiency?.toFixed(1) || 'N/A'}
                         </div>
                         <div className="text-xs text-text-body mt-1">{awayTeamStats.name.split(" ")[0]}</div>
@@ -553,11 +541,7 @@ export function StatsDisplay({
                         <span className="text-xs text-text-body">vs</span>
                       </div>
                       <div className="text-center flex-1">
-                        <div className={`text-2xl font-bold ${
-                          (homeTeamStats.defensiveEfficiency || 0) < (awayTeamStats.defensiveEfficiency || 0)
-                            ? 'text-success'
-                            : 'text-primary'
-                        }`}>
+                        <div className="text-2xl font-bold text-gray-600">
                           {homeTeamStats.defensiveEfficiency?.toFixed(1) || 'N/A'}
                         </div>
                         <div className="text-xs text-text-body mt-1">{homeTeamStats.name.split(" ")[0]}</div>
@@ -578,7 +562,7 @@ export function StatsDisplay({
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-center flex-1">
-                        <div className="text-2xl font-bold text-primary">
+                        <div className="text-2xl font-bold text-gray-700">
                           {awayTeamStats.pace?.toFixed(1) || 'N/A'}
                         </div>
                         <div className="text-xs text-text-body mt-1">{awayTeamStats.name.split(" ")[0]}</div>
@@ -592,7 +576,7 @@ export function StatsDisplay({
                         </div>
                       </div>
                       <div className="text-center flex-1">
-                        <div className="text-2xl font-bold text-success">
+                        <div className="text-2xl font-bold text-gray-600">
                           {homeTeamStats.pace?.toFixed(1) || 'N/A'}
                         </div>
                         <div className="text-xs text-text-body mt-1">{homeTeamStats.name.split(" ")[0]}</div>
@@ -633,14 +617,16 @@ export function StatsDisplay({
               </TableHeader>
               <TableBody>
                 {recentGames.away.slice(0, 5).map((game) => {
-                  // Match team names (API returns short names like "Michigan", we have "Michigan Wolverines")
-                  const teamNameShort = awayTeamStats.name.split(' ')[0].toLowerCase();
-                  const isHome = game.homeTeam?.toLowerCase().includes(teamNameShort);
+                  // Use team code (key) for reliable matching
+                  const teamCode = awayTeamStats.code;
+                  const isHome = game.homeTeamKey === teamCode || 
+                                 game.homeTeam?.toLowerCase() === awayTeamStats.name.toLowerCase();
                   const opponent = isHome ? game.awayTeam : game.homeTeam;
                   const opponentData = getTeamData(opponent || "Unknown");
                   const teamScore = isHome ? game.homeScore : game.awayScore;
                   const oppScore = isHome ? game.awayScore : game.homeScore;
-                  const won = game.winner?.toLowerCase().includes(teamNameShort);
+                  const won = game.winnerKey === teamCode ||
+                              game.winner?.toLowerCase() === awayTeamStats.name.toLowerCase();
                   const margin = Math.abs(teamScore - oppScore);
 
                   return (
@@ -667,7 +653,7 @@ export function StatsDisplay({
                         <div className="flex items-center gap-2">
                           <span
                             className={`font-semibold ${
-                              won ? "text-green-600" : "text-red-600"
+                              won ? "text-win" : "text-loss"
                             }`}
                           >
                             {teamScore}
@@ -683,7 +669,7 @@ export function StatsDisplay({
                       <TableCell>
                         <Chip
                           size="sm"
-                          color={won ? "success" : "danger"}
+                          className={won ? "bg-win-light text-win" : "bg-loss-light text-loss"}
                           variant="flat"
                         >
                           {won ? "W" : "L"}
@@ -713,14 +699,16 @@ export function StatsDisplay({
               </TableHeader>
               <TableBody>
                 {recentGames.home.slice(0, 5).map((game) => {
-                  // Match team names (API returns short names like "Michigan", we have "Michigan Wolverines")
-                  const teamNameShort = homeTeamStats.name.split(' ')[0].toLowerCase();
-                  const isHome = game.homeTeam?.toLowerCase().includes(teamNameShort);
+                  // Use team code (key) for reliable matching
+                  const teamCode = homeTeamStats.code;
+                  const isHome = game.homeTeamKey === teamCode ||
+                                 game.homeTeam?.toLowerCase() === homeTeamStats.name.toLowerCase();
                   const opponent = isHome ? game.awayTeam : game.homeTeam;
                   const opponentData = getTeamData(opponent || "Unknown");
                   const teamScore = isHome ? game.homeScore : game.awayScore;
                   const oppScore = isHome ? game.awayScore : game.homeScore;
-                  const won = game.winner?.toLowerCase().includes(teamNameShort);
+                  const won = game.winnerKey === teamCode ||
+                              game.winner?.toLowerCase() === homeTeamStats.name.toLowerCase();
                   const margin = Math.abs(teamScore - oppScore);
 
                   return (
@@ -737,7 +725,7 @@ export function StatsDisplay({
                           />
                           <span className="text-sm">{(opponent || "Unknown").split(" ")[0]}</span>
                           {isHome && (
-                            <Chip size="sm" variant="flat" color="default">
+                            <Chip size="sm" variant="flat" className="bg-gray-100 text-gray-600">
                               H
                             </Chip>
                           )}
@@ -747,7 +735,7 @@ export function StatsDisplay({
                         <div className="flex items-center gap-2">
                           <span
                             className={`font-semibold ${
-                              won ? "text-green-600" : "text-red-600"
+                              won ? "text-win" : "text-loss"
                             }`}
                           >
                             {teamScore}
@@ -763,7 +751,7 @@ export function StatsDisplay({
                       <TableCell>
                         <Chip
                           size="sm"
-                          color={won ? "success" : "danger"}
+                          className={won ? "bg-win-light text-win" : "bg-loss-light text-loss"}
                           variant="flat"
                         >
                           {won ? "W" : "L"}
@@ -824,8 +812,9 @@ export function StatsDisplay({
                 {headToHead.games.slice(0, 5).map((game) => {
                   const homeTeamData = getTeamData(game.homeTeam || "Unknown");
                   const awayTeamData = getTeamData(game.awayTeam || "Unknown");
-                  const winnerData =
-                    game.winner === game.homeTeam ? homeTeamData : awayTeamData;
+                  // Use key-based comparison for reliability
+                  const homeWon = game.winnerKey === game.homeTeamKey || game.winner === game.homeTeam;
+                  const winnerData = homeWon ? homeTeamData : awayTeamData;
 
                   return (
                     <TableRow key={game.id}>
@@ -853,9 +842,7 @@ export function StatsDisplay({
                         <div className="flex items-center gap-2">
                           <span
                             className={`font-semibold ${
-                              game.winner === game.homeTeam
-                                ? "text-green-600"
-                                : "text-gray-600"
+                              homeWon ? "text-win" : "text-loss"
                             }`}
                           >
                             {game.homeScore}
@@ -863,9 +850,7 @@ export function StatsDisplay({
                           <span className="text-gray-400">-</span>
                           <span
                             className={`font-semibold ${
-                              game.winner === game.awayTeam
-                                ? "text-green-600"
-                                : "text-gray-600"
+                              !homeWon ? "text-win" : "text-loss"
                             }`}
                           >
                             {game.awayScore}

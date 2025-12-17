@@ -143,6 +143,8 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
                       moneyline: parseOdds(game)[0]?.moneyline,
                       spread: parseOdds(game)[0]?.spread?.home?.point,
                     }}
+                    game={game}
+                    parsedOdds={parseOdds(game)}
                   />
                 </div>
 
@@ -153,6 +155,7 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
                     homeTeamStats={homeTeamStats}
                     awayTeamName={game.away_team}
                     homeTeamName={game.home_team}
+                    game={game}
                   />
                 </div>
                 

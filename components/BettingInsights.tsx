@@ -13,6 +13,10 @@ import {
 } from "@/lib/betting-utils";
 import { decimalToAmerican, formatDecimalOdds } from "@/lib/odds-utils";
 import { getTeamData } from "@/lib/team-data";
+import { OddsGame } from "@/types";
+import { calculateTeamAnalytics, predictMatchup } from "@/lib/advanced-analytics";
+import { useState, useEffect } from "react";
+import React from "react";
 
 interface BettingInsightsProps {
   parsedOdds: ParsedOdds[];
@@ -20,6 +24,13 @@ interface BettingInsightsProps {
   homeTeamStats: TeamStats;
   awayTeamName: string;
   homeTeamName: string;
+  game?: OddsGame;
+  prediction?: {
+    winProbability: { away: number; home: number };
+    predictedScore: { away: number; home: number };
+    predictedSpread: number;
+    confidence: number;
+  };
 }
 
 export function BettingInsights({
@@ -28,9 +39,58 @@ export function BettingInsights({
   homeTeamStats,
   awayTeamName,
   homeTeamName,
+  game,
+  prediction,
 }: BettingInsightsProps) {
   const awayTeamData = getTeamData(awayTeamName);
   const homeTeamData = getTeamData(homeTeamName);
+
+  // Calculate prediction if we have game but no prediction provided
+  let calculatedPrediction = prediction;
+  if (game && !prediction) {
+    try {
+      const awayAnalytics = calculateTeamAnalytics(awayTeamStats, awayTeamStats.recentGames || [], false);
+      const homeAnalytics = calculateTeamAnalytics(homeTeamStats, homeTeamStats.recentGames || [], true);
+      calculatedPrediction = predictMatchup(awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats);
+    } catch (error) {
+      console.warn("Error calculating prediction:", error);
+    }
+  }
+
+  // Analyze favorable bets if we have game and prediction data (client-side only)
+  const [favorableBetAnalysis, setFavorableBetAnalysis] = useState<any>(null);
+  const [FavorableBetsComponent, setFavorableBetsComponent] = useState<React.ComponentType<{ analysis: any }> | null>(null);
+
+  useEffect(() => {
+    if (game && calculatedPrediction) {
+      // Dynamic import to ensure it only runs on client
+      Promise.all([
+        import("@/lib/favorable-bet-engine"),
+        import("./FavorableBets")
+      ]).then(([{ analyzeFavorableBets }, { FavorableBets }]) => {
+        try {
+          const analysis = analyzeFavorableBets(
+            game,
+            parsedOdds,
+            {
+              winProbability: calculatedPrediction.winProbability,
+              predictedScore: calculatedPrediction.predictedScore,
+              predictedSpread: calculatedPrediction.predictedSpread,
+              confidence: calculatedPrediction.confidence,
+              keyFactors: [],
+              valueBets: [],
+            },
+            awayTeamStats,
+            homeTeamStats
+          );
+          setFavorableBetAnalysis(analysis);
+          setFavorableBetsComponent(() => FavorableBets);
+        } catch (error) {
+          console.warn("Error analyzing favorable bets:", error);
+        }
+      });
+    }
+  }, [game, parsedOdds, calculatedPrediction, awayTeamStats, homeTeamStats]);
 
   // Helper function to safely display numbers
   const safeNumber = (value: number | undefined, decimals: number = 1): string => {
@@ -95,7 +155,14 @@ export function BettingInsights({
     : 0;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="space-y-6">
+      {/* Favorable Bet Engine Results */}
+      {favorableBetAnalysis && favorableBetAnalysis.totalValueBets > 0 && FavorableBetsComponent && (
+        <FavorableBetsComponent analysis={favorableBetAnalysis} />
+      )}
+
+      {/* Standard Betting Insights */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* Best Odds Card */}
       <Card>
         <CardHeader>
@@ -112,7 +179,7 @@ export function BettingInsights({
                   {awayTeamName.split(" ")[0]}
                 </span>
                 {awayHasValue && (
-                  <Chip size="sm" color="success" variant="flat">
+                  <Chip size="sm" className="bg-value-light text-value font-medium" variant="flat">
                     Value
                   </Chip>
                 )}
@@ -133,7 +200,7 @@ export function BettingInsights({
                   {homeTeamName.split(" ")[0]}
                 </span>
                 {homeHasValue && (
-                  <Chip size="sm" color="success" variant="flat">
+                  <Chip size="sm" className="bg-value-light text-value font-medium" variant="flat">
                     Value
                   </Chip>
                 )}
@@ -232,7 +299,7 @@ export function BettingInsights({
               >
                 {awayTeamName.split(" ")[0]}
               </span>
-              <span className="font-bold text-green-600">
+              <span className="font-bold text-gray-700">
                 ${safeNumber(awayReturn, 2)}
               </span>
             </div>
@@ -245,7 +312,7 @@ export function BettingInsights({
               >
                 {homeTeamName.split(" ")[0]}
               </span>
-              <span className="font-bold text-green-600">
+              <span className="font-bold text-gray-700">
                 ${safeNumber(homeReturn, 2)}
               </span>
             </div>
@@ -255,9 +322,9 @@ export function BettingInsights({
 
       {/* Value Bets Card */}
       {(awayHasValue || homeHasValue) && (
-        <Card className="border-2 border-success">
+        <Card className="border-2 border-value/30 bg-value-light/30">
           <CardHeader>
-            <h3 className="text-lg font-semibold text-success">Value Bets</h3>
+            <h3 className="text-lg font-semibold text-value">Value Bets</h3>
           </CardHeader>
           <CardBody className="space-y-2">
             {awayHasValue && (
@@ -268,7 +335,7 @@ export function BettingInsights({
                 >
                   {awayTeamName.split(" ")[0]} ML
                 </span>
-                <Chip size="sm" color="success">
+                <Chip size="sm" className="bg-value text-white">
                   {safeNumber(winProb.team1 * 100 - awayImpliedProb * 100, 1)}% edge
                 </Chip>
               </div>
@@ -281,7 +348,7 @@ export function BettingInsights({
                 >
                   {homeTeamName.split(" ")[0]} ML
                 </span>
-                <Chip size="sm" color="success">
+                <Chip size="sm" className="bg-value text-white">
                   {safeNumber(winProb.team2 * 100 - homeImpliedProb * 100, 1)}% edge
                 </Chip>
               </div>
@@ -339,6 +406,7 @@ export function BettingInsights({
           </div>
         </CardBody>
       </Card>
+      </div>
     </div>
   );
 }

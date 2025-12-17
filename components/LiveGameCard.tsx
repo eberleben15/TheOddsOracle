@@ -52,11 +52,11 @@ export function LiveGameCard({ game }: LiveGameCardProps) {
   const homeWinning = homeScoreNum > awayScoreNum;
 
   return (
-    <Link href={`/matchup/${game.id}`}>
+    <Link href={`/live/${game.id}`}>
       <Card className="
         bg-white
-        border-2 border-danger
-        hover:shadow-lg hover:shadow-danger/20
+        border-2 border-live
+        hover:shadow-lg hover:shadow-live/20
         transition-all duration-200
         cursor-pointer
         relative
@@ -65,7 +65,7 @@ export function LiveGameCard({ game }: LiveGameCardProps) {
         <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1">
           <Chip 
             size="sm" 
-            className="bg-danger text-white font-bold animate-pulse"
+            className="bg-live text-white font-bold animate-pulse"
             startContent={
               <div className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
@@ -101,13 +101,13 @@ export function LiveGameCard({ game }: LiveGameCardProps) {
                   <p className="text-xs text-text-body">Away</p>
                 </div>
               </div>
-              <div className={`text-3xl font-bold ${awayWinning ? 'text-success' : 'text-text-body'}`}>
+              <div className={`text-3xl font-bold ${awayWinning ? 'text-gray-900' : 'text-gray-500'}`}>
                 {awayScore}
               </div>
             </div>
 
             {/* Divider */}
-            <div className="h-px bg-border-gray"></div>
+            <div className="h-px bg-gray-200"></div>
 
             {/* Home Team */}
             <div className="flex items-center justify-between gap-3">
@@ -118,7 +118,7 @@ export function LiveGameCard({ game }: LiveGameCardProps) {
                   <p className="text-xs text-text-body">Home</p>
                 </div>
               </div>
-              <div className={`text-3xl font-bold ${homeWinning ? 'text-success' : 'text-text-body'}`}>
+              <div className={`text-3xl font-bold ${homeWinning ? 'text-gray-900' : 'text-gray-500'}`}>
                 {homeScore}
               </div>
             </div>

@@ -67,6 +67,15 @@ export function calculateTeamAnalytics(
   recentGames: GameResult[],
   isHome: boolean = false
 ): TeamAnalytics {
+  // DEBUG: Log incoming stats
+  console.log(`[ANALYTICS] Input for ${stats.name}:`, {
+    offensiveEfficiency: stats.offensiveEfficiency,
+    defensiveEfficiency: stats.defensiveEfficiency,
+    pointsPerGame: stats.pointsPerGame,
+    pointsAllowedPerGame: stats.pointsAllowedPerGame,
+    recentGamesCount: recentGames.length,
+  });
+  
   // League averages for NCAA Basketball
   const LEAGUE_AVG_PPG = 75.0;
   const LEAGUE_AVG_FG = 45.0;
@@ -76,13 +85,20 @@ export function calculateTeamAnalytics(
   
   // Use actual efficiency ratings from SportsData.io if available, otherwise calculate estimates
   // Offensive/Defensive ratings (per 100 possessions)
-  const offensiveRating = stats.offensiveEfficiency ?? (stats.pointsPerGame / LEAGUE_AVG_PPG) * 100;
-  const defensiveRating = stats.defensiveEfficiency ?? (stats.pointsAllowedPerGame / LEAGUE_AVG_PPG) * 100;
+  const offensiveRating = stats.offensiveEfficiency ?? ((stats.pointsPerGame || 75) / LEAGUE_AVG_PPG) * 100;
+  const defensiveRating = stats.defensiveEfficiency ?? ((stats.pointsAllowedPerGame || 75) / LEAGUE_AVG_PPG) * 100;
   const netRating = offensiveRating - defensiveRating;
   
+  // DEBUG: Log calculated values
+  console.log(`[ANALYTICS] Calculated for ${stats.name}:`, {
+    offensiveRating,
+    defensiveRating,
+    netRating,
+  });
+  
   // Efficiency estimates (use actual if available from SportsData.io)
-  const offensiveEfficiency = stats.offensiveEfficiency ?? (stats.pointsPerGame * 1.05);
-  const defensiveEfficiency = stats.defensiveEfficiency ?? (stats.pointsAllowedPerGame * 1.05);
+  const offensiveEfficiency = stats.offensiveEfficiency ?? ((stats.pointsPerGame || 75) * 1.05);
+  const defensiveEfficiency = stats.defensiveEfficiency ?? ((stats.pointsAllowedPerGame || 75) * 1.05);
   
   // Momentum calculation from recent games
   const momentum = calculateMomentum(recentGames, stats.name);
@@ -109,7 +125,8 @@ export function calculateTeamAnalytics(
   const reboundingAdvantage = ((stats.reboundsPerGame || LEAGUE_AVG_REB) / LEAGUE_AVG_REB) * 100;
   
   // Assist-to-turnover ratio (use actual if available, otherwise calculate)
-  const assistToTurnoverRatio = stats.assistTurnoverRatio ?? ((stats.assistsPerGame || 0) / Math.max(stats.turnoversPerGame || 1, 1));
+  const assistToTurnoverRatio = stats.assistTurnoverRatio ?? 
+    ((stats.assistsPerGame || 12) / Math.max(stats.turnoversPerGame || 12, 1));
   
   // Consistency score
   const consistency = calculateConsistency(recentGames);

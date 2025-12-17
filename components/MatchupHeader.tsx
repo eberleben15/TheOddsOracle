@@ -45,7 +45,7 @@ export function MatchupHeader({ game, awayTeamStats, homeTeamStats }: MatchupHea
             <div className="flex items-center gap-4 text-sm text-text-body">
               <span>{formatDate(game.commence_time)}</span>
               <span>•</span>
-              <span className="text-primary font-semibold">{formatTime(game.commence_time)}</span>
+              <span className="text-gray-600 font-semibold">{formatTime(game.commence_time)}</span>
             </div>
           </div>
         </CardHeader>
@@ -63,7 +63,7 @@ export function MatchupHeader({ game, awayTeamStats, homeTeamStats }: MatchupHea
             </div>
             
             {/* VS Divider */}
-            <div className="text-3xl font-bold mx-8 text-primary">@</div>
+            <div className="text-3xl font-bold mx-8 text-gray-400">@</div>
             
             {/* Home Team */}
             <div className="text-center flex-1 flex flex-col items-center gap-4">
@@ -104,7 +104,7 @@ export function MatchupHeader({ game, awayTeamStats, homeTeamStats }: MatchupHea
                               <span className="text-sm font-medium text-text-dark">
                                 {awayTeamName.split(" ")[0]}
                               </span>
-                              <span className="text-sm font-bold text-primary">
+                              <span className="text-sm font-bold text-gray-700">
                                 {formatDecimalOdds(odds.moneyline.away.price)}
                               </span>
                             </div>
@@ -114,7 +114,7 @@ export function MatchupHeader({ game, awayTeamStats, homeTeamStats }: MatchupHea
                               <span className="text-sm font-medium text-text-dark">
                                 {homeTeamName.split(" ")[0]}
                               </span>
-                              <span className="text-sm font-bold text-primary">
+                              <span className="text-sm font-bold text-gray-700">
                                 {formatDecimalOdds(odds.moneyline.home.price)}
                               </span>
                             </div>
