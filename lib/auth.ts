@@ -1,7 +1,8 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import GoogleProvider from "next-auth/providers/google"
-import EmailProvider from "next-auth/providers/email"
+// EmailProvider is conditionally imported to avoid Edge runtime issues with nodemailer
+// import EmailProvider from "next-auth/providers/email"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import * as bcrypt from "bcryptjs"
@@ -16,6 +17,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     })
   )
+} else {
+  console.log("[Auth] Google provider not configured (missing GOOGLE_CLIENT_ID/SECRET)")
 }
 
 // Credentials provider for admin/login
@@ -93,11 +96,16 @@ providers.push(
 )
 
 // Add Email provider only if email server is configured
+// Note: Email provider is disabled by default to avoid Edge runtime issues with nodemailer
+// To enable, ensure the auth route uses Node.js runtime (see app/api/auth/[...nextauth]/route.ts)
+// and uncomment the EmailProvider import and this block
+/*
 if (
   process.env.EMAIL_SERVER_HOST &&
   process.env.EMAIL_SERVER_PORT &&
   process.env.EMAIL_FROM
 ) {
+  const EmailProvider = (await import("next-auth/providers/email")).default
   providers.push(
     EmailProvider({
       server: {
@@ -112,6 +120,7 @@ if (
     })
   )
 }
+*/
 
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,

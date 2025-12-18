@@ -1,8 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { BellIcon, MagnifyingGlassIcon, UserCircleIcon } from "@heroicons/react/24/outline";
 
 export function Header() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name || "User";
+  const userRole = session?.user?.subscriptionStatus || "Bettor";
+
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-border-gray shadow-sm">
       <div className="flex items-center justify-between px-6 py-4">
@@ -27,13 +33,16 @@ export function Header() {
           </button>
 
           {/* User Profile */}
-          <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-body-bg transition-colors">
+          <Link
+            href="/account"
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-body-bg transition-colors"
+          >
             <UserCircleIcon className="h-8 w-8 text-text-body" />
             <div className="text-left hidden sm:block">
-              <p className="text-sm font-medium text-text-dark">User</p>
-              <p className="text-xs text-text-body">Bettor</p>
+              <p className="text-sm font-medium text-text-dark">{userName}</p>
+              <p className="text-xs text-text-body">{userRole}</p>
             </div>
-          </button>
+          </Link>
         </div>
       </div>
     </header>

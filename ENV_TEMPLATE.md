@@ -20,6 +20,14 @@ NEXTAUTH_URL="http://localhost:3005"
 NEXTAUTH_SECRET="generate-a-random-32-character-secret-here"
 
 # ============================================
+# STRIPE (Optional - enable subscriptions)
+# ============================================
+STRIPE_SECRET_KEY="sk_live_or_sk_test"
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_PRICE_PREMIUM="price_premium_id"
+STRIPE_PRICE_PRO="price_pro_id"
+
+# ============================================
 # OAUTH PROVIDERS (Optional)
 # ============================================
 # Google OAuth - Get from https://console.cloud.google.com/

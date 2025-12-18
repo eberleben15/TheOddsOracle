@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getLiveGames } from "@/lib/odds-api";
 import { getTeamSeasonStats, findTeamByName } from "@/lib/sportsdata-api";
 import { TeamLogo } from "@/components/TeamLogo";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
@@ -29,7 +28,13 @@ export default function LiveGamePage() {
 
       try {
         setLoading(true);
-        const liveGames = await getLiveGames();
+        // Fetch from API route instead of calling getLiveGames directly
+        const response = await fetch("/api/live-games");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to fetch live games: ${response.statusText}`);
+        }
+        const liveGames = await response.json();
         const foundGame = liveGames.find((g) => g.id === gameId);
 
         if (!foundGame) {
