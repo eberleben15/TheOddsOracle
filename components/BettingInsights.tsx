@@ -15,8 +15,6 @@ import { decimalToAmerican, formatDecimalOdds } from "@/lib/odds-utils";
 import { getTeamData } from "@/lib/team-data";
 import { OddsGame } from "@/types";
 import { calculateTeamAnalytics, predictMatchup } from "@/lib/advanced-analytics";
-import { useState, useEffect } from "react";
-import React from "react";
 
 interface BettingInsightsProps {
   parsedOdds: ParsedOdds[];
@@ -57,40 +55,7 @@ export function BettingInsights({
     }
   }
 
-  // Analyze favorable bets if we have game and prediction data (client-side only)
-  const [favorableBetAnalysis, setFavorableBetAnalysis] = useState<any>(null);
-  const [FavorableBetsComponent, setFavorableBetsComponent] = useState<React.ComponentType<{ analysis: any }> | null>(null);
-
-  useEffect(() => {
-    if (game && calculatedPrediction) {
-      // Dynamic import to ensure it only runs on client
-      Promise.all([
-        import("@/lib/favorable-bet-engine"),
-        import("./FavorableBets")
-      ]).then(([{ analyzeFavorableBets }, { FavorableBets }]) => {
-        try {
-          const analysis = analyzeFavorableBets(
-            game,
-            parsedOdds,
-            {
-              winProbability: calculatedPrediction.winProbability,
-              predictedScore: calculatedPrediction.predictedScore,
-              predictedSpread: calculatedPrediction.predictedSpread,
-              confidence: calculatedPrediction.confidence,
-              keyFactors: [],
-              valueBets: [],
-            },
-            awayTeamStats,
-            homeTeamStats
-          );
-          setFavorableBetAnalysis(analysis);
-          setFavorableBetsComponent(() => FavorableBets);
-        } catch (error) {
-          console.warn("Error analyzing favorable bets:", error);
-        }
-      });
-    }
-  }, [game, parsedOdds, calculatedPrediction, awayTeamStats, homeTeamStats]);
+  // Note: Favorable bets are rendered in AdvancedAnalytics component to avoid duplication
 
   // Helper function to safely display numbers
   const safeNumber = (value: number | undefined, decimals: number = 1): string => {
@@ -126,13 +91,20 @@ export function BettingInsights({
     homeTeamStats.pointsAllowedPerGame
   ) : { team1: 0.5, team2: 0.5 };
 
-  // Calculate expected total (with safe defaults)
-  const expectedTotal = hasValidStats ? calculateExpectedTotal(
-    awayTeamStats.pointsPerGame,
-    awayTeamStats.pointsAllowedPerGame,
-    homeTeamStats.pointsPerGame,
-    homeTeamStats.pointsAllowedPerGame
-  ) : 0;
+  // Calculate expected total - use predicted scores if available, otherwise fallback to simple calculation
+  let expectedTotal = 0;
+  if (calculatedPrediction?.predictedScore) {
+    // Use the predicted scores from advanced analytics (most accurate)
+    expectedTotal = calculatedPrediction.predictedScore.away + calculatedPrediction.predictedScore.home;
+  } else if (hasValidStats) {
+    // Fallback to simple calculation if prediction not available
+    expectedTotal = calculateExpectedTotal(
+      awayTeamStats.pointsPerGame,
+      awayTeamStats.pointsAllowedPerGame,
+      homeTeamStats.pointsPerGame,
+      homeTeamStats.pointsAllowedPerGame
+    );
+  }
 
   // Calculate implied probabilities from odds
   const awayImpliedProb = bestAwayML
@@ -156,11 +128,6 @@ export function BettingInsights({
 
   return (
     <div className="space-y-6">
-      {/* Favorable Bet Engine Results */}
-      {favorableBetAnalysis && favorableBetAnalysis.totalValueBets > 0 && FavorableBetsComponent && (
-        <FavorableBetsComponent analysis={favorableBetAnalysis} />
-      )}
-
       {/* Standard Betting Insights */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* Best Odds Card */}
@@ -278,7 +245,11 @@ export function BettingInsights({
               {safeNumber(expectedTotal, 1)}
             </div>
             <p className="text-sm text-gray-600">
-              {hasValidStats ? "Based on team averages" : "Stats unavailable"}
+              {calculatedPrediction?.predictedScore 
+                ? "Based on AI prediction" 
+                : hasValidStats 
+                  ? "Based on team averages" 
+                  : "Stats unavailable"}
             </p>
           </div>
         </CardBody>
@@ -365,7 +336,7 @@ export function BettingInsights({
         <CardBody>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Offensive Rating</span>
+              <span className="text-gray-600">Points Per Game</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
                   {safeNumber(awayTeamStats?.pointsPerGame, 1)}
@@ -376,7 +347,7 @@ export function BettingInsights({
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Defensive Rating</span>
+              <span className="text-gray-600">Points Allowed Per Game</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
                   {safeNumber(awayTeamStats?.pointsAllowedPerGame, 1)}

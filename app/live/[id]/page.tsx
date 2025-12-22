@@ -35,7 +35,7 @@ export default function LiveGamePage() {
           throw new Error(errorData.message || `Failed to fetch live games: ${response.statusText}`);
         }
         const liveGames = await response.json();
-        const foundGame = liveGames.find((g) => g.id === gameId);
+        const foundGame = liveGames.find((g: LiveGame) => g.id === gameId);
 
         if (!foundGame) {
           setApiError("Game not found");

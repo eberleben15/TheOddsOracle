@@ -5,6 +5,7 @@ import { TeamStats, GameResult, HeadToHead } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { getTeamData } from "@/lib/team-data";
 import { TeamLogo } from "./TeamLogo";
+import { LastUpdated } from "./LastUpdated";
 
 interface StatsDisplayProps {
   homeTeamStats: TeamStats;
@@ -38,8 +39,31 @@ export function StatsDisplay({
     return value !== undefined && !isNaN(value) && isFinite(value) ? value : fallback;
   };
 
+  // Get the most recent update time from recent games
+  const getLastUpdateTime = (): Date | null => {
+    const allGames = [...recentGames.home, ...recentGames.away];
+    if (allGames.length === 0) return null;
+    
+    const dates = allGames
+      .map(g => g.date ? new Date(g.date) : null)
+      .filter((d): d is Date => d !== null);
+    
+    if (dates.length === 0) return new Date(); // Fallback to now
+    
+    return new Date(Math.max(...dates.map(d => d.getTime())));
+  };
+
+  const lastUpdateTime = getLastUpdateTime();
+
   return (
     <div className="space-y-6">
+      {/* Last Updated Timestamp */}
+      {lastUpdateTime && (
+        <div className="flex justify-end">
+          <LastUpdated timestamp={lastUpdateTime} />
+        </div>
+      )}
+
       {/* Team Records & Advanced Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-white border border-border-gray">

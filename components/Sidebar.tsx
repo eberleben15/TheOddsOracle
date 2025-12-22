@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { 
   ChevronDownIcon, 
@@ -11,9 +11,11 @@ import {
   XMarkIcon,
   Bars3Icon
 } from "@heroicons/react/24/outline";
+import { Sport, SPORT_CONFIGS } from "@/lib/sports/sport-config";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sportsOpen, setSportsOpen] = useState(true);
@@ -22,21 +24,56 @@ export function Sidebar() {
     setMounted(true);
   }, []);
 
+  // Get current sport from URL params, default to cbb
+  const currentSport = (searchParams?.get("sport") as Sport) || "cbb";
+  const isDashboard = pathname === "/" || pathname === "/dashboard";
+  
+  // Update Dashboard href to include current sport if on dashboard
+  const dashboardHref = isDashboard && currentSport !== "cbb" 
+    ? `/dashboard?sport=${currentSport}` 
+    : "/dashboard";
+
   const navigation = [
     { 
       name: "Dashboard", 
-      href: "/", 
+      href: dashboardHref, 
       icon: HomeIcon, 
-      current: pathname === "/" 
+      current: isDashboard
     },
     {
       name: "Sports",
       icon: ChartBarIcon,
       children: [
-        { name: "College Basketball", href: "/", current: pathname === "/" },
-        { name: "NBA", href: "#", disabled: true },
-        { name: "NFL", href: "#", disabled: true },
-        { name: "College Football", href: "#", disabled: true },
+        { 
+          name: "College Basketball", 
+          href: "/dashboard?sport=cbb", 
+          current: isDashboard && currentSport === "cbb",
+          sport: "cbb" as Sport
+        },
+        { 
+          name: "NBA", 
+          href: "/dashboard?sport=nba", 
+          current: isDashboard && currentSport === "nba",
+          sport: "nba" as Sport
+        },
+        { 
+          name: "NFL", 
+          href: "/dashboard?sport=nfl", 
+          current: isDashboard && currentSport === "nfl",
+          sport: "nfl" as Sport
+        },
+        { 
+          name: "NHL", 
+          href: "/dashboard?sport=nhl", 
+          current: isDashboard && currentSport === "nhl",
+          sport: "nhl" as Sport
+        },
+        { 
+          name: "MLB", 
+          href: "/dashboard?sport=mlb", 
+          current: isDashboard && currentSport === "mlb",
+          sport: "mlb" as Sport
+        },
       ]
     },
     { 
@@ -132,20 +169,16 @@ export function Sidebar() {
                           className={`
                             flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm
                             ${child.current
-                              ? "bg-gray-100 text-gray-900 border-l-4 border-gray-400"
-                              : child.disabled
-                              ? "text-gray-400 cursor-not-allowed opacity-50"
+                              ? "bg-gray-100 text-gray-900 border-l-4 border-gray-400 font-medium"
                               : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                             }
                           `}
-                          onClick={(e) => child.disabled && e.preventDefault()}
+                          onClick={() => {
+                            // Close mobile menu when navigating
+                            setMobileOpen(false);
+                          }}
                         >
                           <span>{child.name}</span>
-                          {child.disabled && (
-                            <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                              Soon
-                            </span>
-                          )}
                         </Link>
                       ))}
                     </div>

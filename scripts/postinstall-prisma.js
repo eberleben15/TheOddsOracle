@@ -38,9 +38,9 @@ module.exports = require('./client.js');
   // Patch @prisma/client/default.js for Turbopack compatibility
   const atPrismaClientDefaultPath = path.join(__dirname, '..', 'node_modules', '@prisma', 'client', 'default.js');
   if (fs.existsSync(atPrismaClientDefaultPath)) {
-    const patchedContent = `// Patched for Turbopack compatibility
-// Use static relative path that Turbopack can resolve at build time
-// From node_modules/@prisma/client to node_modules/.prisma/client
+    // Simple direct require - works with Next.js/Turbopack
+    const patchedContent = `// Patched for Next.js/Turbopack compatibility
+// Directly require from the .prisma directory
 module.exports = require('../../.prisma/client/default.js');
 `;
     fs.writeFileSync(atPrismaClientDefaultPath, patchedContent);

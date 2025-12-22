@@ -519,23 +519,73 @@ export async function getTeamSeasonStats(teamName: string): Promise<TeamStats | 
     const defReb = teamStats.DefensiveRebounds || 0;
     const possessions = teamStats.Possessions || (fga + 0.44 * fta + turnovers - offReb);
     
-    // Points per game - use PointsPerGame if available, otherwise calculate
-    const ppg = teamStats.PointsPerGame || (points / games);
+    // Points per game - use PointsPerGame if available, otherwise calculate from recent games
+    let ppg = teamStats.PointsPerGame;
+    if (!ppg || ppg === 0 || ppg > 100) {
+      // If PointsPerGame is missing, invalid, or suspiciously high, calculate from recent games
+      if (recentGames.length >= 3) {
+        // Calculate from recent games (most accurate fallback)
+        const teamScores = recentGames.map(g => {
+          const isHome = g.homeTeamKey === team.Key;
+          return isHome ? g.homeScore : g.awayScore;
+        }).filter(score => score > 0 && score < 150); // Filter out invalid scores
+        
+        if (teamScores.length >= 3) {
+          ppg = teamScores.reduce((a, b) => a + b, 0) / teamScores.length;
+        }
+      }
+      
+      // If still no valid ppg, try points / games but validate
+      if ((!ppg || ppg === 0 || ppg > 100) && points > 0 && games > 0) {
+        const calculatedPpg = points / games;
+        // Only use if it's in a reasonable range (40-100 for college basketball)
+        if (calculatedPpg >= 40 && calculatedPpg <= 100) {
+          ppg = calculatedPpg;
+        }
+      }
+      
+      // Final fallback
+      if (!ppg || ppg === 0 || ppg > 100) {
+        ppg = 72; // League average fallback if no valid data
+        console.warn(`[SPORTSDATA] Using league average PPG (72) for ${team.School} - calculated values were invalid`);
+      }
+    }
+    
+    // Cap PPG at reasonable maximum (100) for college basketball
+    ppg = Math.min(ppg, 100);
     
     // Opponent PPG - calculate from recent games if not available from API
     let oppPpg = teamStats.OpponentPointsPerGame;
-    if (!oppPpg && oppPoints > 0) {
-      oppPpg = oppPoints / games;
-    } else if (!oppPpg && recentGames.length > 0) {
-      // Calculate from recent games
-      const oppScores = recentGames.map(g => {
-        const isHome = g.homeTeamKey === team.Key;
-        return isHome ? g.awayScore : g.homeScore;
-      });
-      oppPpg = oppScores.reduce((a, b) => a + b, 0) / oppScores.length;
-    } else if (!oppPpg) {
-      oppPpg = 70; // League average fallback
+    if (!oppPpg || oppPpg === 0 || oppPpg > 100) {
+      if (recentGames.length >= 3) {
+        // Calculate from recent games (most accurate fallback)
+        const oppScores = recentGames.map(g => {
+          const isHome = g.homeTeamKey === team.Key;
+          return isHome ? g.awayScore : g.homeScore;
+        }).filter(score => score > 0 && score < 150); // Filter out invalid scores
+        
+        if (oppScores.length >= 3) {
+          oppPpg = oppScores.reduce((a, b) => a + b, 0) / oppScores.length;
+        }
+      }
+      
+      // If still no valid oppPpg, try oppPoints / games but validate
+      if ((!oppPpg || oppPpg === 0 || oppPpg > 100) && oppPoints > 0 && games > 0) {
+        const calculatedOppPpg = oppPoints / games;
+        // Only use if it's in a reasonable range (40-100 for college basketball)
+        if (calculatedOppPpg >= 40 && calculatedOppPpg <= 100) {
+          oppPpg = calculatedOppPpg;
+        }
+      }
+      
+      // Final fallback
+      if (!oppPpg || oppPpg === 0 || oppPpg > 100) {
+        oppPpg = 72; // League average fallback if no valid data
+      }
     }
+    
+    // Cap OppPpg at reasonable maximum (100) for college basketball
+    oppPpg = Math.min(oppPpg, 100);
     
     // === CALCULATE FOUR FACTORS ===
     // 1. eFG% = (FGM + 0.5 * 3PM) / FGA * 100
@@ -652,12 +702,13 @@ export async function getTeamRecentGames(
     const teams = await getAllTeams();
     const teamMap = new Map(teams.map(t => [t.Key, t]));
     
-    const response = await fetch(
-      `${BASE_URL}/scores/json/Games/${CURRENT_SEASON}?key=${API_KEY}`,
-      {
-        next: { revalidate: 300, tags: [`sportsdata-games-${CURRENT_SEASON}`] }, // 5 min cache
-      }
-    );
+      // Disable caching for large game lists (over 2MB limit)
+      const response = await fetch(
+        `${BASE_URL}/scores/json/Games/${CURRENT_SEASON}?key=${API_KEY}`,
+        {
+          cache: 'no-store', // Large responses can't be cached by Next.js
+        }
+      );
     
     if (!response.ok) {
       throw new Error(`SportsData.io API error: ${response.status}`);
@@ -834,10 +885,11 @@ export async function getHeadToHead(
     const h2hGames: GameResult[] = [];
     
     for (const season of seasons) {
+      // Disable caching for large game lists (over 2MB limit)
       const response = await fetch(
         `${BASE_URL}/scores/json/Games/${season}?key=${API_KEY}`,
         {
-          next: { revalidate: 3600, tags: [`sportsdata-games-${season}`] }, // 1 hour cache
+          cache: 'no-store', // Large responses can't be cached by Next.js
         }
       );
       

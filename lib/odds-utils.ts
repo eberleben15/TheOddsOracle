@@ -151,27 +151,36 @@ export function formatSpread(outcome: OddsOutcome): string {
  */
 export function getBestMoneylineOdds(
   parsedOdds: ParsedOdds[]
-): { away: OddsOutcome | null; home: OddsOutcome | null } | null {
+): { 
+  away: OddsOutcome | null; 
+  home: OddsOutcome | null;
+  awayBookmaker?: string;
+  homeBookmaker?: string;
+} | null {
   if (parsedOdds.length === 0) return null;
 
   let bestAway: OddsOutcome | null = null;
   let bestHome: OddsOutcome | null = null;
+  let awayBookmaker: string | undefined;
+  let homeBookmaker: string | undefined;
 
   parsedOdds.forEach((odds) => {
     if (odds.moneyline?.away) {
       // Higher decimal odds = better odds (works for both favorites and underdogs)
       if (!bestAway || odds.moneyline.away.price > bestAway.price) {
         bestAway = odds.moneyline.away;
+        awayBookmaker = odds.bookmaker;
       }
     }
     if (odds.moneyline?.home) {
       // Higher decimal odds = better odds (works for both favorites and underdogs)
       if (!bestHome || odds.moneyline.home.price > bestHome.price) {
         bestHome = odds.moneyline.home;
+        homeBookmaker = odds.bookmaker;
       }
     }
   });
 
-  return { away: bestAway, home: bestHome };
+  return { away: bestAway, home: bestHome, awayBookmaker, homeBookmaker };
 }
 

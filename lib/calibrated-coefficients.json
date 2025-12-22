@@ -1,0 +1,20 @@
+{
+  "recentFormWeight": 0.6,
+  "seasonAvgWeight": 0.4,
+  "sosAdjustmentFactor": 0.3,
+  "tierAdjustedWeight": 0.7,
+  "weightedEffWeight": 0.3,
+  "baseDefensiveAdjustmentFactor": 0.12,
+  "percentileMultipliers": {
+    "elite": 1.5,
+    "good": 1.2,
+    "average": 1.0,
+    "belowAverage": 0.8,
+    "poor": 0.6
+  },
+  "homeAdvantage": 3.5,
+  "calibrated": false,
+  "calibratedAt": null,
+  "validationMetrics": null
+}
+

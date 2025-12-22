@@ -6,6 +6,12 @@ const THE_ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4";
 export async function getLiveGames(
   sport: string = "basketball_ncaab"
 ): Promise<LiveGame[]> {
+  return getLiveGamesBySport(sport);
+}
+
+export async function getLiveGamesBySport(
+  sport: string = "basketball_ncaab"
+): Promise<LiveGame[]> {
   const apiKey = process.env.THE_ODDS_API_KEY;
 
   if (!apiKey) {
@@ -19,7 +25,24 @@ export async function getLiveGames(
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch live scores: ${response.statusText}`);
+      const errorText = await response.text().catch(() => '');
+      let errorMessage = `Failed to fetch live scores: ${response.status} ${response.statusText}`;
+      
+      if (response.status === 401) {
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error_code === 'OUT_OF_USAGE_CREDITS') {
+            errorMessage = `API quota exceeded: ${errorJson.message}. Please upgrade your plan at https://the-odds-api.com/ or wait for your quota to reset.`;
+          } else {
+            errorMessage = `API key error: ${errorJson.message || 'Invalid or expired API key'}. Please check THE_ODDS_API_KEY in your .env.local file.`;
+          }
+        } catch {
+          errorMessage += '. This usually means your API key is invalid or expired. Please check THE_ODDS_API_KEY in your .env.local file.';
+        }
+      }
+      
+      console.error(`[ODDS API] Error ${response.status}:`, errorText || response.statusText);
+      throw new Error(errorMessage);
     }
 
     const data: LiveGame[] = await response.json();
@@ -37,6 +60,14 @@ export async function getLiveGames(
 }
 
 export async function getUpcomingGames(
+  sport: string = "basketball_ncaab",
+  regions: string = "us",
+  markets: string = "h2h,spreads"
+): Promise<OddsGame[]> {
+  return getUpcomingGamesBySport(sport, regions, markets);
+}
+
+export async function getUpcomingGamesBySport(
   sport: string = "basketball_ncaab",
   regions: string = "us",
   markets: string = "h2h,spreads"
@@ -59,7 +90,24 @@ export async function getUpcomingGames(
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch odds: ${response.statusText}`);
+      const errorText = await response.text().catch(() => '');
+      let errorMessage = `Failed to fetch odds: ${response.status} ${response.statusText}`;
+      
+      if (response.status === 401) {
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error_code === 'OUT_OF_USAGE_CREDITS') {
+            errorMessage = `API quota exceeded: ${errorJson.message}. Please upgrade your plan at https://the-odds-api.com/ or wait for your quota to reset.`;
+          } else {
+            errorMessage = `API key error: ${errorJson.message || 'Invalid or expired API key'}. Please check THE_ODDS_API_KEY in your .env.local file.`;
+          }
+        } catch {
+          errorMessage += '. This usually means your API key is invalid or expired. Please check THE_ODDS_API_KEY in your .env.local file.';
+        }
+      }
+      
+      console.error(`[ODDS API] Error ${response.status}:`, errorText || response.statusText);
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

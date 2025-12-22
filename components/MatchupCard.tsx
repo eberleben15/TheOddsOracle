@@ -51,7 +51,7 @@ export function MatchupCard({ game }: MatchupCardProps) {
                   <p className="font-semibold text-text-dark">{game.away_team}</p>
                   <p className="text-xs text-text-body">Away</p>
                 </div>
-                {bestMoneyline.away && (
+                {bestMoneyline?.away && (
                   <div className="text-right">
                     <p className="text-sm font-bold text-gray-700">
                       {formatDecimalOdds(bestMoneyline.away.price)}
@@ -75,7 +75,7 @@ export function MatchupCard({ game }: MatchupCardProps) {
                   <p className="font-semibold text-text-dark">{game.home_team}</p>
                   <p className="text-xs text-text-body">Home</p>
                 </div>
-                {bestMoneyline.home && (
+                {bestMoneyline?.home && (
                   <div className="text-right">
                     <p className="text-sm font-bold text-gray-700">
                       {formatDecimalOdds(bestMoneyline.home.price)}

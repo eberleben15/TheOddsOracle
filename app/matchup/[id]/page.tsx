@@ -1,18 +1,17 @@
 import { getUpcomingGames, getGameOdds } from "@/lib/odds-api";
-import {
-  getTeamSeasonStats,
-  findTeamByName,
-  getHeadToHead as getSportsDataH2H,
-} from "@/lib/sportsdata-api";
 import { apiCache } from "@/lib/api-cache";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { MatchupHeader } from "@/components/MatchupHeader";
 import { BettingInsights } from "@/components/BettingInsights";
-import { AdvancedAnalytics } from "@/components/AdvancedAnalytics";
+import { AdvancedAnalyticsWrapper } from "@/components/AdvancedAnalyticsWrapper";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
+import { EmptyState } from "@/components/EmptyState";
 import { parseOdds } from "@/lib/odds-utils";
 import { notFound } from "next/navigation";
-import { TeamStats, HeadToHead } from "@/types";
+import { TeamStats, HeadToHead, GameResult } from "@/types";
+import { getSportFromGame } from "@/lib/sports/sport-detection";
+import { getTeamSeasonStats, getRecentGames, findTeamByName } from "@/lib/sports/unified-sports-api";
+import { Sport } from "@/lib/sports/sport-config";
 
 interface MatchupPageProps {
   params: Promise<{
@@ -39,12 +38,19 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
     notFound();
   }
 
+  // Detect sport from game
+  const sport: Sport = getSportFromGame(game);
+  console.log(`[MATCHUP] Detected sport: ${sport} from game sport_key: ${game.sport_key}`);
+
   // Check for API key
   const hasAPIKey = !!process.env.SPORTSDATA_API_KEY;
   
   let homeTeamStats: TeamStats | null = null;
   let awayTeamStats: TeamStats | null = null;
-  let recentGames = { home: [], away: [] };
+  let recentGames: { home: GameResult[]; away: GameResult[] } = { 
+    home: [] as GameResult[], 
+    away: [] as GameResult[] 
+  };
   let headToHead: HeadToHead | null = null;
   let apiError: string | null = null;
 
@@ -52,22 +58,22 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
     apiError = "⚠️ SportsData.io API Key Required: Please configure SPORTSDATA_API_KEY in your .env.local file. Visit https://sportsdata.io for access.";
   } else {
     try {
-      console.log(`[MATCHUP] Fetching stats for ${game.away_team} vs ${game.home_team}`);
+      console.log(`[MATCHUP] Fetching stats for ${game.away_team} vs ${game.home_team} (${sport})`);
       
-      // Find teams in SportsData.io
+      // Find teams using unified API
       const [awayTeam, homeTeam] = await Promise.all([
-        findTeamByName(game.away_team),
-        findTeamByName(game.home_team),
+        findTeamByName(sport, game.away_team),
+        findTeamByName(sport, game.home_team),
       ]);
 
       if (!awayTeam || !homeTeam) {
-        apiError = `❌ Team Not Found: Could not find "${!awayTeam ? game.away_team : game.home_team}" in SportsData.io database. This team may not be available in the NCAA basketball data.`;
+        apiError = `❌ Team Not Found: Could not find "${!awayTeam ? game.away_team : game.home_team}" in SportsData.io database for ${sport.toUpperCase()}.`;
         console.error(apiError);
       } else {
-        // Fetch real stats from SportsData.io - NO FALLBACK DATA
+        // Fetch stats using unified API
         const [awayStats, homeStats] = await Promise.all([
-          getTeamSeasonStats(game.away_team),
-          getTeamSeasonStats(game.home_team),
+          getTeamSeasonStats(sport, game.away_team),
+          getTeamSeasonStats(sport, game.home_team),
         ]);
 
         if (!awayStats || !homeStats) {
@@ -77,41 +83,54 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
           homeTeamStats = homeStats;
           awayTeamStats = awayStats;
 
-          // Recent games are already included in TeamStats from SportsData.io
+          // Fetch recent games using unified API
+          const [awayRecent, homeRecent] = await Promise.all([
+            getRecentGames(sport, game.away_team, 5),
+            getRecentGames(sport, game.home_team, 5),
+          ]);
+
           recentGames = {
-            home: homeStats.recentGames || [],
-            away: awayStats.recentGames || [],
+            home: homeRecent,
+            away: awayRecent,
           };
 
-          // Fetch head-to-head history
-          try {
-            const h2hGames = await getSportsDataH2H(awayTeam.Key, homeTeam.Key, 5);
-            
-            if (h2hGames.length > 0) {
-              // Count wins for each team - use winnerKey for reliable matching
-              const awayWins = h2hGames.filter(g => g.winnerKey === awayTeam.Key).length;
-              const homeWins = h2hGames.filter(g => g.winnerKey === homeTeam.Key).length;
+          // Update stats with recent games
+          homeTeamStats.recentGames = homeRecent;
+          awayTeamStats.recentGames = awayRecent;
+
+          // Head-to-head is only available for CBB currently
+          // TODO: Implement H2H for other sports if needed
+          if (sport === "cbb") {
+            try {
+              // Import CBB-specific H2H function
+              const cbbApi = await import("@/lib/sportsdata-api");
+              const h2hGames = await cbbApi.getHeadToHead(awayTeam.Key, homeTeam.Key, 5);
               
-              headToHead = {
-                games: h2hGames,
-                team1Wins: awayWins,
-                team2Wins: homeWins,
-                awayTeamWins: awayWins,
-                homeTeamWins: homeWins,
-              };
+              if (h2hGames && h2hGames.length > 0) {
+                // Count wins for each team
+                const awayWins = h2hGames.filter(g => g.winnerKey === awayTeam.Key).length;
+                const homeWins = h2hGames.filter(g => g.winnerKey === homeTeam.Key).length;
+                
+                headToHead = {
+                  games: h2hGames,
+                  team1Wins: awayWins,
+                  team2Wins: homeWins,
+                  awayTeamWins: awayWins,
+                  homeTeamWins: homeWins,
+                };
+              }
+            } catch (h2hError) {
+              console.warn("Could not fetch head-to-head data:", h2hError);
             }
-          } catch (h2hError) {
-            console.warn("Could not fetch head-to-head data:", h2hError);
-            // H2H is optional, don't fail the entire page
           }
 
-          console.log(`[MATCHUP] ✅ Successfully loaded stats for both teams`);
+          console.log(`[MATCHUP] ✅ Successfully loaded stats for both teams (${sport})`);
         }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       apiError = `❌ API Error: ${errorMessage}`;
-      console.error("Failed to fetch stats from SportsData.io:", error);
+      console.error(`Failed to fetch stats from SportsData.io for ${sport}:`, error);
     }
   }
 
@@ -130,43 +149,56 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
           </div>
         )}
 
-            {!apiError && homeTeamStats && awayTeamStats && (
-              <>
-                {/* Advanced Analytics - Phase 3 */}
-                <div className="mb-8">
-                  <AdvancedAnalytics
-                    awayTeamStats={awayTeamStats}
-                    homeTeamStats={homeTeamStats}
-                    awayRecentGames={recentGames.away}
-                    homeRecentGames={recentGames.home}
-                    odds={{
-                      moneyline: parseOdds(game)[0]?.moneyline,
-                      spread: parseOdds(game)[0]?.spread?.home?.point,
-                    }}
-                    game={game}
-                    parsedOdds={parseOdds(game)}
-                  />
-                </div>
+        {!apiError && !homeTeamStats && !awayTeamStats && (
+          <div className="mb-6">
+            <EmptyState 
+              type="no_data"
+              title="Statistics Unavailable"
+              message="Team statistics are not available for this matchup. This may be because the game is too far in the future or the teams haven't played enough games this season."
+            />
+          </div>
+        )}
 
-                <div className="mb-8">
-                  <BettingInsights
-                    parsedOdds={parseOdds(game)}
-                    awayTeamStats={awayTeamStats}
-                    homeTeamStats={homeTeamStats}
-                    awayTeamName={game.away_team}
-                    homeTeamName={game.home_team}
-                    game={game}
-                  />
-                </div>
-                
-                <StatsDisplay
-                  homeTeamStats={homeTeamStats}
-                  awayTeamStats={awayTeamStats}
-                  recentGames={recentGames}
-                  headToHead={headToHead || undefined}
-                />
-              </>
-            )}
+        {!apiError && homeTeamStats && awayTeamStats && (
+          <>
+            {/* Advanced Analytics - Phase 3 */}
+            <div className="mb-8">
+              <AdvancedAnalyticsWrapper
+                awayTeamStats={awayTeamStats}
+                homeTeamStats={homeTeamStats}
+                awayRecentGames={recentGames.away}
+                homeRecentGames={recentGames.home}
+                odds={{
+                  moneyline: parseOdds(game)[0]?.moneyline ? {
+                    away: parseOdds(game)[0]?.moneyline?.away?.price || 0,
+                    home: parseOdds(game)[0]?.moneyline?.home?.price || 0,
+                  } : undefined,
+                  spread: parseOdds(game)[0]?.spread?.home?.point,
+                }}
+                game={game}
+                parsedOdds={parseOdds(game)}
+              />
+            </div>
+
+            <div className="mb-8">
+              <BettingInsights
+                parsedOdds={parseOdds(game)}
+                awayTeamStats={awayTeamStats}
+                homeTeamStats={homeTeamStats}
+                awayTeamName={game.away_team}
+                homeTeamName={game.home_team}
+                game={game}
+              />
+            </div>
+            
+            <StatsDisplay
+              homeTeamStats={homeTeamStats}
+              awayTeamStats={awayTeamStats}
+              recentGames={recentGames}
+              headToHead={headToHead || undefined}
+            />
+          </>
+        )}
       </div>
     </main>
   );

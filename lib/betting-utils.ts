@@ -62,6 +62,7 @@ export function findBestOdds(
 
 /**
  * Calculate expected total points based on team averages
+ * Uses a matchup-adjusted approach: team offense vs opponent defense
  */
 export function calculateExpectedTotal(
   team1PPG: number,
@@ -69,10 +70,25 @@ export function calculateExpectedTotal(
   team2PPG: number,
   team2PAPG: number
 ): number {
-  // Average of (team1 offense + team2 defense) and (team2 offense + team1 defense)
-  const team1Expected = (team1PPG + team2PAPG) / 2;
-  const team2Expected = (team2PPG + team1PAPG) / 2;
-  return team1Expected + team2Expected;
+  // Matchup-adjusted scoring:
+  // Team1's expected score = Team1's offense adjusted by Team2's defense
+  // Team2's expected score = Team2's offense adjusted by Team1's defense
+  
+  // League average for college basketball (~72 PPG)
+  const leagueAvg = 72;
+  
+  // Calculate how much better/worse each defense is vs league average
+  const team2DefStrength = (team2PAPG - leagueAvg) / leagueAvg; // Negative = good defense
+  const team1DefStrength = (team1PAPG - leagueAvg) / leagueAvg;
+  
+  // Adjust team offense based on opponent's defensive strength
+  // Good defense reduces opponent scoring, bad defense increases it
+  const team1Expected = team1PPG * (1 - team2DefStrength * 0.3); // 30% adjustment factor
+  const team2Expected = team2PPG * (1 - team1DefStrength * 0.3);
+  
+  // Ensure reasonable totals for college basketball (typically 130-160)
+  const total = team1Expected + team2Expected;
+  return Math.max(120, Math.min(180, total));
 }
 
 /**

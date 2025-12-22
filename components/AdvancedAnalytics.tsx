@@ -14,7 +14,7 @@ import { FaChartLine, FaFire, FaTrophy, FaBullseye, FaLightbulb } from "react-ic
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { OddsGame } from "@/types";
 import { ParsedOdds } from "@/lib/odds-utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import React from "react";
 
 interface AdvancedAnalyticsProps {
@@ -39,24 +39,60 @@ export function AdvancedAnalytics({
   game,
   parsedOdds,
 }: AdvancedAnalyticsProps) {
-  // Calculate analytics for both teams
-  const awayAnalytics = calculateTeamAnalytics(awayTeamStats, awayRecentGames, false);
-  const homeAnalytics = calculateTeamAnalytics(homeTeamStats, homeRecentGames, true);
+  // Calculate analytics for both teams (memoized to prevent recalculation)
+  const awayAnalytics = useMemo(
+    () => calculateTeamAnalytics(awayTeamStats, awayRecentGames, false),
+    [awayTeamStats, awayRecentGames]
+  );
+  const homeAnalytics = useMemo(
+    () => calculateTeamAnalytics(homeTeamStats, homeRecentGames, true),
+    [homeTeamStats, homeRecentGames]
+  );
   
-  // Get prediction
-  let prediction = predictMatchup(awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats);
+  // Get prediction (memoized to prevent recalculation)
+  const basePrediction = useMemo(
+    () => predictMatchup(awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats),
+    [awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats]
+  );
   
-  // Identify value bets if odds available
-  if (odds) {
-    prediction = identifyValueBets(prediction, odds);
-  }
+  // Identify value bets if odds available (memoized)
+  const prediction = useMemo(() => {
+    if (odds) {
+      return identifyValueBets(basePrediction, odds);
+    }
+    return basePrediction;
+  }, [basePrediction, odds]);
+  
+  // Track prediction in database for future analysis (non-blocking)
+  // Use game.id as key to prevent multiple tracks of the same game
+  useEffect(() => {
+    if (game?.id && prediction) {
+      fetch("/api/predictions/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameId: game.id,
+          date: game.commence_time,
+          homeTeam: game.home_team,
+          awayTeam: game.away_team,
+          prediction,
+        }),
+      }).catch((error) => {
+        console.warn("Failed to track prediction:", error);
+        // Non-blocking - continue even if tracking fails
+      });
+    }
+  }, [game?.id, prediction.predictedScore?.away, prediction.predictedScore?.home]);
 
   // Analyze favorable bets using the new engine (client-side only)
   const [favorableBetAnalysis, setFavorableBetAnalysis] = useState<any>(null);
   const [FavorableBetsComponent, setFavorableBetsComponent] = useState<React.ComponentType<{ analysis: any }> | null>(null);
 
+  // Memoize game ID to prevent unnecessary reruns
+  const gameId = game?.id;
+  
   useEffect(() => {
-    if (game && parsedOdds && parsedOdds.length > 0) {
+    if (gameId && parsedOdds && parsedOdds.length > 0 && prediction) {
       // Dynamic import to ensure it only runs on client
       Promise.all([
         import("@/lib/favorable-bet-engine"),
@@ -64,7 +100,7 @@ export function AdvancedAnalytics({
       ]).then(([{ analyzeFavorableBets }, { FavorableBets }]) => {
         try {
           const analysis = analyzeFavorableBets(
-            game,
+            game!,
             parsedOdds,
             prediction,
             awayTeamStats,
@@ -77,7 +113,7 @@ export function AdvancedAnalytics({
         }
       });
     }
-  }, [game, parsedOdds, prediction, awayTeamStats, homeTeamStats]);
+  }, [gameId, parsedOdds, prediction.predictedScore?.away, prediction.predictedScore?.home, awayTeamStats?.pointsPerGame, homeTeamStats?.pointsPerGame]);
 
   // Helper function to safely display numbers
   const safeNumber = (value: number, decimals: number = 1): string => {

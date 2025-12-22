@@ -35,6 +35,13 @@ export async function POST(req: Request) {
 
   const mode = body.mode || "subscription";
 
+  if (!stripe) {
+    return NextResponse.json(
+      { error: "Stripe is not configured. Please install stripe package and set STRIPE_SECRET_KEY." },
+      { status: 503 }
+    );
+  }
+
   try {
     // Get or create Stripe customer
     let stripeCustomerId = session.user.stripeCustomerId;

@@ -6,6 +6,15 @@
  */
 
 import { TeamStats, GameResult } from "@/types";
+import { CalibrationCoefficients, DEFAULT_COEFFICIENTS } from "./prediction-calibration";
+import { SimulationResult } from "./monte-carlo-simulation";
+
+/**
+ * Use default coefficients
+ * Note: In the future, coefficients can be loaded from an API endpoint or environment variables
+ * For now, we use the default values defined in prediction-calibration.ts
+ */
+const COEFFICIENTS = DEFAULT_COEFFICIENTS;
 
 export interface TeamAnalytics {
   // Overall strength metrics
@@ -16,6 +25,15 @@ export interface TeamAnalytics {
   // Efficiency metrics
   offensiveEfficiency: number; // Points per possession estimate
   defensiveEfficiency: number; // Opponent points per possession
+  
+  // Strength of Schedule adjustments
+  adjustedOffensiveEfficiency?: number; // SOS-adjusted offensive efficiency
+  adjustedDefensiveEfficiency?: number; // SOS-adjusted defensive efficiency
+  strengthOfSchedule?: number; // SOS rating (positive = harder schedule)
+  
+  // Recent form metrics (Phase 2)
+  recentFormOffensiveEfficiency?: number; // Last 5 games offensive efficiency
+  recentFormDefensiveEfficiency?: number; // Last 5 games defensive efficiency
   
   // Momentum & trends
   momentum: number; // -100 to +100 based on recent performance
@@ -57,6 +75,7 @@ export interface MatchupPrediction {
     confidence: number;
     reason: string;
   }[];
+  simulation?: SimulationResult; // Monte Carlo simulation results (if available)
 }
 
 /**
@@ -132,14 +151,101 @@ export function calculateTeamAnalytics(
   const consistency = calculateConsistency(recentGames);
   
   // Home advantage (typically 3-4 points in college basketball)
-  const homeAdvantage = isHome ? 3.5 : 0;
+  const homeAdvantage = isHome ? COEFFICIENTS.homeAdvantage : 0;
+  
+  // Phase 2: Calculate recent form efficiency ratings (last 5 games)
+  function calculateRecentFormEfficiency(
+    teamStats: TeamStats,
+    recentGames: GameResult[],
+    teamName: string,
+    isOffensive: boolean
+  ): number | undefined {
+    if (recentGames.length < 3) return undefined;
+    
+    const last5Games = recentGames.slice(0, 5);
+    const teamPace = teamStats.pace ?? 70;
+    
+    let totalPoints = 0;
+    let gameCount = 0;
+    
+    for (const game of last5Games) {
+      const isHomeTeam = teamMatchesGame(teamName, game.homeTeam, game.homeTeamKey);
+      const teamScore = isHomeTeam ? game.homeScore : game.awayScore;
+      const oppScore = isHomeTeam ? game.awayScore : game.homeScore;
+      
+      if (isOffensive) {
+        totalPoints += teamScore;
+      } else {
+        totalPoints += oppScore;
+      }
+      gameCount++;
+    }
+    
+    if (gameCount === 0) return undefined;
+    
+    const avgPoints = totalPoints / gameCount;
+    // Estimate efficiency: (Points / Pace) * 100
+    const efficiency = (avgPoints / teamPace) * 100;
+    
+    // Return only if reasonable (70-130 range)
+    if (efficiency >= 70 && efficiency <= 130) {
+      return efficiency;
+    }
+    return undefined;
+  }
+  
+  const recentFormOffEff = calculateRecentFormEfficiency(stats, recentGames, stats.name, true);
+  const recentFormDefEff = calculateRecentFormEfficiency(stats, recentGames, stats.name, false);
+  
+  // Phase 2: Create weighted blend of season average and recent form
+  // Use calibrated coefficients (default: 60% recent form, 40% season average)
+  const RECENT_FORM_WEIGHT = COEFFICIENTS.recentFormWeight;
+  const SEASON_AVG_WEIGHT = COEFFICIENTS.seasonAvgWeight;
+  
+  let weightedOffEff = offensiveEfficiency;
+  let weightedDefEff = defensiveEfficiency;
+  
+  if (recentFormOffEff !== undefined) {
+    weightedOffEff = (recentFormOffEff * RECENT_FORM_WEIGHT) + (offensiveEfficiency * SEASON_AVG_WEIGHT);
+  }
+  if (recentFormDefEff !== undefined) {
+    weightedDefEff = (recentFormDefEff * RECENT_FORM_WEIGHT) + (defensiveEfficiency * SEASON_AVG_WEIGHT);
+  }
+  
+  // Phase 2: Calculate Strength of Schedule adjustments (enhanced with actual opponent ratings)
+  // Pre-load ratings cache asynchronously (non-blocking, will be available for future calls)
+  // This ensures the cache is populated for synchronous lookups
+  try {
+    const { getAllTeamRatings } = require("./team-ratings-cache");
+    getAllTeamRatings().catch(() => {
+      // Silently fail if cache loading fails, will use fallback
+    });
+  } catch (error) {
+    // Module not available, will use fallback
+  }
+  
+  // Calculate SOS (will use cache if available, otherwise falls back to estimation)
+  const sosData = calculateStrengthOfSchedule(stats, recentGames, stats.name);
+  
+  // Phase 4: Calculate opponent-adjusted metrics (tier-based)
+  const tierAdjustedData = calculateOpponentAdjustedMetrics(stats, recentGames, stats.name);
+  
+  // Use tier-adjusted metrics if available and different from season average
+  // Blend using calibrated coefficients (default: 70% tier-adjusted, 30% weighted)
+  const FINAL_OFF_EFF = weightedOffEff * COEFFICIENTS.weightedEffWeight + tierAdjustedData.tierAdjustedOffEff * COEFFICIENTS.tierAdjustedWeight;
+  const FINAL_DEF_EFF = weightedDefEff * COEFFICIENTS.weightedEffWeight + tierAdjustedData.tierAdjustedDefEff * COEFFICIENTS.tierAdjustedWeight;
   
   return {
     offensiveRating,
     defensiveRating,
     netRating,
-    offensiveEfficiency,
-    defensiveEfficiency,
+    offensiveEfficiency: FINAL_OFF_EFF, // Final: blend of recent form + tier-adjusted (Phase 2 + 4)
+    defensiveEfficiency: FINAL_DEF_EFF, // Final: blend of recent form + tier-adjusted (Phase 2 + 4)
+    adjustedOffensiveEfficiency: sosData.adjustedOffensiveEfficiency,
+    adjustedDefensiveEfficiency: sosData.adjustedDefensiveEfficiency,
+    strengthOfSchedule: sosData.strengthOfSchedule,
+    recentFormOffensiveEfficiency: recentFormOffEff,
+    recentFormDefensiveEfficiency: recentFormDefEff,
     momentum,
     winStreak,
     recentForm,
@@ -295,6 +401,257 @@ function calculateConsistency(games: GameResult[]): number {
 }
 
 /**
+ * Phase 4: Categorize opponent quality tiers
+ */
+function categorizeOpponentTier(efficiency: number): 'elite' | 'average' | 'weak' {
+  // Top 25% (elite): efficiency > 105
+  // Middle 50% (average): 95-105
+  // Bottom 25% (weak): efficiency < 95
+  if (efficiency >= 105) return 'elite';
+  if (efficiency >= 95) return 'average';
+  return 'weak';
+}
+
+/**
+ * Phase 4: Calculate opponent-adjusted efficiency ratings
+ * Analyzes performance vs different quality tiers to get tier-adjusted ratings
+ */
+function calculateOpponentAdjustedMetrics(
+  teamStats: TeamStats,
+  recentGames: GameResult[],
+  teamName: string
+): {
+  tierAdjustedOffEff: number;
+  tierAdjustedDefEff: number;
+} {
+  const LEAGUE_AVG_EFF = 100;
+  const teamPace = teamStats.pace ?? 70;
+  
+  // Track performance vs different tiers
+  const tierStats: {
+    elite: { games: number; offEff: number[]; defEff: number[] };
+    average: { games: number; offEff: number[]; defEff: number[] };
+    weak: { games: number; offEff: number[]; defEff: number[] };
+  } = {
+    elite: { games: 0, offEff: [], defEff: [] },
+    average: { games: 0, offEff: [], defEff: [] },
+    weak: { games: 0, offEff: [], defEff: [] },
+  };
+  
+  // Analyze recent games to categorize opponents
+  for (const game of recentGames.slice(0, 20)) {
+    const isHome = teamMatchesGame(teamName, game.homeTeam, game.homeTeamKey);
+    const teamScore = isHome ? game.homeScore : game.awayScore;
+    const oppScore = isHome ? game.awayScore : game.homeScore;
+    
+    // Estimate opponent's efficiency from their scoring
+    const oppOffEff = (oppScore / teamPace) * 100;
+    const teamOffEff = (teamScore / teamPace) * 100;
+    
+    // Categorize opponent
+    const tier = categorizeOpponentTier(oppOffEff);
+    
+    if (tierStats[tier].games < 10) { // Limit to avoid skewing
+      tierStats[tier].games++;
+      tierStats[tier].offEff.push(teamOffEff);
+      tierStats[tier].defEff.push(oppOffEff);
+    }
+  }
+  
+  // Calculate tier-adjusted ratings
+  // Weighted average: more weight to tiers with more games
+  let totalWeight = 0;
+  let weightedOffEff = 0;
+  let weightedDefEff = 0;
+  
+  const tierWeights = { elite: 1.2, average: 1.0, weak: 0.8 }; // Elite games weighted more
+  
+  for (const [tier, stats] of Object.entries(tierStats) as Array<[keyof typeof tierStats, typeof tierStats['elite']]>) {
+    if (stats.games > 0) {
+      const avgOffEff = stats.offEff.reduce((a, b) => a + b, 0) / stats.offEff.length;
+      const avgDefEff = stats.defEff.reduce((a, b) => a + b, 0) / stats.defEff.length;
+      
+      const weight = stats.games * tierWeights[tier];
+      weightedOffEff += avgOffEff * weight;
+      weightedDefEff += avgDefEff * weight;
+      totalWeight += weight;
+    }
+  }
+  
+  if (totalWeight === 0) {
+    // Fallback to season averages
+    return {
+      tierAdjustedOffEff: teamStats.offensiveEfficiency ?? 100,
+      tierAdjustedDefEff: teamStats.defensiveEfficiency ?? 100,
+    };
+  }
+  
+  return {
+    tierAdjustedOffEff: weightedOffEff / totalWeight,
+    tierAdjustedDefEff: weightedDefEff / totalWeight,
+  };
+}
+
+/**
+ * Phase 2: Enhanced Strength of Schedule (SOS) Calculation
+ * Uses actual opponent efficiency ratings from cache instead of estimates
+ * 
+ * Formula: SOS = Average opponent efficiency rating - League average
+ * Positive SOS = harder schedule, negative = easier schedule
+ */
+function calculateStrengthOfSchedule(
+  teamStats: TeamStats,
+  recentGames: GameResult[],
+  teamName: string
+): {
+  strengthOfSchedule: number;
+  adjustedOffensiveEfficiency: number;
+  adjustedDefensiveEfficiency: number;
+} {
+  // League average efficiency (typically 100-105 in college)
+  const LEAGUE_AVG_OFF_EFF = 100;
+  const LEAGUE_AVG_DEF_EFF = 100;
+  
+  // Need at least 5 games to calculate meaningful SOS
+  if (recentGames.length < 5) {
+    return {
+      strengthOfSchedule: 0,
+      adjustedOffensiveEfficiency: teamStats.offensiveEfficiency ?? 100,
+      adjustedDefensiveEfficiency: teamStats.defensiveEfficiency ?? 100,
+    };
+  }
+  
+  const teamOffEff = teamStats.offensiveEfficiency ?? 100;
+  const teamDefEff = teamStats.defensiveEfficiency ?? 100;
+  
+  // Phase 2: Use actual opponent ratings from cache (synchronous lookup)
+  let getOpponentRatingsFromGameSync: ((name: string, key?: string) => any) | null = null;
+  try {
+    // Dynamically import the sync function (works even if cache isn't loaded yet)
+    const ratingsModule = require("./team-ratings-cache");
+    getOpponentRatingsFromGameSync = ratingsModule.getOpponentRatingsFromGameSync;
+  } catch (error) {
+    // Module not available, will use fallback
+  }
+  
+  const opponentRatings: Array<{
+    offensiveEfficiency: number;
+    defensiveEfficiency: number;
+    weight: number; // Weight by recency (more recent games weighted higher)
+  }> = [];
+  
+  // Collect opponent ratings with recency weighting
+  const gamesToAnalyze = recentGames.slice(0, 20); // Use up to 20 games
+  
+  for (let i = 0; i < gamesToAnalyze.length; i++) {
+    const game = gamesToAnalyze[i];
+    const isHome = teamMatchesGame(teamName, game.homeTeam, game.homeTeamKey);
+    const opponentName = isHome ? game.awayTeam : game.homeTeam;
+    const opponentKey = isHome ? game.awayTeamKey : game.homeTeamKey;
+    
+    // Try to get actual opponent ratings from cache (synchronous)
+    let opponentRating = null;
+    if (getOpponentRatingsFromGameSync) {
+      opponentRating = getOpponentRatingsFromGameSync(opponentName, opponentKey);
+    }
+    
+    if (opponentRating && 
+        opponentRating.offensiveEfficiency >= 70 && opponentRating.offensiveEfficiency <= 130 &&
+        opponentRating.defensiveEfficiency >= 70 && opponentRating.defensiveEfficiency <= 130) {
+      // Weight by recency: most recent game = weight 1.0, older games decay
+      const recencyWeight = 1.0 - (i / gamesToAnalyze.length) * 0.5; // 1.0 to 0.5 range
+      
+      opponentRatings.push({
+        offensiveEfficiency: opponentRating.offensiveEfficiency,
+        defensiveEfficiency: opponentRating.defensiveEfficiency,
+        weight: recencyWeight,
+      });
+    }
+  }
+  
+  // Fallback to estimation if we don't have enough cached ratings
+  if (opponentRatings.length < 3) {
+    // Use old estimation method as fallback
+    const opponentOffEffs: number[] = [];
+    const opponentDefEffs: number[] = [];
+    const teamPace = teamStats.pace ?? 70;
+    
+    for (const game of gamesToAnalyze) {
+      const isHome = teamMatchesGame(teamName, game.homeTeam, game.homeTeamKey);
+      const teamScore = isHome ? game.homeScore : game.awayScore;
+      const oppScore = isHome ? game.awayScore : game.homeScore;
+      
+      const estimatedOppOffEff = (oppScore / teamPace) * 100;
+      const estimatedOppDefEff = (teamScore / teamPace) * 100;
+      
+      if (estimatedOppOffEff >= 70 && estimatedOppOffEff <= 130) {
+        opponentOffEffs.push(estimatedOppOffEff);
+      }
+      if (estimatedOppDefEff >= 70 && estimatedOppDefEff <= 130) {
+        opponentDefEffs.push(estimatedOppDefEff);
+      }
+    }
+    
+    if (opponentOffEffs.length < 3 || opponentDefEffs.length < 3) {
+      return {
+        strengthOfSchedule: 0,
+        adjustedOffensiveEfficiency: teamOffEff,
+        adjustedDefensiveEfficiency: teamDefEff,
+      };
+    }
+    
+    const avgOppOffEff = opponentOffEffs.reduce((a, b) => a + b, 0) / opponentOffEffs.length;
+    const avgOppDefEff = opponentDefEffs.reduce((a, b) => a + b, 0) / opponentDefEffs.length;
+    
+    const offensiveSOS = avgOppDefEff - LEAGUE_AVG_DEF_EFF;
+    const defensiveSOS = avgOppOffEff - LEAGUE_AVG_OFF_EFF;
+    const strengthOfSchedule = (offensiveSOS + defensiveSOS) / 2;
+    
+    const SOS_ADJUSTMENT_FACTOR = COEFFICIENTS.sosAdjustmentFactor;
+    const adjustedOffensiveEfficiency = teamOffEff + (offensiveSOS * SOS_ADJUSTMENT_FACTOR);
+    const adjustedDefensiveEfficiency = teamDefEff + (defensiveSOS * SOS_ADJUSTMENT_FACTOR);
+    
+    return {
+      strengthOfSchedule,
+      adjustedOffensiveEfficiency: Math.max(70, Math.min(130, adjustedOffensiveEfficiency)),
+      adjustedDefensiveEfficiency: Math.max(70, Math.min(130, adjustedDefensiveEfficiency)),
+    };
+  }
+  
+  // Calculate weighted average opponent efficiency using actual ratings
+  let totalWeight = 0;
+  let weightedOppOffEff = 0;
+  let weightedOppDefEff = 0;
+  
+  for (const rating of opponentRatings) {
+    weightedOppOffEff += rating.offensiveEfficiency * rating.weight;
+    weightedOppDefEff += rating.defensiveEfficiency * rating.weight;
+    totalWeight += rating.weight;
+  }
+  
+  const avgOppOffEff = weightedOppOffEff / totalWeight;
+  const avgOppDefEff = weightedOppDefEff / totalWeight;
+  
+  // SOS = how much better/worse opponents are than average
+  const offensiveSOS = avgOppDefEff - LEAGUE_AVG_DEF_EFF;
+  const defensiveSOS = avgOppOffEff - LEAGUE_AVG_OFF_EFF;
+  const strengthOfSchedule = (offensiveSOS + defensiveSOS) / 2;
+  
+  // Adjust efficiency ratings based on SOS
+  // Adjustment factor using calibrated coefficients (default: 0.3 means 30% of SOS difference is adjusted)
+  const SOS_ADJUSTMENT_FACTOR = COEFFICIENTS.sosAdjustmentFactor;
+  
+  const adjustedOffensiveEfficiency = teamOffEff + (offensiveSOS * SOS_ADJUSTMENT_FACTOR);
+  const adjustedDefensiveEfficiency = teamDefEff + (defensiveSOS * SOS_ADJUSTMENT_FACTOR);
+  
+  return {
+    strengthOfSchedule,
+    adjustedOffensiveEfficiency: Math.max(70, Math.min(130, adjustedOffensiveEfficiency)),
+    adjustedDefensiveEfficiency: Math.max(70, Math.min(130, adjustedDefensiveEfficiency)),
+  };
+}
+
+/**
  * Predict matchup outcome using Four Factors Model (Dean Oliver)
  * Industry-standard methodology for basketball predictions
  */
@@ -342,8 +699,8 @@ export function predictMatchup(
       tempoAdjustment = (efficiencyDiff / 100) * (expectedPace / 70) * 3; // Scale by pace
     }
     
-    // Home court advantage (3.5 points standard in college basketball)
-    const homeAdvantage = 3.5;
+    // Home court advantage using calibrated coefficient (default: 3.5 points)
+    const homeAdvantage = COEFFICIENTS.homeAdvantage;
     
     // Momentum (smaller weight with Four Factors)
     const momentumScore = ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 2;
@@ -406,20 +763,205 @@ export function predictMatchup(
   let homePredicted: number;
   let awayPredicted: number;
   
+  // College basketball typical range: 60-85 points per team
+  const LEAGUE_AVG_PACE = 70; // Typical possessions per game in college
+  
+  // Phase 3: Calculate defensive quality percentiles for better matchup prediction
+  function calculateDefensivePercentile(defensiveRating: number): {
+    percentile: number; // 0-100
+    tier: 'elite' | 'good' | 'average' | 'below_average' | 'poor';
+  } {
+    // College basketball defensive rating typical range: 85-115
+    // Elite: <90 (top 10%)
+    // Good: 90-95 (10-25%)
+    // Average: 95-105 (25-75%)
+    // Below Average: 105-110 (75-90%)
+    // Poor: >110 (bottom 10%)
+    
+    let percentile: number;
+    let tier: 'elite' | 'good' | 'average' | 'below_average' | 'poor';
+    
+    if (defensiveRating < 90) {
+      percentile = 5 + (90 - defensiveRating) * 0.5; // 5-10 percentile
+      tier = 'elite';
+    } else if (defensiveRating < 95) {
+      percentile = 10 + (95 - defensiveRating) * 3; // 10-25 percentile
+      tier = 'good';
+    } else if (defensiveRating < 105) {
+      percentile = 25 + (105 - defensiveRating) * 2.5; // 25-75 percentile
+      tier = 'average';
+    } else if (defensiveRating < 110) {
+      percentile = 75 + (110 - defensiveRating) * 3; // 75-90 percentile
+      tier = 'below_average';
+    } else {
+      percentile = 90 + Math.min(10, (defensiveRating - 110) * 1); // 90-100 percentile
+      tier = 'poor';
+    }
+    
+    return { percentile: Math.max(0, Math.min(100, percentile)), tier };
+  }
+  
+  // Phase 3: Non-linear defensive adjustment based on percentile
+  function calculateDefensiveAdjustment(
+    teamOffEff: number,
+    opponentDefRating: number,
+    opponentDefPercentile: number
+  ): number {
+    // Base adjustment from rating difference
+    const ratingDiff = opponentDefRating - 100; // Negative = good defense
+    
+    // Non-linear scaling based on percentile
+    // Elite defenses (top 10%) have stronger impact
+    // Poor defenses (bottom 10%) have weaker impact
+    let percentileMultiplier: number;
+    
+    if (opponentDefPercentile < 10) {
+      // Elite defense - stronger impact
+      percentileMultiplier = COEFFICIENTS.percentileMultipliers.elite;
+    } else if (opponentDefPercentile < 25) {
+      // Good defense
+      percentileMultiplier = COEFFICIENTS.percentileMultipliers.good;
+    } else if (opponentDefPercentile < 75) {
+      // Average defense
+      percentileMultiplier = 1.0;
+    } else if (opponentDefPercentile < 90) {
+      // Below average defense
+      percentileMultiplier = COEFFICIENTS.percentileMultipliers.belowAverage;
+    } else {
+      // Poor defense - weaker impact
+      percentileMultiplier = COEFFICIENTS.percentileMultipliers.poor;
+    }
+    
+    // Base adjustment factor (reduced from 0.15 to account for percentile multiplier)
+    const baseAdjustmentFactor = COEFFICIENTS.baseDefensiveAdjustmentFactor;
+    
+    // Calculate adjustment: (rating diff / 100) * factor * multiplier
+    const adjustment = (ratingDiff / 100) * baseAdjustmentFactor * percentileMultiplier;
+    
+    // Additional factor: consider offensive rating relative to defense
+    // High-powered offense vs elite defense gets reduced less
+    const offDefRatio = teamOffEff / Math.max(opponentDefRating, 80);
+    const ratioAdjustment = offDefRatio > 1.1 ? 0.05 : 0; // Strong offense gets slight boost
+    
+    return adjustment + ratioAdjustment;
+  }
+  
   if (homeStats.pace && awayStats.pace && homeStats.offensiveEfficiency && awayStats.offensiveEfficiency) {
     // ADVANCED: Use efficiency ratings and pace
-    const expectedPace = (homeStats.pace + awayStats.pace) / 2;
+    // Offensive efficiency is points per 100 possessions (typically 100-120)
+    // Pace is possessions per game (typically 65-75 for college basketball)
     
-    // Points = (Offensive Efficiency) * (Pace / 100)
-    homePredicted = (homeStats.offensiveEfficiency / 100) * expectedPace + 3.5; // +3.5 home court
-    awayPredicted = (awayStats.offensiveEfficiency / 100) * expectedPace;
+    // Phase 5: Enhanced pace calculation with mismatch adjustments
+    const homePace = homeStats.pace;
+    const awayPace = awayStats.pace;
+    const paceDiff = Math.abs(homePace - awayPace);
+    
+    // Expected pace is average, but adjust for pace mismatch
+    let expectedPace = (homePace + awayPace) / 2;
+    
+    // Phase 5: When pace differs significantly (>5 possessions), adjust
+    // Fast teams slow down slightly when playing slow teams
+    // Slow teams speed up slightly when playing fast teams
+    if (paceDiff > 5) {
+      const PACE_MISMATCH_FACTOR = 0.3; // 30% adjustment factor
+      
+      if (homePace > awayPace) {
+        // Home is faster - expected pace closer to home but adjusted down
+        expectedPace = awayPace + (paceDiff * (1 - PACE_MISMATCH_FACTOR));
+      } else {
+        // Away is faster - expected pace closer to away but adjusted down
+        expectedPace = homePace + (paceDiff * (1 - PACE_MISMATCH_FACTOR));
+      }
+    }
+    
+    // Ensure expected pace is reasonable (60-80 possessions)
+    expectedPace = Math.max(60, Math.min(80, expectedPace));
+    
+    // Use SOS-adjusted efficiencies if available (Phase 1)
+    const homeOffensiveRating = homeAnalytics.adjustedOffensiveEfficiency ?? homeStats.offensiveEfficiency;
+    const awayDefensiveRating = awayAnalytics.adjustedDefensiveEfficiency ?? 
+      (awayStats.defensiveEfficiency || (awayStats.pointsAllowedPerGame / expectedPace) * 100);
+    
+    const awayOffensiveRating = awayAnalytics.adjustedOffensiveEfficiency ?? awayStats.offensiveEfficiency;
+    const homeDefensiveRating = homeAnalytics.adjustedDefensiveEfficiency ?? 
+      (homeStats.defensiveEfficiency || (homeStats.pointsAllowedPerGame / expectedPace) * 100);
+    
+    // Base score = (Offensive Rating / 100) * Pace
+    const homeBaseScore = (homeOffensiveRating / 100) * expectedPace;
+    const awayBaseScore = (awayOffensiveRating / 100) * expectedPace;
+    
+    // Phase 3: Calculate defensive percentiles
+    const homeDefPercentile = calculateDefensivePercentile(homeDefensiveRating);
+    const awayDefPercentile = calculateDefensivePercentile(awayDefensiveRating);
+    
+    // Phase 3: Apply non-linear defensive adjustments
+    const homeDefenseImpact = calculateDefensiveAdjustment(
+      homeOffensiveRating,
+      awayDefensiveRating,
+      awayDefPercentile.percentile
+    );
+    const awayDefenseImpact = calculateDefensiveAdjustment(
+      awayOffensiveRating,
+      homeDefensiveRating,
+      homeDefPercentile.percentile
+    );
+    
+    // Apply defensive adjustment
+    homePredicted = homeBaseScore * (1 + homeDefenseImpact) + (homeAnalytics.homeAdvantage || COEFFICIENTS.homeAdvantage);
+    awayPredicted = awayBaseScore * (1 + awayDefenseImpact);
+    
+    // Ensure scores are realistic for college basketball (typically 55-100 points)
+    // Higher cap allows for high-scoring games while preventing unrealistic values
+    homePredicted = Math.max(50, Math.min(105, homePredicted));
+    awayPredicted = Math.max(50, Math.min(105, awayPredicted));
   } else {
-    // FALLBACK: Simple average + spread adjustment
-    const avgTotal = (awayStats.pointsPerGame + homeStats.pointsPerGame + 
-                      awayStats.pointsAllowedPerGame + homeStats.pointsAllowedPerGame) / 4;
+    // FALLBACK: Use points per game with opponent defensive adjustment
+    // Matchup-adjusted scoring: team's offense vs opponent's defense
     
-    homePredicted = avgTotal / 2 + (totalScore / 2) + (homeAnalytics.homeAdvantage || 0);
-    awayPredicted = avgTotal / 2 - (totalScore / 2);
+    // Base prediction: team's PPG, but adjust based on opponent's defensive quality
+    const leagueAvgPPG = 72; // Average college basketball scoring
+    
+    // Estimate defensive ratings from PAPG (for percentile calculation)
+    const estimatedHomeDefRating = (homeStats.pointsAllowedPerGame / 70) * 100; // Rough estimate
+    const estimatedAwayDefRating = (awayStats.pointsAllowedPerGame / 70) * 100;
+    
+    // Phase 3: Use percentile-based defensive adjustments in fallback too
+    const homeDefPercentile = calculateDefensivePercentile(estimatedHomeDefRating);
+    const awayDefPercentile = calculateDefensivePercentile(estimatedAwayDefRating);
+    
+    // Calculate defensive strength relative to league average
+    const awayDefStrength = (awayStats.pointsAllowedPerGame - leagueAvgPPG) / leagueAvgPPG;
+    const homeDefStrength = (homeStats.pointsAllowedPerGame - leagueAvgPPG) / leagueAvgPPG;
+    
+    // Phase 3: Apply percentile-based adjustment
+    const homeDefenseAdjustment = calculateDefensiveAdjustment(
+      homeStats.pointsPerGame * 1.05, // Estimate offensive efficiency
+      estimatedAwayDefRating,
+      awayDefPercentile.percentile
+    );
+    
+    const awayDefenseAdjustment = calculateDefensiveAdjustment(
+      awayStats.pointsPerGame * 1.05,
+      estimatedHomeDefRating,
+      homeDefPercentile.percentile
+    );
+    
+    // Calculate base scores with defensive adjustment
+    homePredicted = homeStats.pointsPerGame * (1 + homeDefenseAdjustment);
+    awayPredicted = awayStats.pointsPerGame * (1 + awayDefenseAdjustment);
+    
+    // Apply predicted margin/spread from the model (totalScore is home advantage in points)
+    const spreadAdjustment = totalScore / 2;
+    homePredicted = homePredicted + spreadAdjustment;
+    awayPredicted = awayPredicted - spreadAdjustment;
+    
+    // Add home court advantage (typically 3-4 points in college basketball)
+    homePredicted = homePredicted + (homeAnalytics.homeAdvantage || COEFFICIENTS.homeAdvantage);
+    
+    // Ensure scores are realistic for college basketball (typically 55-100 points)
+    // Higher cap allows for high-scoring games while preventing unrealistic values
+    homePredicted = Math.max(52, Math.min(105, homePredicted));
+    awayPredicted = Math.max(52, Math.min(105, awayPredicted));
   }
   
   // Predicted spread

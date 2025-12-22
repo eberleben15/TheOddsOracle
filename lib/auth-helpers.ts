@@ -1,10 +1,10 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "./auth"
+import { auth } from "./auth"
 import { prisma } from "./prisma"
-import { SubscriptionStatus } from "@prisma/client"
+
+export type SubscriptionStatus = "FREE" | "PREMIUM" | "PRO" | "CANCELLED" | "PAST_DUE"
 
 export async function getCurrentUser() {
-  const session = await getServerSession(authOptions)
+  const session = await auth()
   if (!session?.user?.id) return null
 
   const user = await prisma.user.findUnique({
@@ -21,7 +21,7 @@ export async function getUserSubscriptionStatus(): Promise<SubscriptionStatus> {
 }
 
 export async function requireAuth() {
-  const session = await getServerSession(authOptions)
+  const session = await auth()
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }

@@ -1,22 +1,14 @@
 import { NextResponse } from "next/server";
-// Use Edge-compatible auth for middleware (doesn't import Prisma)
-import { auth } from "@/lib/auth-edge";
+import type { NextRequest } from "next/server";
 
-export default auth((req) => {
-  const { pathname } = req.nextUrl;
-
-  // Protect app/dashboard/account areas
-  const protectedPaths = ["/dashboard", "/account", "/settings", "/matchup", "/live"];
-  const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
-
-  if (isProtected && !req.auth?.user) {
-    const signInUrl = new URL("/auth/signin", req.nextUrl.origin);
-    signInUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
-    return NextResponse.redirect(signInUrl);
-  }
-});
+export function middleware(request: NextRequest) {
+  // Admin routes protection is handled in page components
+  // This middleware can be extended for additional protection if needed
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/account/:path*", "/settings/:path*"],
+  matcher: [
+    "/admin/:path*",
+  ],
 };
-
