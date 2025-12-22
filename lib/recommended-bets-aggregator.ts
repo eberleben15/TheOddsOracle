@@ -247,14 +247,15 @@ function consolidateBets(bets: RecommendedBet[]): RecommendedBet[] {
     const avgEdge = group.reduce((sum, b) => sum + b.edge, 0) / group.length;
     const avgConfidence = group.reduce((sum, b) => sum + b.confidence, 0) / group.length;
 
-    // Extract team identifier from key for the ID
+    // Extract team identifier and price from key for the ID
     const parts = key.split('-');
     const teamId = parts.length >= 3 ? parts[2] : 'unknown';
+    const priceKey = parts.length >= 4 ? parts[3] : 'unknown';
 
-    // Create consolidated bet
+    // Create consolidated bet with unique ID that includes price to avoid duplicates
     const consolidatedBet: RecommendedBet = {
       ...baseBet,
-      id: `${baseBet.gameId}-${baseBet.type}-${teamId}-consolidated`,
+      id: `${baseBet.gameId}-${baseBet.type}-${teamId}-${priceKey}-consolidated`,
       bookmaker: bookmakers.length === 1 
         ? bookmakers[0] 
         : `${bookmakers.length} books`,

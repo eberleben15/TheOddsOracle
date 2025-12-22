@@ -9,7 +9,8 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   XMarkIcon,
-  Bars3Icon
+  Bars3Icon,
+  ChatBubbleLeftRightIcon
 } from "@heroicons/react/24/outline";
 import { Sport, SPORT_CONFIGS } from "@/lib/sports/sport-config";
 
@@ -39,6 +40,12 @@ export function Sidebar() {
       href: dashboardHref, 
       icon: HomeIcon, 
       current: isDashboard
+    },
+    {
+      name: "AI Chat",
+      href: "/chat",
+      icon: ChatBubbleLeftRightIcon,
+      current: pathname === "/chat"
     },
     {
       name: "Sports",

@@ -68,8 +68,38 @@ export function FavorableBets({ analysis }: FavorableBetsProps) {
                     )}
                   </div>
                   <div className="text-xs text-value uppercase tracking-wide font-medium mb-1">
-                    {bet.type} • {bet.bookmaker}
+                    {bet.type.toUpperCase()}
+                    {bet.bookmakers && bet.bookmakers.length > 1 ? (
+                      <span className="ml-2 normal-case">
+                        • Best price available at {bet.bookmakers.length} books
+                      </span>
+                    ) : (
+                      <span className="ml-2 normal-case">• {bet.bookmaker}</span>
+                    )}
                   </div>
+                  {bet.bookmakers && bet.bookmakers.length > 1 && (
+                    <div className="mt-1 mb-2 flex flex-wrap gap-1">
+                      {bet.bookmakers.slice(0, 5).map((bookmaker, idx) => (
+                        <Chip 
+                          key={idx}
+                          size="sm" 
+                          variant="flat"
+                          className="bg-gray-100 text-gray-700 text-xs"
+                        >
+                          {bookmaker}
+                        </Chip>
+                      ))}
+                      {bet.bookmakers.length > 5 && (
+                        <Chip 
+                          size="sm" 
+                          variant="flat"
+                          className="bg-gray-100 text-gray-700 text-xs"
+                        >
+                          +{bet.bookmakers.length - 5} more
+                        </Chip>
+                      )}
+                    </div>
+                  )}
                   <p className="text-sm text-text-body">{bet.reason}</p>
                 </div>
                 <div className="text-right ml-4">
@@ -81,7 +111,12 @@ export function FavorableBets({ analysis }: FavorableBetsProps) {
 
               <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Market Odds</div>
+                  <div className="text-xs text-gray-500 mb-1">
+                    Market Odds
+                    {bet.bookmakers && bet.bookmakers.length > 1 && (
+                      <span className="ml-1 text-value">(Best Price)</span>
+                    )}
+                  </div>
                   <div className="text-sm font-semibold text-gray-700">
                     {bet.currentOdds.decimal.toFixed(2)} ({bet.currentOdds.american > 0 ? '+' : ''}{bet.currentOdds.american})
                   </div>

@@ -15,6 +15,7 @@ export interface FavorableBet {
   team?: 'away' | 'home';
   recommendation: string;
   bookmaker: string;
+  bookmakers?: string[]; // List of all bookmakers offering this bet at this price
   currentOdds: {
     decimal: number;
     american: number;
@@ -216,24 +217,88 @@ export function analyzeFavorableBets(
     }
   });
 
+  // Consolidate bets: group by type, team, and similar odds (within 0.05 decimal tolerance)
+  const consolidatedBets = consolidateFavorableBets(favorableBets);
+
   // Sort by edge (highest first)
-  favorableBets.sort((a, b) => b.edge - a.edge);
+  consolidatedBets.sort((a, b) => b.edge - a.edge);
 
   // Calculate summary stats
-  const totalValueBets = favorableBets.length;
+  const totalValueBets = consolidatedBets.length;
   const averageEdge = totalValueBets > 0
-    ? favorableBets.reduce((sum, bet) => sum + bet.edge, 0) / totalValueBets
+    ? consolidatedBets.reduce((sum, bet) => sum + bet.edge, 0) / totalValueBets
     : 0;
-  const highestEdge = totalValueBets > 0 ? favorableBets[0].edge : 0;
-  const bestBet = totalValueBets > 0 ? favorableBets[0] : undefined;
+  const highestEdge = totalValueBets > 0 ? consolidatedBets[0].edge : 0;
+  const bestBet = totalValueBets > 0 ? consolidatedBets[0] : undefined;
 
   return {
-    bets: favorableBets,
+    bets: consolidatedBets,
     bestBet: bestBet,
     totalValueBets: totalValueBets,
     averageEdge: averageEdge,
     highestEdge: highestEdge,
   };
+}
+
+/**
+ * Consolidate favorable bets by grouping similar bets from different bookmakers
+ * Groups by type and team, then shows all bookmakers offering similar prices
+ */
+function consolidateFavorableBets(bets: FavorableBet[]): FavorableBet[] {
+  // Group bets by: type and team (ignore price differences for grouping)
+  const betGroups = new Map<string, FavorableBet[]>();
+
+  bets.forEach((bet) => {
+    // Create a key: type-teamIdentifier (group all prices together)
+    const teamIdentifier = bet.team || 'total';
+    const key = `${bet.type}-${teamIdentifier}`;
+
+    if (!betGroups.has(key)) {
+      betGroups.set(key, []);
+    }
+    betGroups.get(key)!.push(bet);
+  });
+
+  // Consolidate each group
+  const consolidated: FavorableBet[] = [];
+
+  betGroups.forEach((group) => {
+    if (group.length === 0) return;
+
+    // Use the bet with highest edge as the base
+    const baseBet = group.reduce((best, current) => 
+      current.edge > best.edge ? current : best
+    );
+
+    // Collect all unique bookmakers offering this bet
+    const bookmakers = Array.from(new Set(group.map(b => b.bookmaker)));
+
+    // Find the best price (highest decimal odds = best for the bettor)
+    const bestPriceBet = group.reduce((best, current) => 
+      current.currentOdds.decimal > best.currentOdds.decimal ? current : best
+    );
+
+    // Calculate average edge and confidence for the group
+    const avgEdge = group.reduce((sum, b) => sum + b.edge, 0) / group.length;
+    const avgConfidence = group.reduce((sum, b) => sum + b.confidence, 0) / group.length;
+
+    // Create consolidated bet using best price but average edge/confidence
+    const consolidatedBet: FavorableBet = {
+      ...baseBet,
+      currentOdds: bestPriceBet.currentOdds, // Use best price available
+      bookmaker: bookmakers.length === 1 
+        ? bookmakers[0] 
+        : `${bookmakers.length} books`,
+      edge: avgEdge,
+      confidence: avgConfidence,
+      // Store all bookmakers
+      bookmakers: bookmakers.length > 1 ? bookmakers : undefined,
+    };
+
+    consolidated.push(consolidatedBet);
+  });
+
+  return consolidated;
 }
 
 /**

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "odds-oracle": {
+      "command": "npx",
+      "args": ["-y", "tsx", "/Users/eberleben15/oddsoracle/odds-oracle-mcp-server/index.ts"],
+      "env": {
+        "ODDS_ORACLE_API_URL": "http://localhost:3005",
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

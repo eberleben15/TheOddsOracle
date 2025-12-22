@@ -98,7 +98,7 @@ export function RecommendedBets({ bets }: RecommendedBetsProps) {
         <div className="space-y-4">
           {topBets.map((bet, idx) => (
             <div
-              key={bet.id}
+              key={`${bet.id}-${idx}`}
               className="bg-white p-5 rounded-xl border-2 border-red-100 hover:border-red-300 transition-all shadow-sm hover:shadow-md"
             >
               <div className="flex justify-between items-start mb-3">
