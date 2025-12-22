@@ -25,7 +25,7 @@ async function debugTeamMismatch() {
     
     // Search API
     const searchRes = await fetch(`${API_URL}/teams?search=${encodeURIComponent(teamName)}`, {
-      headers: { "x-apisports-key": apiKey },
+      headers: { "x-apisports-key": apiKey as string },
     });
     const searchData = await searchRes.json();
     
@@ -45,7 +45,7 @@ async function debugTeamMismatch() {
       
       const statsRes = await fetch(
         `${API_URL}/games?team=${firstTeam.id}&league=${NCAA_LEAGUE_ID}&season=2024-2025&last=3`,
-        { headers: { "x-apisports-key": apiKey } }
+        { headers: { "x-apisports-key": apiKey as string } }
       );
       const statsData = await statsRes.json();
       

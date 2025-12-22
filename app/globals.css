@@ -54,3 +54,52 @@ body {
   background: var(--primary);
 }
 
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  /* Ensure minimum touch target size (44x44px) */
+  button,
+  a,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Improve tap highlight */
+  * {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Better spacing on mobile */
+  .space-y-4 > * + * {
+    margin-top: 1rem;
+  }
+
+  /* Prevent text size adjustment on iOS */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Improve scrolling on iOS */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Touch-friendly hover states (only on devices that support hover) */
+@media (hover: hover) {
+  button:hover,
+  a:hover,
+  [role="button"]:hover {
+    opacity: 0.9;
+  }
+}
+
+/* Ensure images are responsive */
+img {
+  max-width: 100%;
+  height: auto;
+}
+

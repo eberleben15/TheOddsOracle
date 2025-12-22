@@ -41,7 +41,7 @@ async function testTeamGames(teamId: number, teamName?: string) {
   try {
     const teamUrl = `${API_BASKETBALL_DIRECT_URL}/teams?id=${teamId}`;
     const teamResponse = await fetch(teamUrl, {
-      headers: { "x-apisports-key": apiKey },
+      headers: { "x-apisports-key": apiKey as string },
     });
     
     if (teamResponse.ok) {
@@ -62,7 +62,7 @@ async function testTeamGames(teamId: number, teamName?: string) {
     const url = `${API_BASKETBALL_DIRECT_URL}/games?team=${teamId}&league=12&season=${season}`;
     console.log(`   URL: ${url}`);
     const response = await fetch(url, {
-      headers: { "x-apisports-key": apiKey },
+      headers: { "x-apisports-key": apiKey as string },
     });
     
     if (response.ok) {
@@ -89,7 +89,7 @@ async function testTeamGames(teamId: number, teamName?: string) {
     const url = `${API_BASKETBALL_DIRECT_URL}/games?team=${teamId}&season=${season}`;
     console.log(`   URL: ${url}`);
     const response = await fetch(url, {
-      headers: { "x-apisports-key": apiKey },
+      headers: { "x-apisports-key": apiKey as string },
     });
     
     if (response.ok) {
@@ -120,7 +120,7 @@ async function testTeamGames(teamId: number, teamName?: string) {
     const url = `${API_BASKETBALL_DIRECT_URL}/games?team=${teamId}&date=${dateFrom}`;
     console.log(`   URL: ${url}`);
     const response = await fetch(url, {
-      headers: { "x-apisports-key": apiKey },
+      headers: { "x-apisports-key": apiKey as string },
     });
     
     if (response.ok) {
@@ -146,7 +146,7 @@ async function testTeamGames(teamId: number, teamName?: string) {
     const url = `${API_BASKETBALL_DIRECT_URL}/games?team=${teamId}&league=12&season=${prevSeason}`;
     console.log(`   URL: ${url}`);
     const response = await fetch(url, {
-      headers: { "x-apisports-key": apiKey },
+      headers: { "x-apisports-key": apiKey as string },
     });
     
     if (response.ok) {

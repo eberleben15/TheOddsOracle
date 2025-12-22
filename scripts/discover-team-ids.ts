@@ -51,7 +51,7 @@ async function discoverTeamId(teamName: string) {
     try {
       const response = await fetch(url, {
         headers: {
-          "x-apisports-key": apiKey,
+          "x-apisports-key": apiKey as string,
         },
       });
 

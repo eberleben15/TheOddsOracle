@@ -1,5 +1,6 @@
 import { OddsGame, LiveGame } from "@/types";
 import { gameOddsCache } from "./game-cache";
+import { fetchWithRetry } from "./retry-utils";
 
 const THE_ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4";
 
@@ -20,9 +21,26 @@ export async function getLiveGamesBySport(
 
   try {
     const url = `${THE_ODDS_API_BASE_URL}/sports/${sport}/scores/?daysFrom=1&apiKey=${apiKey}`;
-    const response = await fetch(url, {
-      next: { revalidate: 30 }, // Refresh every 30 seconds
-    });
+    const response = await fetchWithRetry(
+      url,
+      {
+        next: { revalidate: 30 }, // Refresh every 30 seconds
+      },
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        retryable: (error) => {
+          // Don't retry on 401 (auth errors) or 404 (not found)
+          if (error instanceof Error) {
+            const message = error.message.toLowerCase();
+            if (message.includes("401") || message.includes("404") || message.includes("403")) {
+              return false;
+            }
+          }
+          return true;
+        },
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
@@ -82,12 +100,29 @@ export async function getUpcomingGamesBySport(
     const url = `${THE_ODDS_API_BASE_URL}/sports/${sport}/odds/?regions=${regions}&markets=${markets}&apiKey=${apiKey}`;
     const startTime = Date.now();
     
-    const response = await fetch(url, {
-      next: { 
-        revalidate: 30, // Cache for 30 seconds (odds change frequently)
-        tags: ['odds', sport] 
+    const response = await fetchWithRetry(
+      url,
+      {
+        next: { 
+          revalidate: 30, // Cache for 30 seconds (odds change frequently)
+          tags: ['odds', sport] 
+        }
+      },
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        retryable: (error) => {
+          // Don't retry on 401 (auth errors) or 404 (not found)
+          if (error instanceof Error) {
+            const message = error.message.toLowerCase();
+            if (message.includes("401") || message.includes("404") || message.includes("403")) {
+              return false;
+            }
+          }
+          return true;
+        },
       }
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');

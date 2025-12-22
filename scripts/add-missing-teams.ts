@@ -43,7 +43,7 @@ async function addMissingTeams() {
     // Search API
     const searchRes = await fetch(
       `${API_URL}/teams?search=${encodeURIComponent(searchTerm)}`,
-      { headers: { "x-apisports-key": apiKey } }
+      { headers: { "x-apisports-key": apiKey as string as string } }
     );
     
     const searchData = await searchRes.json();
@@ -61,7 +61,7 @@ async function addMissingTeams() {
     // Verify has NCAA data
     const statsRes = await fetch(
       `${API_URL}/statistics?team=${team.id}&league=${NCAA_LEAGUE_ID}&season=2024-2025`,
-      { headers: { "x-apisports-key": apiKey } }
+      { headers: { "x-apisports-key": apiKey as string as string } }
     );
     
     if (statsRes.ok) {

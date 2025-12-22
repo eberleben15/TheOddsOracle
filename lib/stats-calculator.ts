@@ -98,14 +98,18 @@ export function calculateTeamStatsFromGames(
     }
 
     // Add to recent games
+    const winner = teamScore > oppScore ? (isHome ? game.teams.home.name : game.teams.away.name) : (isHome ? game.teams.away.name : game.teams.home.name);
     recentGames.push({
       id: game.id,
       date: game.date,
       homeTeam: game.teams.home.name,
       awayTeam: game.teams.away.name,
+      homeTeamKey: game.teams.home.name || "",
+      awayTeamKey: game.teams.away.name || "",
       homeScore: game.scores.home.total,
       awayScore: game.scores.away.total,
-      winner: teamScore > oppScore ? (isHome ? game.teams.home.name : game.teams.away.name) : (isHome ? game.teams.away.name : game.teams.home.name),
+      winner: winner,
+      winnerKey: winner,
       homeTeamLogo: game.teams.home.logo,
       awayTeamLogo: game.teams.away.logo,
     });

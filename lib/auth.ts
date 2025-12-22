@@ -1,4 +1,4 @@
-import NextAuth, { NextAuthOptions } from "next-auth"
+import NextAuth from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import GoogleProvider from "next-auth/providers/google"
 // EmailProvider is conditionally imported to avoid Edge runtime issues with nodemailer
@@ -35,15 +35,19 @@ providers.push(
         return null
       }
 
+      // Type guard: ensure credentials have required fields
+      const email = credentials.email as string;
+      const password = credentials.password as string;
+
       try {
         // Find user by email
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
           include: { subscription: true },
         })
 
         if (!user) {
-          console.log(`[Auth] User not found: ${credentials.email}`)
+          console.log(`[Auth] User not found: ${email}`)
           return null
         }
 
@@ -67,8 +71,13 @@ providers.push(
         // For admin users, we'll use a simple password check
         // In production, store hashed passwords in a UserPassword table
         // For now, this is a basic implementation
+        if (!password || !account.providerAccountId) {
+          console.log(`[Auth] Missing password or hash`)
+          return null
+        }
+
         const isValid = await bcrypt.compare(
-          credentials.password,
+          password,
           account.providerAccountId // Temporarily storing hash here - not ideal
         )
 
@@ -122,7 +131,8 @@ if (
 }
 */
 
-const authOptions: NextAuthOptions = {
+// Export NextAuth handlers and utilities for NextAuth v5
+export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma) as any,
   providers,
   pages: {
@@ -163,11 +173,5 @@ const authOptions: NextAuthOptions = {
     strategy: "jwt", // Use JWT for credentials, database adapter handles OAuth
   },
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "fallback-secret-change-in-production",
-}
-
-// Export NextAuth handlers and utilities for NextAuth v5
-export const { handlers, auth, signIn, signOut } = NextAuth(authOptions)
-
-// Also export authOptions for backward compatibility if needed
-export { authOptions }
+})
 

@@ -83,7 +83,7 @@ async function runTests() {
   }
 
   const headers = {
-    "x-apisports-key": apiKey,
+    "x-apisports-key": apiKey as string,
   };
 
   console.log(`\n🔍 Testing API-Sports.io Basketball API Endpoints`);

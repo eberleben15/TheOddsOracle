@@ -28,7 +28,7 @@ async function debugWisconsinStats() {
   // 1. Search for Wisconsin
   console.log("Step 1: Searching for Wisconsin...");
   const searchRes = await fetch(`${API_URL}/teams?search=Wisconsin`, {
-    headers: { "x-apisports-key": apiKey },
+    headers: { "x-apisports-key": apiKey as string },
   });
   const searchData = await searchRes.json();
   
@@ -58,7 +58,7 @@ async function debugWisconsinStats() {
   console.log(`\nStep 3: Fetching /statistics for ${currentSeason}...`);
   const statsRes = await fetch(
     `${API_URL}/statistics?team=${wisconsin.id}&league=${NCAA_LEAGUE_ID}&season=${currentSeason}`,
-    { headers: { "x-apisports-key": apiKey } }
+    { headers: { "x-apisports-key": apiKey as string } }
   );
   const statsData = await statsRes.json();
   
@@ -84,7 +84,7 @@ async function debugWisconsinStats() {
   console.log(`\n\nStep 4: Fetching actual games for verification...`);
   const gamesRes = await fetch(
     `${API_URL}/games?team=${wisconsin.id}&league=${NCAA_LEAGUE_ID}&season=${currentSeason}`,
-    { headers: { "x-apisports-key": apiKey } }
+    { headers: { "x-apisports-key": apiKey as string } }
   );
   const gamesData = await gamesRes.json();
   

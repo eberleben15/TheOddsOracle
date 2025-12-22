@@ -8,6 +8,7 @@
 
 import { TeamStats, GameResult } from "@/types";
 import { apiTracker } from "./api-tracker";
+import { fetchWithRetry } from "./retry-utils";
 
 const BASE_URL = "https://api.sportsdata.io/v3/cbb";
 const API_KEY = process.env.SPORTSDATA_API_KEY;
@@ -328,10 +329,24 @@ export async function getAllTeams(): Promise<SportsDataTeam[]> {
   const startTime = Date.now();
   
   try {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${BASE_URL}/scores/json/Teams?key=${API_KEY}`,
       {
         next: { revalidate: 86400, tags: ["sportsdata-teams"] }, // 24 hour cache
+      },
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        retryable: (error) => {
+          // Don't retry on 401 (auth errors) or 404 (not found)
+          if (error instanceof Error) {
+            const message = error.message.toLowerCase();
+            if (message.includes("401") || message.includes("404") || message.includes("403")) {
+              return false;
+            }
+          }
+          return true;
+        },
       }
     );
     
@@ -455,10 +470,14 @@ export async function getTeamSeasonStats(teamName: string): Promise<TeamStats | 
   
   try {
     // Fetch all team season stats
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${BASE_URL}/stats/json/TeamSeasonStats/${CURRENT_SEASON}?key=${API_KEY}`,
       {
         next: { revalidate: 300, tags: [`sportsdata-stats-${CURRENT_SEASON}`] }, // 5 min cache
+      },
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
       }
     );
     
@@ -703,10 +722,14 @@ export async function getTeamRecentGames(
     const teamMap = new Map(teams.map(t => [t.Key, t]));
     
       // Disable caching for large game lists (over 2MB limit)
-      const response = await fetch(
+      const response = await fetchWithRetry(
         `${BASE_URL}/scores/json/Games/${CURRENT_SEASON}?key=${API_KEY}`,
         {
           cache: 'no-store', // Large responses can't be cached by Next.js
+        },
+        {
+          maxAttempts: 3,
+          initialDelay: 1000,
         }
       );
     
@@ -769,10 +792,14 @@ export async function getLiveGames(): Promise<SportsDataGame[]> {
   const startTime = Date.now();
   
   try {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${BASE_URL}/scores/json/AreAnyGamesInProgress?key=${API_KEY}`,
       {
         next: { revalidate: 30, tags: ["sportsdata-live-check"] }, // 30 sec cache
+      },
+      {
+        maxAttempts: 2, // Fewer retries for live check
+        initialDelay: 500,
       }
     );
     
@@ -789,10 +816,14 @@ export async function getLiveGames(): Promise<SportsDataGame[]> {
     
     // Get today's games
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const gamesResponse = await fetch(
+    const gamesResponse = await fetchWithRetry(
       `${BASE_URL}/scores/json/GamesByDate/${today}?key=${API_KEY}`,
       {
         next: { revalidate: 30, tags: [`sportsdata-games-${today}`] },
+      },
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
       }
     );
     

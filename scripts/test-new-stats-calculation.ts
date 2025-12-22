@@ -19,7 +19,7 @@ async function testNewCalculation() {
 
   // Search for Wisconsin
   const searchRes = await fetch(`${API_URL}/teams?search=Wisconsin`, {
-    headers: { "x-apisports-key": apiKey },
+    headers: { "x-apisports-key": apiKey as string },
   });
   const searchData = await searchRes.json();
   const wisconsin = searchData.response?.find((t: any) => t.id === 2214);
@@ -27,7 +27,7 @@ async function testNewCalculation() {
   // Fetch ALL games
   const gamesRes = await fetch(
     `${API_URL}/games?team=${wisconsin.id}&league=${NCAA_LEAGUE_ID}&season=2024-2025`,
-    { headers: { "x-apisports-key": apiKey } }
+    { headers: { "x-apisports-key": apiKey as string } }
   );
   const gamesData = await gamesRes.json();
 

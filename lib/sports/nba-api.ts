@@ -32,7 +32,7 @@ export class NBAClient extends BaseSportsDataClient {
         return null;
       }
 
-      return this.transformTeamStats(teamStats, team);
+      return this.transformTeamStats(teamStats, team, teamName);
     } catch (error) {
       console.error(`[NBA] Error fetching team stats for ${teamName}:`, error);
       return null;
@@ -71,7 +71,7 @@ export class NBAClient extends BaseSportsDataClient {
   /**
    * Transform SportsData.io team stats to our TeamStats format
    */
-  private transformTeamStats(stats: any, team: SportsDataTeam): TeamStats {
+  private transformTeamStats(stats: any, team: SportsDataTeam, teamName: string): TeamStats {
     const games = stats.Games || 1;
 
     // Calculate PPG (points per game)
@@ -129,14 +129,18 @@ export class NBAClient extends BaseSportsDataClient {
     const teamScore = isHome ? game.HomeTeamScore || 0 : game.AwayTeamScore || 0;
     const oppScore = isHome ? game.AwayTeamScore || 0 : game.HomeTeamScore || 0;
 
+    const winner = teamScore > oppScore ? (isHome ? game.HomeTeam : game.AwayTeam) : (isHome ? game.AwayTeam : game.HomeTeam);
     return {
-      id: String(game.GameID),
+      id: Number(game.GameID),
       date: game.DateTime || new Date().toISOString(),
       homeTeam: game.HomeTeam,
       awayTeam: game.AwayTeam,
+      homeTeamKey: game.HomeTeam || "",
+      awayTeamKey: game.AwayTeam || "",
       homeScore: game.HomeTeamScore || 0,
       awayScore: game.AwayTeamScore || 0,
-      winner: teamScore > oppScore ? (isHome ? game.HomeTeam : game.AwayTeam) : (isHome ? game.AwayTeam : game.HomeTeam),
+      winner: winner,
+      winnerKey: winner,
     };
   }
 }

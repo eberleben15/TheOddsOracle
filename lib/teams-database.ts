@@ -203,13 +203,12 @@ export function lookupTeamInDatabase(teamName: string): number | null {
       console.log(`[TEAMS DB]    Matched via: "${term}"\n`);
       
       // Cache this successful lookup
-      teamMappingCache.set(teamName, {
-        apiSportsId: team.id,
-        apiSportsName: team.name,
-        confidence: "exact",
-        oddsApiName: teamName,
-        cachedAt: Date.now(),
-      });
+      teamMappingCache.set(
+        teamName,
+        team.id,
+        team.name,
+        "exact"
+      );
       
       return team.id;
     }

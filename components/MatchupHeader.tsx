@@ -31,7 +31,7 @@ export function MatchupHeader({ game, awayTeamStats, homeTeamStats }: MatchupHea
         <Button
           variant="flat"
           startContent={<ArrowLeftIcon className="h-4 w-4" />}
-          className="bg-white border border-border-gray text-text-dark hover:bg-body-bg"
+          className="bg-white border border-border-gray text-text-dark hover:bg-body-bg min-h-[44px]"
         >
           Back to Dashboard
         </Button>

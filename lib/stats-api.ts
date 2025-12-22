@@ -58,7 +58,7 @@ export async function testSubscriptionStatus(): Promise<{
     const directUrl = `${API_BASKETBALL_DIRECT_URL}/status`;
     let response = await fetch(directUrl, {
       headers: {
-        "x-apisports-key": apiKey,
+        "x-apisports-key": apiKey as string,
       },
     });
 
@@ -296,7 +296,7 @@ export async function searchTeamByName(teamName: string): Promise<number | null>
         console.log(`[Team Search] Trying variation: "${searchVariation}"`);
         const response = await fetch(url, {
           headers: {
-            "x-apisports-key": apiKey,
+            "x-apisports-key": apiKey as string,
           },
         });
         
@@ -446,7 +446,7 @@ export async function getTeamStats(teamId: number, teamName?: string): Promise<T
     const teamUrl = `${API_BASKETBALL_DIRECT_URL}/teams?id=${teamId}`;
     const teamResponse = await fetch(teamUrl, {
       headers: {
-        "x-apisports-key": apiKey,
+        "x-apisports-key": apiKey as string,
       },
     });
     
@@ -522,7 +522,7 @@ export async function getRecentGames(
       const url = `${API_BASKETBALL_DIRECT_URL}/games?team=${teamId}&season=${currentSeason}`;
       const response = await fetch(url, {
         headers: {
-          "x-apisports-key": apiKey,
+          "x-apisports-key": apiKey as string,
         },
       });
 
@@ -620,7 +620,7 @@ export async function getHeadToHead(
       const url = `${API_BASKETBALL_DIRECT_URL}/games?h2h=${team1Id}-${team2Id}&season=${currentSeason}`;
       const response = await fetch(url, {
         headers: {
-          "x-apisports-key": apiKey,
+          "x-apisports-key": apiKey as string,
         },
       });
 
@@ -674,6 +674,8 @@ export async function getHeadToHead(
 
       const result = {
         games: filteredGames,
+        team1Wins: team1Wins,
+        team2Wins: team2Wins,
         homeTeamWins: team2Wins, // Assuming team2 is home in current matchup
         awayTeamWins: team1Wins,
       };
@@ -819,9 +821,12 @@ export function getMockRecentGames(
       date: date.toISOString(),
       homeTeam,
       awayTeam,
+      homeTeamKey: homeTeam || "",
+      awayTeamKey: awayTeam || "",
       homeScore,
       awayScore,
       winner,
+      winnerKey: winner,
     });
     
     gameIndex++;
@@ -847,6 +852,8 @@ export function getMockHeadToHead(
   if (!team1 || !team2 || team1 === team2) {
     return {
       games: [],
+      team1Wins: 0,
+      team2Wins: 0,
       homeTeamWins: 0,
       awayTeamWins: 0,
     };
@@ -886,9 +893,12 @@ export function getMockHeadToHead(
       date: date.toISOString(),
       homeTeam,
       awayTeam,
+      homeTeamKey: homeTeam || "",
+      awayTeamKey: awayTeam || "",
       homeScore,
       awayScore,
       winner,
+      winnerKey: winner,
     });
     
     gameIndex++;
@@ -902,6 +912,8 @@ export function getMockHeadToHead(
   
   return {
     games,
+    team1Wins: team1Wins,
+    team2Wins: team2Wins,
     homeTeamWins: team2Wins, // Assuming team2 is home in current matchup
     awayTeamWins: team1Wins,
   };
@@ -1015,6 +1027,8 @@ function transformToHeadToHead(
   
   return {
     games: gameResults,
+    team1Wins: team1Wins,
+    team2Wins: team2Wins,
     homeTeamWins: team2Wins, // Adjust based on which team is home
     awayTeamWins: team1Wins,
   };

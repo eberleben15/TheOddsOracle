@@ -59,7 +59,7 @@ async function searchTeam(teamName: string): Promise<TeamMatch> {
     try {
       const url = `${API_BASKETBALL_DIRECT_URL}/teams?search=${encodeURIComponent(variation)}`;
       const response = await fetch(url, {
-        headers: { "x-apisports-key": apiKey },
+        headers: { "x-apisports-key": apiKey as string },
       });
 
       if (!response.ok) continue;

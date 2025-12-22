@@ -26,7 +26,7 @@ const edgeAuthConfig: NextAuthConfig = {
       // For Edge runtime, we can only access token data (not database)
       if (token && session.user) {
         session.user.id = token.id as string
-        session.user.subscriptionStatus = (token.subscriptionStatus as string) || "FREE"
+        session.user.subscriptionStatus = ((token.subscriptionStatus as string) || "FREE") as "FREE" | "PREMIUM" | "PRO" | "CANCELLED" | "PAST_DUE"
         session.user.stripeCustomerId = (token.stripeCustomerId as string) || null
       }
       return session

@@ -69,20 +69,20 @@ export function PremiumGate({ feature, title, message }: PremiumGateProps) {
             </ul>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Link href="/pricing" className="flex-1">
               <Button
-                className="w-full bg-yellow-500 text-white font-semibold hover:bg-yellow-600"
+                className="w-full bg-yellow-500 text-white font-semibold hover:bg-yellow-600 min-h-[44px]"
                 size="lg"
                 endContent={<FaArrowRight size={14} />}
               >
                 Upgrade to Premium
               </Button>
             </Link>
-            <Link href="/dashboard">
+            <Link href="/dashboard" className="flex-1 sm:flex-initial">
               <Button
                 variant="bordered"
-                className="border-gray-300"
+                className="border-gray-300 w-full sm:w-auto min-h-[44px]"
                 size="lg"
               >
                 Continue Browsing

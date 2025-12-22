@@ -24,7 +24,7 @@ async function testTeamLeagues(teamId: number) {
     process.exit(1);
   }
 
-  const headers = { "x-apisports-key": apiKey };
+  const headers = { "x-apisports-key": apiKey as string };
 
   console.log(`\n🔍 Testing team ${teamId} with different leagues and seasons\n`);
 

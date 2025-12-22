@@ -92,6 +92,8 @@ export async function getHeadToHead(
     games,
     team1Wins,
     team2Wins,
+    homeTeamWins: team2Wins, // Assuming team2 is home in current matchup
+    awayTeamWins: team1Wins,
   };
 }
 

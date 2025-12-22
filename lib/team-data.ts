@@ -642,7 +642,8 @@ export function getTeamData(teamName: string): TeamData {
   // Handle undefined/null team names
   if (!teamName) {
     return {
-      logo: `https://ui-avatars.com/api/?name=Unknown&background=94a3b8&color=fff`,
+      name: "Unknown",
+      logoUrl: `https://ui-avatars.com/api/?name=Unknown&background=94a3b8&color=fff`,
       primaryColor: "#64748b",
       secondaryColor: "#475569",
       abbreviation: "UNK",

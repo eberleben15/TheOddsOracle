@@ -14,14 +14,14 @@ async function checkResponseStructure() {
   const apiKey = process.env.STATS_API_KEY;
   
   const searchRes = await fetch(`${API_URL}/teams?search=Wisconsin`, {
-    headers: { "x-apisports-key": apiKey },
+    headers: { "x-apisports-key": apiKey as string },
   });
   const searchData = await searchRes.json();
   const wisconsin = searchData.response?.find((t: any) => t.id === 2214);
 
   const statsRes = await fetch(
     `${API_URL}/statistics?team=${wisconsin.id}&league=${NCAA_LEAGUE_ID}&season=2024-2025`,
-    { headers: { "x-apisports-key": apiKey } }
+    { headers: { "x-apisports-key": apiKey as string } }
   );
   const statsData = await statsRes.json();
   

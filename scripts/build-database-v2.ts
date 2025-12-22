@@ -72,7 +72,7 @@ async function buildDatabase() {
       // Search for team
       const searchRes = await fetch(
         `${API_URL}/teams?search=${encodeURIComponent(teamName)}`,
-        { headers: { "x-apisports-key": apiKey } }
+        { headers: { "x-apisports-key": apiKey as string } }
       );
       
       if (!searchRes.ok) {
@@ -99,7 +99,7 @@ async function buildDatabase() {
       // Verify team has NCAA data
       const statsRes = await fetch(
         `${API_URL}/statistics?team=${team.id}&league=${NCAA_LEAGUE_ID}&season=${CURRENT_SEASON}`,
-        { headers: { "x-apisports-key": apiKey } }
+        { headers: { "x-apisports-key": apiKey as string } }
       );
       
       if (statsRes.ok) {

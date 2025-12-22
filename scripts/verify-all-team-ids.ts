@@ -29,7 +29,7 @@ async function verifyAllTeamIDs() {
   for (const team of teams) {
     // Search API for this team name
     const searchRes = await fetch(`${API_URL}/teams?search=${encodeURIComponent(team.name)}`, {
-      headers: { "x-apisports-key": apiKey },
+      headers: { "x-apisports-key": apiKey as string },
     });
     const searchData = await searchRes.json();
     

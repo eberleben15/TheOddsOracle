@@ -49,7 +49,7 @@ async function buildCompleteDatabase() {
     
     const res = await fetch(
       `${API_URL}/games?league=${NCAA_LEAGUE_ID}&season=${CURRENT_SEASON}&page=${page}`,
-      { headers: { "x-apisports-key": apiKey } }
+      { headers: { "x-apisports-key": apiKey as string } }
     );
     
     if (!res.ok) {

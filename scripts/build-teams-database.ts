@@ -113,7 +113,7 @@ async function fetchAllNCAATeams(): Promise<TeamEntry[]> {
     const response = await fetch(
       `${API_URL}/teams?league=${NCAA_LEAGUE_ID}&season=${currentSeason}`,
       {
-        headers: { "x-apisports-key": apiKey },
+        headers: { "x-apisports-key": apiKey as string as string },
       }
     );
 
@@ -242,5 +242,6 @@ if (require.main === module) {
   buildDatabase();
 }
 
-export { buildDatabase, TeamsDatabase, TeamEntry };
+export { buildDatabase };
+export type { TeamsDatabase, TeamEntry };
 
