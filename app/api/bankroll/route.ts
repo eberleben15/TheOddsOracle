@@ -66,6 +66,10 @@ export async function GET(request: NextRequest) {
         console.error("[bankroll] Polymarket fetch failed", e);
       }
     }
+    // No connections: use demo portfolio so bankroll summary matches dashboard/portfolio.
+    if (!kalshiConn && !polymarketConn) {
+      positions = getDemoPortfolio().positions;
+    }
   }
 
   const settings = await prisma.userBankrollSettings.findUnique({

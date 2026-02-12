@@ -15,15 +15,15 @@ import {
   ArrowTrendingUpIcon,
   BoltIcon,
 } from "@heroicons/react/24/outline";
-import { Sport, SPORT_CONFIGS } from "@/lib/sports/sport-config";
+import { Sport } from "@/lib/sports/sport-config";
 
 export function Sidebar() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    "Prediction Markets": true,
     Sports: true,
+    "Prediction Markets": true,
   });
 
   useEffect(() => {
@@ -32,20 +32,26 @@ export function Sidebar() {
 
   const isDashboard = pathname === "/" || pathname === "/dashboard";
   const isSportsPage = pathname.startsWith("/sports/");
-  const isPredictionMarkets = pathname.startsWith("/prediction-markets") && pathname !== "/prediction-markets/portfolio";
+  const isPredictionMarkets = pathname.startsWith("/prediction-markets") && pathname !== "/prediction-markets/portfolio" && pathname !== "/prediction-markets/simulator" && pathname !== "/prediction-markets/rules" && pathname !== "/prediction-markets/dna";
 
+  // Order: Home → Sports → Prediction markets (browse + portfolio) → Tools → AI → Settings
   const navigation = [
-    { 
-      name: "Dashboard", 
-      href: "/dashboard", 
-      icon: HomeIcon, 
-      current: isDashboard
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+      icon: HomeIcon,
+      current: isDashboard,
     },
     {
-      name: "AI Chat",
-      href: "/chat",
-      icon: ChatBubbleLeftRightIcon,
-      current: pathname === "/chat"
+      name: "Sports",
+      icon: ChartBarIcon,
+      children: [
+        { name: "College Basketball", href: "/sports/cbb", current: isSportsPage && pathname === "/sports/cbb", sport: "cbb" as Sport },
+        { name: "NBA", href: "/sports/nba", current: isSportsPage && pathname === "/sports/nba", sport: "nba" as Sport },
+        { name: "NHL", href: "/sports/nhl", current: isSportsPage && pathname === "/sports/nhl", sport: "nhl" as Sport },
+        { name: "NFL", href: "/sports/nfl", current: isSportsPage && pathname === "/sports/nfl", sport: "nfl" as Sport, disabled: true, comingSoon: true },
+        { name: "MLB", href: "/sports/mlb", current: isSportsPage && pathname === "/sports/mlb", sport: "mlb" as Sport, disabled: true, comingSoon: true },
+      ],
     },
     {
       name: "Prediction Markets",
@@ -55,77 +61,43 @@ export function Sidebar() {
       children: [
         { name: "Kalshi", href: "/prediction-markets/kalshi", current: pathname === "/prediction-markets/kalshi" },
         { name: "Polymarket", href: "/prediction-markets/polymarket", current: pathname === "/prediction-markets/polymarket" },
-      ]
+      ],
     },
     {
       name: "Portfolio Risk",
       href: "/prediction-markets/portfolio",
       icon: ChartPieIcon,
-      current: pathname === "/prediction-markets/portfolio"
+      current: pathname === "/prediction-markets/portfolio",
     },
     {
       name: "Strategy Simulator",
       href: "/prediction-markets/simulator",
       icon: ChartBarIcon,
-      current: pathname === "/prediction-markets/simulator"
+      current: pathname === "/prediction-markets/simulator",
     },
     {
       name: "Rules",
       href: "/prediction-markets/rules",
       icon: BoltIcon,
-      current: pathname === "/prediction-markets/rules"
+      current: pathname === "/prediction-markets/rules",
     },
     {
       name: "Betting DNA",
       href: "/prediction-markets/dna",
       icon: ChartPieIcon,
-      current: pathname === "/prediction-markets/dna"
+      current: pathname === "/prediction-markets/dna",
     },
     {
-      name: "Sports",
-      icon: ChartBarIcon,
-      children: [
-        { 
-          name: "College Basketball", 
-          href: "/sports/cbb", 
-          current: isSportsPage && pathname === "/sports/cbb",
-          sport: "cbb" as Sport
-        },
-        { 
-          name: "NBA", 
-          href: "/sports/nba", 
-          current: isSportsPage && pathname === "/sports/nba",
-          sport: "nba" as Sport
-        },
-        { 
-          name: "NFL", 
-          href: "/sports/nfl", 
-          current: isSportsPage && pathname === "/sports/nfl",
-          sport: "nfl" as Sport,
-          disabled: true,
-          comingSoon: true
-        },
-        { 
-          name: "NHL", 
-          href: "/sports/nhl", 
-          current: isSportsPage && pathname === "/sports/nhl",
-          sport: "nhl" as Sport
-        },
-        { 
-          name: "MLB", 
-          href: "/sports/mlb", 
-          current: isSportsPage && pathname === "/sports/mlb",
-          sport: "mlb" as Sport,
-          disabled: true,
-          comingSoon: true
-        },
-      ]
+      name: "AI Chat",
+      href: "/chat",
+      icon: ChatBubbleLeftRightIcon,
+      current: pathname === "/chat",
     },
-    { 
-      name: "Settings", 
-      href: "/settings", 
-      icon: Cog6ToothIcon, 
-      current: pathname?.startsWith("/settings") ?? false
+    {
+      name: "Settings",
+      href: "/settings",
+      icon: Cog6ToothIcon,
+      current: pathname?.startsWith("/settings") ?? false,
     },
   ];
 

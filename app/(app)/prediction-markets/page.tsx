@@ -10,18 +10,28 @@ export default function PredictionMarketsPage() {
           Prediction Markets
         </h1>
         <p className="text-text-body">
-          Browse by platform. Connect accounts in Portfolio Risk to sync positions.
+          Dashboard, portfolio risk, and browse by platform.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mb-8">
+        <Link
+          href="/dashboard"
+          className="flex flex-col p-6 rounded-xl border-2 border-emerald-200 bg-emerald-50/50 hover:border-emerald-300 hover:bg-emerald-50 transition-all"
+        >
+          <h2 className="text-lg font-semibold text-text-dark mb-1">Dashboard</h2>
+          <p className="text-sm text-text-body">
+            At-a-glance portfolio summary, factor exposure, and risk.
+          </p>
+          <span className="text-sm font-medium text-emerald-700 mt-3">View dashboard →</span>
+        </Link>
         <Link
           href="/prediction-markets/kalshi"
           className="flex flex-col p-6 rounded-xl border border-[var(--border-color)] bg-white hover:border-gray-300 hover:shadow-md transition-all"
         >
           <h2 className="text-lg font-semibold text-text-dark mb-1">Kalshi</h2>
           <p className="text-sm text-text-body">
-            Browse Kalshi markets and series. Sync positions in Portfolio Risk.
+            Browse Kalshi markets and series. Sync in Portfolio Risk.
           </p>
           <span className="text-sm font-medium text-gray-600 mt-3">Browse Kalshi →</span>
         </Link>
@@ -31,7 +41,7 @@ export default function PredictionMarketsPage() {
         >
           <h2 className="text-lg font-semibold text-text-dark mb-1">Polymarket</h2>
           <p className="text-sm text-text-body">
-            Browse Polymarket events. Add your wallet in Portfolio Risk to sync.
+            Browse Polymarket events. Add wallet in Portfolio Risk.
           </p>
           <span className="text-sm font-medium text-gray-600 mt-3">Browse Polymarket →</span>
         </Link>

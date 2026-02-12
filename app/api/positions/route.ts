@@ -4,10 +4,12 @@ import { getKalshiClient } from "@/lib/api-clients/kalshi-client";
 import { decryptKalshiPrivateKey } from "@/lib/kalshi-credentials";
 import { getPolymarketPositions } from "@/lib/api-clients/polymarket-data-api";
 import { kalshiMarketPositionsToABEPositions, polymarketDataPositionsToABEPositions } from "@/lib/abe";
+import { getDemoPortfolio } from "@/data/demo-portfolio";
 import type { ABEPosition } from "@/types/abe";
 
 /**
  * GET /api/positions — merged positions from Kalshi (if connected) and Polymarket (if connected).
+ * When user has no connections, returns demo portfolio so the app behaves as if connected.
  * Returns { positions, kalshiConnected, polymarketConnected }.
  */
 export async function GET() {
@@ -55,6 +57,16 @@ export async function GET() {
     } catch (e) {
       console.error("[positions] Polymarket fetch failed", e);
     }
+  }
+
+  // No connections: serve demo portfolio so the app behaves as if user had connected both.
+  if (!kalshiConn && !polymarketConn) {
+    const { positions: demoPositions } = getDemoPortfolio();
+    return Response.json({
+      positions: demoPositions,
+      kalshiConnected: true,
+      polymarketConnected: true,
+    });
   }
 
   return Response.json({

@@ -12,11 +12,11 @@ import {
 import type { BankrollSummary } from "@/types/abe";
 
 interface DashboardStatsStripProps {
-  liveCount: number;
-  upcomingCount: number;
+  liveCount?: number;
+  upcomingCount?: number;
 }
 
-export function DashboardStatsStrip({ liveCount, upcomingCount }: DashboardStatsStripProps) {
+export function DashboardStatsStrip({ liveCount = 0, upcomingCount = 0 }: DashboardStatsStripProps = {}) {
   const [kalshiStatus, setKalshiStatus] = useState<{
     connected: boolean;
     positionsCount?: number;
@@ -74,14 +74,14 @@ export function DashboardStatsStrip({ liveCount, upcomingCount }: DashboardStats
       label: "Live games",
       value: liveCount,
       sub: "in progress",
-      href: "/dashboard",
+      href: "/sports/cbb",
       Icon: SignalIcon,
     },
     {
       label: "Upcoming",
       value: upcomingCount,
       sub: "matchups",
-      href: "/dashboard",
+      href: "/sports/cbb",
       Icon: CalendarIcon,
     },
     {

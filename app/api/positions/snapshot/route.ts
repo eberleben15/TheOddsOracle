@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getDemoPortfolio } from "@/data/demo-portfolio";
 import type { ABEPosition, ABEContract } from "@/types/abe";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ function isValidPosition(x: unknown): x is ABEPosition {
 
 /**
  * GET /api/positions/snapshot — return the current user's last saved portfolio snapshot (positions + optional contracts).
+ * When user has no snapshot and no Kalshi/Polymarket connections, returns demo portfolio so risk analysis works.
  */
 export async function GET() {
   const session = await auth();
@@ -37,18 +39,32 @@ export async function GET() {
     where: { userId: session.user.id },
   });
 
-  if (!snapshot) {
+  if (snapshot) {
     return Response.json({
-      positions: [],
-      contracts: undefined,
-      fetchedAt: null,
+      positions: (snapshot.positions as unknown as ABEPosition[]) ?? [],
+      contracts: snapshot.contracts as unknown as ABEContract[] | undefined,
+      fetchedAt: snapshot.fetchedAt.toISOString(),
+    });
+  }
+
+  // No snapshot: if user has no connections, return demo so portfolio/risk work without real data.
+  const [kalshiConn, polymarketConn] = await Promise.all([
+    prisma.kalshiConnection.findUnique({ where: { userId: session.user.id } }),
+    prisma.polymarketConnection.findUnique({ where: { userId: session.user.id } }),
+  ]);
+  if (!kalshiConn && !polymarketConn) {
+    const { positions: demoPositions, contracts: demoContracts } = getDemoPortfolio();
+    return Response.json({
+      positions: demoPositions,
+      contracts: demoContracts,
+      fetchedAt: new Date().toISOString(),
     });
   }
 
   return Response.json({
-    positions: (snapshot.positions as unknown as ABEPosition[]) ?? [],
-    contracts: snapshot.contracts as unknown as ABEContract[] | undefined,
-    fetchedAt: snapshot.fetchedAt.toISOString(),
+    positions: [],
+    contracts: undefined,
+    fetchedAt: null,
   });
 }
 
