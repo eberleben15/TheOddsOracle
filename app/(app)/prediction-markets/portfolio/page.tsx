@@ -148,10 +148,18 @@ export default function PortfolioPage() {
     try {
       const res = await fetch("/api/positions/snapshot");
       const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to load snapshot");
+        setPositions([]);
+        setDemoContracts([]);
+        return;
+      }
       setPositions(data.positions ?? []);
-      if (data.contracts?.length) setDemoContracts(data.contracts);
+      setDemoContracts(data.contracts ?? []);
     } catch {
+      setError("Failed to load snapshot");
       setPositions([]);
+      setDemoContracts([]);
     }
   };
 
@@ -274,6 +282,7 @@ export default function PortfolioPage() {
             type="button"
             onClick={syncPositions}
             disabled={syncLoading}
+            aria-busy={syncLoading}
             className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
           >
             {syncLoading ? "Syncing…" : "Sync positions"}
@@ -295,8 +304,9 @@ export default function PortfolioPage() {
         </h2>
         <div className="flex flex-wrap gap-3 items-end">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Ticker</label>
+            <label htmlFor="portfolio-ticker" className="block text-xs text-gray-500 mb-1">Ticker</label>
             <input
+              id="portfolio-ticker"
               type="text"
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}
@@ -305,32 +315,37 @@ export default function PortfolioPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Side</label>
+            <label htmlFor="portfolio-side" className="block text-xs text-gray-500 mb-1">Side</label>
             <select
+              id="portfolio-side"
               value={side}
               onChange={(e) => setSide(e.target.value as "yes" | "no")}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              aria-label="Contract side"
             >
               <option value="yes">Yes</option>
               <option value="no">No</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Size (#)</label>
+            <label htmlFor="portfolio-size" className="block text-xs text-gray-500 mb-1">Size (#)</label>
             <input
+              id="portfolio-size"
               type="number"
               min={1}
               value={size}
               onChange={(e) => setSize(e.target.value)}
               placeholder="100"
               className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              aria-label="Position size in contracts"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
+            <label htmlFor="portfolio-cost" className="block text-xs text-gray-500 mb-1">
               Cost/share (0–1)
             </label>
             <input
+              id="portfolio-cost"
               type="number"
               min={0}
               max={1}
@@ -339,6 +354,7 @@ export default function PortfolioPage() {
               onChange={(e) => setCostPerShare(e.target.value)}
               placeholder="0.65"
               className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              aria-label="Cost per share, 0 to 1"
             />
           </div>
           <button
@@ -389,6 +405,7 @@ export default function PortfolioPage() {
             type="button"
             onClick={analyze}
             disabled={loading}
+            aria-busy={loading}
             className="mt-4 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
           >
             {loading ? "Analyzing…" : "Analyze portfolio"}
@@ -534,8 +551,8 @@ export default function PortfolioPage() {
                 Correlations (top pairs)
               </h2>
               <ul className="text-xs text-[var(--text-body)] space-y-1 font-mono">
-                {report.correlations.slice(0, 10).map((c, i) => (
-                  <li key={i}>
+                {report.correlations.slice(0, 10).map((c) => (
+                  <li key={[c.contractIdA, c.contractIdB].sort().join(":")}>
                     {c.contractIdA.replace(/^(kalshi|polymarket):/, "").replace(/:yes|:no$/, "")} ↔ {c.contractIdB.replace(/^(kalshi|polymarket):/, "").replace(/:yes|:no$/, "")}:{" "}
                     {(c.correlation * 100).toFixed(0)}%
                     {c.reason ? ` (${c.reason})` : ""}

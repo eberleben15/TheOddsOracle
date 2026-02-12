@@ -22,6 +22,7 @@ type Body = {
  * POST /api/abe/portfolio-analysis
  * Body: { positions: ABEPosition[], contracts?: ABEContract[] }
  * If contracts omitted, we fetch Kalshi and/or Polymarket markets by position contractIds.
+ * Unauthenticated: analysis is stateless from request body only. Add auth() if you need to restrict to logged-in users.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +40,12 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(positions) || positions.length === 0) {
       return Response.json(
         { error: "positions must be a non-empty array" },
+        { status: 400 }
+      );
+    }
+    if (positions.length > 500) {
+      return Response.json(
+        { error: "positions array exceeds maximum of 500 for analysis" },
         { status: 400 }
       );
     }

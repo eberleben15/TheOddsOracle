@@ -72,13 +72,15 @@ function computeFactorExposures(
     }
   }
 
-  return Array.from(byFactor.entries()).map(([factorId, { notional, contractIds }]) => ({
-    factorId,
-    factorName: getFactorName(factorId),
-    notional,
-    fraction: totalNotional > 0 ? notional / totalNotional : 0,
-    contractIds: Array.from(contractIds),
-  }));
+  return Array.from(byFactor.entries())
+    .map(([factorId, { notional, contractIds }]) => ({
+      factorId,
+      factorName: getFactorName(factorId),
+      notional,
+      fraction: totalNotional > 0 ? notional / totalNotional : 0,
+      contractIds: Array.from(contractIds),
+    }))
+    .sort((a, b) => b.fraction - a.fraction);
 }
 
 /**
