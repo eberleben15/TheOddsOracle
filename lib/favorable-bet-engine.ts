@@ -57,70 +57,86 @@ export function analyzeFavorableBets(
       // Away team moneyline
       if (bookmakerOdds.moneyline.away) {
         const awayOdds = bookmakerOdds.moneyline.away;
-        const americanOdds = decimalToAmerican(awayOdds.price);
-        const impliedProb = calculateImpliedProbability(americanOdds);
-        const ourProb = prediction.winProbability.away / 100;
-        const edge = ourProb - impliedProb;
+        // Ensure we're using decimal odds (price should already be decimal from API)
+        const awayDecimalOdds = awayOdds.price;
+        
+        // Validate odds are reasonable (should be >= 1.0)
+        if (awayDecimalOdds >= 1.0) {
+          const americanOdds = decimalToAmerican(awayDecimalOdds);
+          const impliedProb = calculateImpliedProbability(americanOdds);
+          const ourProb = prediction.winProbability.away / 100;
+          const edge = ourProb - impliedProb;
 
-        if (edge > 0.02) { // At least 2% edge
-          const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
-          const confidence = calculateBetConfidence(edge, prediction.confidence);
-          const valueRating = getValueRating(edge, expectedValue);
+          if (edge > 0.02) { // At least 2% edge
+            const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
+            const confidence = calculateBetConfidence(edge, prediction.confidence);
+            const valueRating = getValueRating(edge, expectedValue);
 
-          favorableBets.push({
-            type: 'moneyline',
-            team: 'away',
-            recommendation: `Bet ${awayTeamStats.name.split(' ')[0]} ML`,
-            bookmaker: bookmakerOdds.bookmaker,
-            currentOdds: {
-              decimal: awayOdds.price,
-              american: americanOdds,
-              impliedProbability: impliedProb * 100,
-            },
-            ourPrediction: {
-              probability: ourProb * 100,
-              expectedValue: expectedValue,
-            },
-            edge: edge * 100,
-            confidence: confidence,
-            reason: generateBetReason('moneyline', 'away', edge, awayTeamStats, homeTeamStats, prediction),
-            valueRating: valueRating,
-          });
+            favorableBets.push({
+              type: 'moneyline',
+              team: 'away',
+              recommendation: `Bet ${awayTeamStats.name.split(' ')[0]} ML`,
+              bookmaker: bookmakerOdds.bookmaker,
+              currentOdds: {
+                decimal: awayDecimalOdds, // Store as decimal
+                american: americanOdds,
+                impliedProbability: impliedProb * 100,
+              },
+              ourPrediction: {
+                probability: ourProb * 100,
+                expectedValue: expectedValue,
+              },
+              edge: edge * 100,
+              confidence: confidence,
+              reason: generateBetReason('moneyline', 'away', edge, awayTeamStats, homeTeamStats, prediction),
+              valueRating: valueRating,
+            });
+          }
+        } else {
+          console.warn(`Invalid away odds for ${awayTeamStats.name}: ${awayDecimalOdds}`);
         }
       }
 
       // Home team moneyline
       if (bookmakerOdds.moneyline.home) {
         const homeOdds = bookmakerOdds.moneyline.home;
-        const americanOdds = decimalToAmerican(homeOdds.price);
-        const impliedProb = calculateImpliedProbability(americanOdds);
-        const ourProb = prediction.winProbability.home / 100;
-        const edge = ourProb - impliedProb;
+        // Ensure we're using decimal odds (price should already be decimal from API)
+        const homeDecimalOdds = homeOdds.price;
+        
+        // Validate odds are reasonable (should be >= 1.0)
+        if (homeDecimalOdds >= 1.0) {
+          const americanOdds = decimalToAmerican(homeDecimalOdds);
+          const impliedProb = calculateImpliedProbability(americanOdds);
+          const ourProb = prediction.winProbability.home / 100;
+          const edge = ourProb - impliedProb;
 
-        if (edge > 0.02) { // At least 2% edge
-          const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
-          const confidence = calculateBetConfidence(edge, prediction.confidence);
-          const valueRating = getValueRating(edge, expectedValue);
+          if (edge > 0.02) { // At least 2% edge
+            const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
+            const confidence = calculateBetConfidence(edge, prediction.confidence);
+            const valueRating = getValueRating(edge, expectedValue);
 
-          favorableBets.push({
-            type: 'moneyline',
-            team: 'home',
-            recommendation: `Bet ${homeTeamStats.name.split(' ')[0]} ML`,
-            bookmaker: bookmakerOdds.bookmaker,
-            currentOdds: {
-              decimal: homeOdds.price,
-              american: americanOdds,
-              impliedProbability: impliedProb * 100,
-            },
-            ourPrediction: {
-              probability: ourProb * 100,
-              expectedValue: expectedValue,
-            },
-            edge: edge * 100,
-            confidence: confidence,
-            reason: generateBetReason('moneyline', 'home', edge, awayTeamStats, homeTeamStats, prediction),
-            valueRating: valueRating,
-          });
+            favorableBets.push({
+              type: 'moneyline',
+              team: 'home',
+              recommendation: `Bet ${homeTeamStats.name.split(' ')[0]} ML`,
+              bookmaker: bookmakerOdds.bookmaker,
+              currentOdds: {
+                decimal: homeDecimalOdds, // Store as decimal
+                american: americanOdds,
+                impliedProbability: impliedProb * 100,
+              },
+              ourPrediction: {
+                probability: ourProb * 100,
+                expectedValue: expectedValue,
+              },
+              edge: edge * 100,
+              confidence: confidence,
+              reason: generateBetReason('moneyline', 'home', edge, awayTeamStats, homeTeamStats, prediction),
+              valueRating: valueRating,
+            });
+          }
+        } else {
+          console.warn(`Invalid home odds for ${homeTeamStats.name}: ${homeDecimalOdds}`);
         }
       }
     }
@@ -375,8 +391,15 @@ function generateBetReason(
   const reasons: string[] = [];
   
   if (type === 'moneyline') {
-    reasons.push(`Our model gives ${teamName} a ${(prediction.winProbability[team] / 100).toFixed(1)}% chance to win`);
-    reasons.push(`but the market only implies ${(1 - edge).toFixed(1)}%`);
+    const ourProb = prediction.winProbability[team] / 100;
+    const impliedProb = ourProb - edge; // Calculate implied probability from edge
+    
+    // Format probabilities properly
+    const ourProbPercent = (ourProb * 100).toFixed(1);
+    const impliedProbPercent = Math.max(0, Math.min(100, (impliedProb * 100))).toFixed(1);
+    
+    reasons.push(`Our model gives ${teamName} a ${ourProbPercent}% chance to win`);
+    reasons.push(`but the market only implies ${impliedProbPercent}%`);
     
     if (teamStats.pointsPerGame > opponentStats.pointsPerGame) {
       reasons.push(`${teamName} has a stronger offense (${teamStats.pointsPerGame.toFixed(1)} vs ${opponentStats.pointsPerGame.toFixed(1)} PPG)`);

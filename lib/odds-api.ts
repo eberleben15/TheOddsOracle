@@ -1,6 +1,7 @@
 import { OddsGame, LiveGame } from "@/types";
 import { gameOddsCache } from "./game-cache";
 import { fetchWithRetry } from "./retry-utils";
+import { Sport, getSportConfig, SPORT_CONFIGS } from "@/lib/sports/sport-config";
 
 const THE_ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4";
 
@@ -160,24 +161,32 @@ export async function getUpcomingGamesBySport(
   }
 }
 
-export async function getGameOdds(gameId: string): Promise<OddsGame | null> {
-  // Try cache first
+/**
+ * Fetch a single game by ID. When sport is provided, fetches that sport's games
+ * (required for NHL/NBA etc. since we otherwise only fetch CBB). When omitted,
+ * tries cache, then CBB, then other sports until found.
+ */
+export async function getGameOdds(gameId: string, sport?: Sport): Promise<OddsGame | null> {
   const cachedGame = gameOddsCache.get(gameId);
   if (cachedGame) {
     console.log(`[ODDS API] Cache hit for game ${gameId} - skipping API call`);
     return cachedGame;
   }
 
-  // The Odds API v4 doesn't support fetching a single game by ID
-  // Instead, we fetch all games and find the matching one
-  // (This will also populate the cache via getUpcomingGames)
-  try {
-    console.log(`[ODDS API] Cache miss for game ${gameId} - fetching all games`);
-    const games = await getUpcomingGames();
-    const game = games.find((g) => g.id === gameId);
-    return game || null;
-  } catch (error) {
-    console.error("Error fetching game odds:", error);
-    return null;
+  const sportsToTry: Sport[] = sport
+    ? [sport]
+    : (["cbb", "nba", "nhl", "nfl", "mlb"] as Sport[]);
+
+  for (const s of sportsToTry) {
+    try {
+      const oddsKey = getSportConfig(s).oddsApiKey;
+      console.log(`[ODDS API] Cache miss for game ${gameId} - fetching ${s} (${oddsKey})`);
+      const games = await getUpcomingGamesBySport(oddsKey);
+      const game = games.find((g) => g.id === gameId);
+      if (game) return game;
+    } catch (err) {
+      console.warn(`[ODDS API] Failed to fetch ${s} games:`, err);
+    }
   }
+  return null;
 }

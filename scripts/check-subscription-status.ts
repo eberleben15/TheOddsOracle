@@ -23,7 +23,7 @@ const BASE_URL = "https://api.sportsdata.io/v3/cbb";
 
 async function checkSubscriptionStatus() {
   console.log("🔍 Checking SportsData.io Subscription Status...\n");
-  console.log("API Key:", API_KEY.substring(0, 8) + "..." + API_KEY.substring(API_KEY.length - 4));
+  console.log("API Key:", API_KEY!.substring(0, 8) + "..." + API_KEY!.substring(API_KEY!.length - 4));
   console.log("=" .repeat(70));
 
   try {

@@ -12,9 +12,10 @@ export class NFLClient extends BaseSportsDataClient {
   }
 
   /**
-   * Get team season stats
+   * Get team season stats (returns null when SportsData not configured)
    */
   async getTeamSeasonStats(teamName: string): Promise<TeamStats | null> {
+    if (!this.isConfigured()) return null;
     try {
       const team = await this.findTeamByName(teamName);
       if (!team) {
@@ -40,9 +41,10 @@ export class NFLClient extends BaseSportsDataClient {
   }
 
   /**
-   * Get recent games for a team
+   * Get recent games for a team (returns [] when SportsData not configured)
    */
   async getRecentGames(teamName: string, limit: number = 5): Promise<GameResult[]> {
+    if (!this.isConfigured()) return [];
     try {
       const team = await this.findTeamByName(teamName);
       if (!team) return [];

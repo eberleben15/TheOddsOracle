@@ -15,6 +15,7 @@ import { getUpcomingGames } from "@/lib/odds-api";
 import { getTeamSeasonStats, findTeamByName } from "@/lib/sportsdata-api";
 import { calculateTeamAnalytics, predictMatchup } from "@/lib/advanced-analytics";
 import { trackPrediction } from "@/lib/prediction-tracker";
+import { getSportFromGame } from "@/lib/sports/sport-detection";
 import { prisma } from "@/lib/prisma";
 
 // Verify request is from cron service (optional, for security)
@@ -101,33 +102,41 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Calculate analytics
+        const sport = getSportFromGame(game);
+
         const awayAnalytics = calculateTeamAnalytics(
           awayStats,
           awayStats.recentGames || [],
-          false
+          false,
+          sport
         );
         const homeAnalytics = calculateTeamAnalytics(
           homeStats,
           homeStats.recentGames || [],
-          true
+          true,
+          sport
         );
 
-        // Generate prediction
         const prediction = predictMatchup(
           awayAnalytics,
           homeAnalytics,
           awayStats,
-          homeStats
+          homeStats,
+          sport
         );
 
-        // Track prediction in database
+        // Track prediction with full payload for feedback loop
         await trackPrediction(
           game.id,
           game.commence_time,
           game.home_team,
           game.away_team,
-          prediction
+          prediction,
+          {
+            sport: game.sport_key ?? "basketball_ncaab",
+            keyFactors: prediction.keyFactors?.length ? prediction.keyFactors : undefined,
+            valueBets: prediction.valueBets?.length ? prediction.valueBets : undefined,
+          }
         );
 
         successCount++;

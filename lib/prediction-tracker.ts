@@ -1,68 +1,136 @@
 /**
  * Prediction Tracker
- * 
- * Tracks all predictions with their actual outcomes for validation and performance monitoring.
- * Stores predictions in database for persistence and analysis.
+ *
+ * Tracks all predictions with their actual outcomes for validation and feedback.
+ * Persists: score, spread, total, win probability, key factors, value bets,
+ * favorable bets, and odds snapshot so the feedback loop can evaluate accuracy.
  */
 
 import { MatchupPrediction } from "./advanced-analytics";
+import type { Prisma } from ".prisma/client/client";
 import { prisma } from "./prisma";
 
+/** Serializable favorable-bet summary for storage (feedback loop). */
+export interface StoredFavorableBet {
+  type: "moneyline" | "spread" | "total";
+  team?: "away" | "home";
+  recommendation: string;
+  bookmaker: string;
+  edge: number;
+  confidence: number;
+  valueRating: string;
+  ourProbability: number;
+  impliedProbability: number;
+}
+
+/** Minimal odds snapshot at prediction time for feedback. */
+export interface OddsSnapshot {
+  spread?: number;
+  total?: number;
+  moneyline?: { away?: number; home?: number };
+}
+
+export interface TrackPredictionOptions {
+  sport?: string;
+  keyFactors?: string[];
+  valueBets?: MatchupPrediction["valueBets"];
+  favorableBets?: StoredFavorableBet[] | null;
+  oddsSnapshot?: OddsSnapshot | null;
+}
+
 export interface TrackedPrediction {
-  id: string; // Unique identifier (e.g., game ID + timestamp)
+  id: string;
   gameId: string;
   date: string;
   homeTeam: string;
   awayTeam: string;
-  predictedAt: number; // Timestamp
+  predictedAt: number;
   prediction: MatchupPrediction;
   actualOutcome?: {
     homeScore: number;
     awayScore: number;
-    winner: 'home' | 'away';
+    winner: "home" | "away";
     recordedAt: number;
   };
   validated: boolean;
 }
 
 /**
- * Track a prediction (before game is played) - saves to database
+ * Track a prediction (before game is played). Stores all aspects for the feedback loop.
  */
 export async function trackPrediction(
   gameId: string,
   date: string,
   homeTeam: string,
   awayTeam: string,
-  prediction: MatchupPrediction
+  prediction: MatchupPrediction,
+  options?: TrackPredictionOptions
 ): Promise<string> {
   try {
     const gameDate = new Date(date);
-    
+    const predictedTotal =
+      prediction.predictedScore.home + prediction.predictedScore.away;
+
     const dbPrediction = await prisma.prediction.create({
       data: {
         gameId,
         date: gameDate,
         homeTeam,
         awayTeam,
+        sport: options?.sport ?? null,
         predictedScore: {
           home: prediction.predictedScore.home,
           away: prediction.predictedScore.away,
         },
         predictedSpread: prediction.predictedSpread,
+        predictedTotal,
         winProbability: {
           home: prediction.winProbability.home,
           away: prediction.winProbability.away,
         },
         confidence: prediction.confidence,
+        keyFactors: (options?.keyFactors ?? undefined) as Prisma.InputJsonValue | undefined,
+        valueBets: (options?.valueBets ?? undefined) as Prisma.InputJsonValue | undefined,
+        favorableBets: (options?.favorableBets ?? undefined) as Prisma.InputJsonValue | undefined,
+        oddsSnapshot: (options?.oddsSnapshot ?? undefined) as Prisma.InputJsonValue | undefined,
         validated: false,
       },
     });
-    
+
     return dbPrediction.id;
   } catch (error) {
     console.error("Error tracking prediction to database:", error);
-    // Fallback: generate ID even if DB save fails
     return `${gameId}-${Date.now()}`;
+  }
+}
+
+/**
+ * Enrich an existing (unvalidated) prediction with favorable bets and odds snapshot.
+ * Call when client has finished computing favorableBetAnalysis.
+ */
+export async function enrichPrediction(
+  gameId: string,
+  favorableBets: StoredFavorableBet[] | null,
+  oddsSnapshot: OddsSnapshot | null
+): Promise<boolean> {
+  try {
+    const prediction = await prisma.prediction.findFirst({
+      where: { gameId, validated: false },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!prediction) return false;
+
+    await prisma.prediction.update({
+      where: { id: prediction.id },
+      data: {
+        favorableBets: (favorableBets ?? undefined) as Prisma.InputJsonValue | undefined,
+        oddsSnapshot: (oddsSnapshot ?? undefined) as Prisma.InputJsonValue | undefined,
+      },
+    });
+    return true;
+  } catch (error) {
+    console.error("Error enriching prediction:", error);
+    return false;
   }
 }
 
@@ -77,12 +145,14 @@ export async function recordOutcome(
   try {
     const actualWinner = homeScore > awayScore ? 'home' : 'away';
     
+    const actualTotal = homeScore + awayScore;
     await prisma.prediction.update({
       where: { id: predictionId },
       data: {
         actualHomeScore: homeScore,
         actualAwayScore: awayScore,
         actualWinner,
+        actualTotal,
         validated: true,
         validatedAt: new Date(),
       },
@@ -283,8 +353,8 @@ function convertDbToTracked(dbPrediction: any): TrackedPrediction {
         away: (dbPrediction.winProbability as any).away,
       },
       confidence: dbPrediction.confidence,
-      keyFactors: [],
-      valueBets: [],
+      keyFactors: Array.isArray(dbPrediction.keyFactors) ? dbPrediction.keyFactors : [],
+      valueBets: Array.isArray(dbPrediction.valueBets) ? dbPrediction.valueBets : [],
     },
     actualOutcome: dbPrediction.actualHomeScore !== null ? {
       homeScore: dbPrediction.actualHomeScore!,

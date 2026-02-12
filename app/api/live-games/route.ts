@@ -4,10 +4,32 @@ import { getLiveGames } from "@/lib/odds-api";
 export const runtime = 'nodejs';
 export const revalidate = 30; // Revalidate every 30 seconds
 
+/**
+ * Map sport code (cbb, nba, etc.) to The Odds API sport key (basketball_ncaab, etc.)
+ */
+function mapSportToOddsApiKey(sport: string): string {
+  // If it's already a The Odds API key format, return as-is
+  if (sport.includes("_")) {
+    return sport;
+  }
+
+  // Map our sport codes to The Odds API keys
+  const sportMapping: Record<string, string> = {
+    cbb: "basketball_ncaab",
+    nba: "basketball_nba",
+    nfl: "americanfootball_nfl",
+    nhl: "icehockey_nhl",
+    mlb: "baseball_mlb",
+  };
+
+  return sportMapping[sport.toLowerCase()] || "basketball_ncaab";
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const sport = searchParams.get("sport") || "basketball_ncaab";
+    const sportParam = searchParams.get("sport") || "cbb";
+    const sport = mapSportToOddsApiKey(sportParam);
 
     const games = await getLiveGames(sport);
     return NextResponse.json(games);

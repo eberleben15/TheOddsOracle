@@ -5,7 +5,7 @@
  * Bets are cached per sport with TTL-based expiration.
  */
 
-import { RecommendedBet } from "@/components/RecommendedBets";
+import type { RecommendedBet } from "@/types";
 import { Sport } from "./sports/sport-config";
 
 interface CacheEntry {

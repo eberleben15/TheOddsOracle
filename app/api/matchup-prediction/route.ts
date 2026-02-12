@@ -40,24 +40,25 @@ export async function GET(request: Request) {
       );
     }
 
-    // Calculate analytics
     const awayAnalytics = calculateTeamAnalytics(
       awayStats,
       awayStats.recentGames || [],
-      false
+      false,
+      sport
     );
     const homeAnalytics = calculateTeamAnalytics(
       homeStats,
       homeStats.recentGames || [],
-      true
+      true,
+      sport
     );
 
-    // Get prediction
     const prediction = predictMatchup(
       awayAnalytics,
       homeAnalytics,
       awayStats,
-      homeStats
+      homeStats,
+      sport
     );
 
     return NextResponse.json({

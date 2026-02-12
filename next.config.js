@@ -26,6 +26,8 @@ const nextConfig = {
   turbopack: {
     resolveAlias: {
       '.prisma/client': './node_modules/.prisma/client',
+      // Resolve patched @prisma/client default.js require (relative from node_modules/@prisma/client)
+      '../../.prisma/client/default.js': './node_modules/.prisma/client/default.js',
     },
     // Mark stripe as external to avoid build-time resolution
     resolveExtensions: ['.js', '.jsx', '.ts', '.tsx'],

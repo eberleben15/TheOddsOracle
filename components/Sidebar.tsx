@@ -67,7 +67,9 @@ export function Sidebar() {
           name: "NFL", 
           href: "/dashboard?sport=nfl", 
           current: isDashboard && currentSport === "nfl",
-          sport: "nfl" as Sport
+          sport: "nfl" as Sport,
+          disabled: true,
+          comingSoon: true
         },
         { 
           name: "NHL", 
@@ -79,7 +81,9 @@ export function Sidebar() {
           name: "MLB", 
           href: "/dashboard?sport=mlb", 
           current: isDashboard && currentSport === "mlb",
-          sport: "mlb" as Sport
+          sport: "mlb" as Sport,
+          disabled: true,
+          comingSoon: true
         },
       ]
     },
@@ -169,25 +173,36 @@ export function Sidebar() {
                   </button>
                   {sportsOpen && (
                     <div className="ml-4 mt-2 space-y-1">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.name}
-                          href={child.href}
-                          className={`
-                            flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm
-                            ${child.current
-                              ? "bg-gray-100 text-gray-900 border-l-4 border-gray-400 font-medium"
-                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                            }
-                          `}
-                          onClick={() => {
-                            // Close mobile menu when navigating
-                            setMobileOpen(false);
-                          }}
-                        >
-                          <span>{child.name}</span>
-                        </Link>
-                      ))}
+                      {item.children.map((child) =>
+                        (child as { disabled?: boolean; comingSoon?: boolean }).disabled ? (
+                          <div
+                            key={child.name}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-gray-400 cursor-not-allowed opacity-75"
+                          >
+                            <span>{child.name}</span>
+                            <span className="ml-auto text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded">
+                              Coming Soon
+                            </span>
+                          </div>
+                        ) : (
+                          <Link
+                            key={child.name}
+                            href={child.href}
+                            className={`
+                              flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm
+                              ${child.current
+                                ? "bg-gray-100 text-gray-900 border-l-4 border-gray-400 font-medium"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                              }
+                            `}
+                            onClick={() => {
+                              setMobileOpen(false);
+                            }}
+                          >
+                            <span>{child.name}</span>
+                          </Link>
+                        )
+                      )}
                     </div>
                   )}
                 </div>

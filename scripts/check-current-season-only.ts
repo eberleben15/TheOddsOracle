@@ -75,15 +75,15 @@ async function checkCurrentSeasonOnly() {
   console.log(`ESPN/Sports Reference:               87.9 PPG`);
 
   console.log(`\n🔍 ANALYSIS:`);
-  if (Math.abs(parseFloat(currentPPG) - 87.9) < 2) {
+  if (Math.abs(parseFloat(String(currentPPG)) - 87.9) < 2) {
     console.log(`✅ Current season PPG (${currentPPG}) matches ESPN (87.9)!`);
     console.log(`   → ESPN is showing CURRENT SEASON games only`);
   } else {
     console.log(`❌ Current season PPG (${currentPPG}) doesn't match ESPN (87.9)`);
-    console.log(`   → Difference: ${Math.abs(parseFloat(currentPPG) - 87.9).toFixed(1)} points`);
+    console.log(`   → Difference: ${Math.abs(parseFloat(String(currentPPG)) - 87.9).toFixed(1)} points`);
   }
 
-  if (Math.abs(parseFloat(currentPPG) - 76.6) < 2) {
+  if (Math.abs(parseFloat(String(currentPPG)) - 76.6) < 2) {
     console.log(`\n⚠️  User's app value (76.6) is close to current season (${currentPPG})`);
   } else if (Math.abs(76.8 - 76.6) < 0.5) {
     console.log(`\n⚠️  User's app value (76.6) matches API AWAY games average (76.8)!`);

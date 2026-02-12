@@ -40,6 +40,7 @@
     "node_modules/.prisma/client/index.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "scripts"
   ]
 }

@@ -12,7 +12,7 @@ import { getSportFromGame } from "./sports/sport-detection";
 import { parseOdds } from "./odds-utils";
 import { analyzeFavorableBets } from "./favorable-bet-engine";
 import { calculateTeamAnalytics, predictMatchup } from "./advanced-analytics";
-import { RecommendedBet } from "@/components/RecommendedBets";
+import type { RecommendedBet } from "@/types";
 import { Sport, getSportConfig } from "./sports/sport-config";
 import { recommendedBetsCache } from "./recommended-bets-cache";
 import { teamStatsCache } from "./team-stats-cache";
@@ -135,23 +135,25 @@ async function analyzeGameForBets(game: OddsGame): Promise<RecommendedBet[]> {
       return [];
     }
 
-    // Calculate predictions
     const awayAnalytics = calculateTeamAnalytics(
       awayTeamStats,
       awayTeamStats.recentGames || [],
-      false
+      false,
+      sport
     );
     const homeAnalytics = calculateTeamAnalytics(
       homeTeamStats,
       homeTeamStats.recentGames || [],
-      true
+      true,
+      sport
     );
 
     const prediction = predictMatchup(
       awayAnalytics,
       homeAnalytics,
       awayTeamStats,
-      homeTeamStats
+      homeTeamStats,
+      sport
     );
 
     // Analyze favorable bets
@@ -176,15 +178,28 @@ async function analyzeGameForBets(game: OddsGame): Promise<RecommendedBet[]> {
           })
         : 'TBD';
 
+      // Ensure decimal odds are stored correctly (should already be decimal from API)
+      const decimalOdds = bet.currentOdds.decimal;
+      
+      // Validate odds are reasonable
+      if (decimalOdds < 1.0) {
+        console.warn(`[getRecommendedBets] Invalid decimal odds for bet ${bet.recommendation}: ${decimalOdds}`);
+      }
+
       return {
-        id: `${game.id}-${bet.type}-${bet.team || 'total'}-${bet.bookmaker}-${idx}`,
+        id: `${game.id}-${bet.type}-${bet.team || 'total'}-${bet.currentOdds.decimal.toFixed(2)}-${idx}`,
         gameId: game.id,
         gameTitle: `${awayTeamName} @ ${homeTeamName}`,
         gameTime: gameTime,
         type: bet.type,
         recommendation: bet.recommendation,
         bookmaker: bet.bookmaker,
-        currentOdds: bet.currentOdds,
+        bookmakers: bet.bookmakers, // Include all bookmakers
+        currentOdds: {
+          decimal: decimalOdds, // Store as decimal (primary format)
+          american: bet.currentOdds.american,
+          impliedProbability: bet.currentOdds.impliedProbability,
+        },
         ourPrediction: bet.ourPrediction,
         edge: bet.edge,
         confidence: bet.confidence,

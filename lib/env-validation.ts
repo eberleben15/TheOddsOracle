@@ -34,13 +34,15 @@ const REQUIRED_ENV_VARS = {
   
   // APIs
   THE_ODDS_API_KEY: "The Odds API key for betting odds",
-  SPORTSDATA_API_KEY: "SportsData.io API key for team statistics",
 } as const;
 
 /**
  * Optional but recommended environment variables
  */
 const OPTIONAL_ENV_VARS = {
+  // SportsData (optional – CBB uses ESPN; key only needed for NBA/NFL/NHL/MLB stats)
+  SPORTSDATA_API_KEY: "SportsData.io API key (optional; CBB uses free ESPN data)",
+  
   // Stripe (optional - only needed for payments)
   STRIPE_SECRET_KEY: "Stripe secret key for payment processing",
   STRIPE_WEBHOOK_SECRET: "Stripe webhook secret for verifying webhooks",

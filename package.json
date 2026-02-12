@@ -14,7 +14,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "create-admin": "node scripts/create-admin-user.js",
-    "postinstall": "node scripts/postinstall-prisma.js"
+    "postinstall": "node scripts/postinstall-prisma.js",
+    "predictions:clear": "tsx scripts/clear-all-predictions.ts"
   },
   "repository": {
     "type": "git",

@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getTeamData } from "@/lib/team-data";
 
 interface TeamLogoProps {
   teamName: string;
   size?: number;
   className?: string;
-  logo?: string; // Optional logo URL to override the default
+  logo?: string; // Optional logo URL to override the default (e.g. from ESPN)
 }
 
 export function TeamLogo({ teamName, size = 64, className = "", logo }: TeamLogoProps) {
   const teamData = getTeamData(teamName);
-  // Use provided logo if available, otherwise use team data logo
   const [imgSrc, setImgSrc] = useState(logo || teamData.logoUrl);
+
+  useEffect(() => {
+    setImgSrc(logo || teamData.logoUrl);
+  }, [logo, teamData.logoUrl]);
 
   const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
     teamData.abbreviation

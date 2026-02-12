@@ -1,0 +1,76 @@
+{
+  "testTeams": [
+    {
+      "name": "Duke Blue Devils",
+      "commonNames": ["Duke", "Duke Blue Devils"],
+      "conference": "ACC",
+      "notes": "Top-tier program, common matchup"
+    },
+    {
+      "name": "Michigan Wolverines",
+      "commonNames": ["Michigan", "Michigan Wolverines"],
+      "conference": "Big Ten",
+      "notes": "Power conference team"
+    },
+    {
+      "name": "Wisconsin Badgers",
+      "commonNames": ["Wisconsin", "Wisconsin Badgers"],
+      "conference": "Big Ten",
+      "notes": "Power conference team"
+    },
+    {
+      "name": "Gonzaga Bulldogs",
+      "commonNames": ["Gonzaga", "Gonzaga Bulldogs"],
+      "conference": "WCC",
+      "notes": "Mid-major powerhouse"
+    },
+    {
+      "name": "North Carolina Tar Heels",
+      "commonNames": ["North Carolina", "UNC", "Tar Heels"],
+      "conference": "ACC",
+      "notes": "Top-tier program, common matchup"
+    },
+    {
+      "name": "Kentucky Wildcats",
+      "commonNames": ["Kentucky", "Kentucky Wildcats"],
+      "conference": "SEC",
+      "notes": "Top-tier program"
+    },
+    {
+      "name": "Kansas Jayhawks",
+      "commonNames": ["Kansas", "Kansas Jayhawks"],
+      "conference": "Big 12",
+      "notes": "Top-tier program"
+    },
+    {
+      "name": "Villanova Wildcats",
+      "commonNames": ["Villanova", "Villanova Wildcats"],
+      "conference": "Big East",
+      "notes": "Power conference team"
+    },
+    {
+      "name": "Purdue Boilermakers",
+      "commonNames": ["Purdue", "Purdue Boilermakers"],
+      "conference": "Big Ten",
+      "notes": "Power conference team"
+    },
+    {
+      "name": "Houston Cougars",
+      "commonNames": ["Houston", "Houston Cougars"],
+      "conference": "Big 12",
+      "notes": "Power conference team"
+    }
+  ],
+  "rivalries": [
+    {
+      "team1": "Duke Blue Devils",
+      "team2": "North Carolina Tar Heels",
+      "notes": "Famous rivalry, should have extensive H2H history"
+    },
+    {
+      "team1": "Michigan Wolverines",
+      "team2": "Ohio State Buckeyes",
+      "notes": "Big Ten rivalry"
+    }
+  ]
+}

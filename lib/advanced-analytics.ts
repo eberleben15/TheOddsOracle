@@ -1,13 +1,16 @@
 /**
  * Advanced Team Analytics Engine (Phase 3)
- * 
+ *
  * Sophisticated statistical analysis and predictions for betting insights.
  * Uses multiple factors to calculate win probabilities, value bets, and trends.
+ * Score predictions use sport-specific league averages so totals align with
+ * sportsbook/ESPN expectations (CBB ~70 pace, NBA ~99 pace, etc.).
  */
 
 import { TeamStats, GameResult } from "@/types";
 import { CalibrationCoefficients, DEFAULT_COEFFICIENTS } from "./prediction-calibration";
 import { SimulationResult } from "./monte-carlo-simulation";
+import type { Sport } from "./sports/sport-config";
 
 /**
  * Use default coefficients
@@ -15,6 +18,61 @@ import { SimulationResult } from "./monte-carlo-simulation";
  * For now, we use the default values defined in prediction-calibration.ts
  */
 const COEFFICIENTS = DEFAULT_COEFFICIENTS;
+
+/** League constants per sport so predicted scores match sportsbook/ESPN scale (pace, PPG, score bounds). */
+export interface LeagueConstants {
+  leagueAvgPpg: number;
+  leagueAvgPace: number;
+  paceMin: number;
+  paceMax: number;
+  scoreMin: number;
+  scoreMax: number;
+  homeAdvantage: number;
+}
+
+const CBB_CONSTANTS: LeagueConstants = {
+  leagueAvgPpg: 72,
+  leagueAvgPace: 70,
+  paceMin: 60,
+  paceMax: 80,
+  scoreMin: 50,
+  scoreMax: 105,
+  homeAdvantage: COEFFICIENTS.homeAdvantage,
+};
+
+const NBA_CONSTANTS: LeagueConstants = {
+  leagueAvgPpg: 112,
+  leagueAvgPace: 99,
+  paceMin: 92,
+  paceMax: 106,
+  scoreMin: 85,
+  scoreMax: 135,
+  homeAdvantage: 2.5,
+};
+
+const NHL_CONSTANTS: LeagueConstants = {
+  leagueAvgPpg: 3.0,
+  leagueAvgPace: 60,
+  paceMin: 55,
+  paceMax: 65,
+  scoreMin: 1,
+  scoreMax: 8,
+  homeAdvantage: 0.15,
+};
+
+/** Default (CBB) used when sport is unknown or unsupported for scoring. */
+const DEFAULT_LEAGUE = CBB_CONSTANTS;
+
+const LEAGUE_BY_SPORT: Partial<Record<Sport, LeagueConstants>> = {
+  cbb: CBB_CONSTANTS,
+  nba: NBA_CONSTANTS,
+  nhl: NHL_CONSTANTS,
+};
+
+export function getLeagueConstants(sport?: Sport | string): LeagueConstants {
+  if (!sport) return DEFAULT_LEAGUE;
+  return LEAGUE_BY_SPORT[sport as Sport] ?? DEFAULT_LEAGUE;
+}
 
 export interface TeamAnalytics {
   // Overall strength metrics
@@ -79,45 +137,39 @@ export interface MatchupPrediction {
 }
 
 /**
- * Calculate comprehensive team analytics
+ * Calculate comprehensive team analytics.
+ * @param sport - Optional sport for league constants (CBB vs NBA vs NHL); defaults to CBB.
  */
 export function calculateTeamAnalytics(
   stats: TeamStats,
   recentGames: GameResult[],
-  isHome: boolean = false
+  isHome: boolean = false,
+  sport?: Sport
 ): TeamAnalytics {
-  // DEBUG: Log incoming stats
-  console.log(`[ANALYTICS] Input for ${stats.name}:`, {
-    offensiveEfficiency: stats.offensiveEfficiency,
-    defensiveEfficiency: stats.defensiveEfficiency,
-    pointsPerGame: stats.pointsPerGame,
-    pointsAllowedPerGame: stats.pointsAllowedPerGame,
-    recentGamesCount: recentGames.length,
-  });
-  
-  // League averages for NCAA Basketball
-  const LEAGUE_AVG_PPG = 75.0;
+  const league = getLeagueConstants(sport);
+  const LEAGUE_AVG_PPG = league.leagueAvgPpg;
   const LEAGUE_AVG_FG = 45.0;
   const LEAGUE_AVG_3P = 35.0;
   const LEAGUE_AVG_FT = 72.0;
   const LEAGUE_AVG_REB = 36.0;
-  
-  // Use actual efficiency ratings from SportsData.io if available, otherwise calculate estimates
-  // Offensive/Defensive ratings (per 100 possessions)
-  const offensiveRating = stats.offensiveEfficiency ?? ((stats.pointsPerGame || 75) / LEAGUE_AVG_PPG) * 100;
-  const defensiveRating = stats.defensiveEfficiency ?? ((stats.pointsAllowedPerGame || 75) / LEAGUE_AVG_PPG) * 100;
+
+  // Use actual efficiency (points per 100 poss) if available; otherwise derive from PPG and league pace
+  const pace = stats.pace ?? league.leagueAvgPace;
+  const offensiveRating = stats.offensiveEfficiency ?? (stats.pointsPerGame != null && stats.pointsPerGame > 0
+    ? (stats.pointsPerGame / pace) * 100
+    : 100);
+  const defensiveRating = stats.defensiveEfficiency ?? (stats.pointsAllowedPerGame != null && stats.pointsAllowedPerGame > 0
+    ? (stats.pointsAllowedPerGame / pace) * 100
+    : 100);
   const netRating = offensiveRating - defensiveRating;
-  
-  // DEBUG: Log calculated values
-  console.log(`[ANALYTICS] Calculated for ${stats.name}:`, {
-    offensiveRating,
-    defensiveRating,
-    netRating,
-  });
-  
-  // Efficiency estimates (use actual if available from SportsData.io)
-  const offensiveEfficiency = stats.offensiveEfficiency ?? ((stats.pointsPerGame || 75) * 1.05);
-  const defensiveEfficiency = stats.defensiveEfficiency ?? ((stats.pointsAllowedPerGame || 75) * 1.05);
+
+  // Efficiency = points per 100 possessions (not PPG * 1.05)
+  const offensiveEfficiency = stats.offensiveEfficiency ?? (stats.pointsPerGame != null && stats.pointsPerGame > 0
+    ? (stats.pointsPerGame / pace) * 100
+    : 100);
+  const defensiveEfficiency = stats.defensiveEfficiency ?? (stats.pointsAllowedPerGame != null && stats.pointsAllowedPerGame > 0
+    ? (stats.pointsAllowedPerGame / pace) * 100
+    : 100);
   
   // Momentum calculation from recent games
   const momentum = calculateMomentum(recentGames, stats.name);
@@ -150,8 +202,7 @@ export function calculateTeamAnalytics(
   // Consistency score
   const consistency = calculateConsistency(recentGames);
   
-  // Home advantage (typically 3-4 points in college basketball)
-  const homeAdvantage = isHome ? COEFFICIENTS.homeAdvantage : 0;
+  const homeAdvantage = isHome ? league.homeAdvantage : 0;
   
   // Phase 2: Calculate recent form efficiency ratings (last 5 games)
   function calculateRecentFormEfficiency(
@@ -652,42 +703,51 @@ function calculateStrengthOfSchedule(
 }
 
 /**
- * Predict matchup outcome using Four Factors Model (Dean Oliver)
- * Industry-standard methodology for basketball predictions
+ * Predict matchup outcome (unified model).
+ *
+ * - Win probability: Four Factors (eFG%, TOV%, ORB%, FTR) or net rating + momentum + home.
+ * - Expected total: tempo-free (efficiency × pace, sport-specific).
+ * - Margin: implied from win probability so score winner always matches win-prob winner.
+ * One source of truth: win prob drives margin, tempo-free drives total.
  */
 export function predictMatchup(
   awayAnalytics: TeamAnalytics,
   homeAnalytics: TeamAnalytics,
   awayStats: TeamStats,
-  homeStats: TeamStats
+  homeStats: TeamStats,
+  sport?: Sport
 ): MatchupPrediction {
+  const league = getLeagueConstants(sport);
+
   // Use Four Factors if available (from SportsData.io)
   const hasFourFactors = awayStats.effectiveFieldGoalPercentage && homeStats.effectiveFieldGoalPercentage;
-  
+
   let totalScore = 0;
   let keyFactors: string[] = [];
   
   if (hasFourFactors) {
     // FOUR FACTORS MODEL (Industry Standard)
     // Reference: Basketball on Paper by Dean Oliver
-    
+    // All stats are in 0-100 (percentage points). Scale so totalScore stays in ~[-20, 20]
+    // for the logistic 1/(1+exp(-totalScore/8)) to yield sensible win probs (not 0% or 100%).
+
     // 1. Effective Field Goal % (40% weight - MOST IMPORTANT)
     const efgDiff = (homeStats.effectiveFieldGoalPercentage || 0) - (awayStats.effectiveFieldGoalPercentage || 0);
-    const efgScore = efgDiff * 0.40 * 100; // Scale to points
-    
+    const efgScore = efgDiff * 0.4; // ~0.4 per percentage point
+
     // 2. Turnover Rate (25% weight - lower is better)
     const tovDiff = (awayStats.turnoverRate || 0) - (homeStats.turnoverRate || 0); // Reversed (lower TOV is good)
-    const tovScore = tovDiff * 0.25 * 50; // Scale to points
-    
-    // 3. Offensive Rebound Rate (20% weight)
+    const tovScore = tovDiff * 0.125; // ~0.125 per percentage point
+
+    // 3. Offensive Rebound Rate (20% weight) — stored as 0-100
     const orbDiff = (homeStats.offensiveReboundRate || 0) - (awayStats.offensiveReboundRate || 0);
-    const orbScore = orbDiff * 0.20 * 75; // Scale to points
-    
-    // 4. Free Throw Rate (15% weight)
+    const orbScore = orbDiff * 0.15; // ~0.15 per percentage point
+
+    // 4. Free Throw Rate (15% weight) — stored as 0-100
     const ftrDiff = (homeStats.freeThrowRate || 0) - (awayStats.freeThrowRate || 0);
-    const ftrScore = ftrDiff * 0.15 * 60; // Scale to points
-    
-    // Combine Four Factors
+    const ftrScore = ftrDiff * 0.09; // ~0.09 per percentage point
+
+    // Combine Four Factors (typical sum in [-10, 10] for close matchups)
     const fourFactorsScore = efgScore + tovScore + orbScore + ftrScore;
     
     // Add tempo/efficiency adjustment if available
@@ -724,28 +784,21 @@ export function predictMatchup(
     
   } else {
     // FALLBACK: Basic model without Four Factors
+    // Scale so totalScore stays in ~[-15, 15] for sensible win probs (ratings are ~80-120)
     const factors = {
-      // Net rating difference (40% weight)
-      netRating: (homeAnalytics.netRating - awayAnalytics.netRating) * 0.4,
-      
-      // Offensive vs Defensive matchup (30% weight)
+      netRating: (homeAnalytics.netRating - awayAnalytics.netRating) * 0.04,
       matchup: ((homeAnalytics.offensiveRating - awayAnalytics.defensiveRating) -
-                (awayAnalytics.offensiveRating - homeAnalytics.defensiveRating)) * 0.3,
-      
-      // Momentum difference (15% weight)
-      momentum: ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 15,
-      
-      // Home court advantage (15% weight)
-      home: (homeAnalytics.homeAdvantage || 0) * 0.15,
+                (awayAnalytics.offensiveRating - homeAnalytics.defensiveRating)) * 0.03,
+      momentum: ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 1.5,
+      home: (homeAnalytics.homeAdvantage ?? COEFFICIENTS.homeAdvantage) * 0.35,
     };
-    
     totalScore = Object.values(factors).reduce((a, b) => a + b, 0);
     
-    // Identify key factors
-    if (Math.abs(factors.netRating) > 5) {
+    // Identify key factors (thresholds match scaled factors)
+    if (Math.abs(factors.netRating) > 0.5) {
       keyFactors.push(`${factors.netRating > 0 ? homeStats.name : awayStats.name} has superior overall rating`);
     }
-    if (Math.abs(factors.momentum) > 3) {
+    if (Math.abs(factors.momentum) > 0.5) {
       keyFactors.push(`${factors.momentum > 0 ? homeStats.name : awayStats.name} has strong momentum`);
     }
     if (homeAnalytics.shootingEfficiency > awayAnalytics.shootingEfficiency + 10) {
@@ -755,16 +808,21 @@ export function predictMatchup(
     }
   }
   
-  // Convert to win probability (using logistic function calibrated for college basketball)
-  const homeWinProb = 1 / (1 + Math.exp(-totalScore / 8));
+  // Win probability from Four Factors / fallback (primary "who wins" signal)
+  let homeWinProb = 1 / (1 + Math.exp(-totalScore / 8));
+  homeWinProb = Math.max(0.02, Math.min(0.98, homeWinProb));
   const awayWinProb = 1 - homeWinProb;
-  
-  // Predict scores using tempo-free approach if data available
+
+  // Predict scores: tempo-free gives expected total; margin is set from win probability (unified model)
   let homePredicted: number;
   let awayPredicted: number;
-  
-  // College basketball typical range: 60-85 points per team
-  const LEAGUE_AVG_PACE = 70; // Typical possessions per game in college
+  const homePace = homeStats.pace ?? league.leagueAvgPace;
+  const awayPace = awayStats.pace ?? league.leagueAvgPace;
+  const homeOffEff = homeStats.offensiveEfficiency ?? (homeStats.pointsPerGame != null && homeStats.pointsPerGame > 0 ? (homeStats.pointsPerGame / homePace) * 100 : 100);
+  const awayOffEff = awayStats.offensiveEfficiency ?? (awayStats.pointsPerGame != null && awayStats.pointsPerGame > 0 ? (awayStats.pointsPerGame / awayPace) * 100 : 100);
+  const homeDefEff = homeStats.defensiveEfficiency ?? (homeStats.pointsAllowedPerGame != null && homeStats.pointsAllowedPerGame > 0 ? (homeStats.pointsAllowedPerGame / homePace) * 100 : 100);
+  const awayDefEff = awayStats.defensiveEfficiency ?? (awayStats.pointsAllowedPerGame != null && awayStats.pointsAllowedPerGame > 0 ? (awayStats.pointsAllowedPerGame / awayPace) * 100 : 100);
+  const hasPaceAndEfficiency = (homeStats.pace != null || awayStats.pace != null) || (homeStats.offensiveEfficiency != null && awayStats.offensiveEfficiency != null);
   
   // Phase 3: Calculate defensive quality percentiles for better matchup prediction
   function calculateDefensivePercentile(defensiveRating: number): {
@@ -846,55 +904,32 @@ export function predictMatchup(
     return adjustment + ratioAdjustment;
   }
   
-  if (homeStats.pace && awayStats.pace && homeStats.offensiveEfficiency && awayStats.offensiveEfficiency) {
-    // ADVANCED: Use efficiency ratings and pace
-    // Offensive efficiency is points per 100 possessions (typically 100-120)
-    // Pace is possessions per game (typically 65-75 for college basketball)
-    
-    // Phase 5: Enhanced pace calculation with mismatch adjustments
-    const homePace = homeStats.pace;
-    const awayPace = awayStats.pace;
+  // Use tempo-free path when we have or can derive efficiency (always true when we have PPG/PAPG)
+  const useTempoFree = (homeStats.pointsPerGame != null && awayStats.pointsPerGame != null) ||
+    (homeStats.offensiveEfficiency != null && awayStats.offensiveEfficiency != null);
+
+  if (useTempoFree) {
+    // Tempo-free: expected score = (Offensive Efficiency / 100) × Expected Pace
     const paceDiff = Math.abs(homePace - awayPace);
-    
-    // Expected pace is average, but adjust for pace mismatch
     let expectedPace = (homePace + awayPace) / 2;
-    
-    // Phase 5: When pace differs significantly (>5 possessions), adjust
-    // Fast teams slow down slightly when playing slow teams
-    // Slow teams speed up slightly when playing fast teams
     if (paceDiff > 5) {
-      const PACE_MISMATCH_FACTOR = 0.3; // 30% adjustment factor
-      
-      if (homePace > awayPace) {
-        // Home is faster - expected pace closer to home but adjusted down
-        expectedPace = awayPace + (paceDiff * (1 - PACE_MISMATCH_FACTOR));
-      } else {
-        // Away is faster - expected pace closer to away but adjusted down
-        expectedPace = homePace + (paceDiff * (1 - PACE_MISMATCH_FACTOR));
-      }
+      const PACE_MISMATCH_FACTOR = 0.3;
+      if (homePace > awayPace) expectedPace = awayPace + paceDiff * (1 - PACE_MISMATCH_FACTOR);
+      else expectedPace = homePace + paceDiff * (1 - PACE_MISMATCH_FACTOR);
     }
-    
-    // Ensure expected pace is reasonable (60-80 possessions)
-    expectedPace = Math.max(60, Math.min(80, expectedPace));
-    
-    // Use SOS-adjusted efficiencies if available (Phase 1)
-    const homeOffensiveRating = homeAnalytics.adjustedOffensiveEfficiency ?? homeStats.offensiveEfficiency;
-    const awayDefensiveRating = awayAnalytics.adjustedDefensiveEfficiency ?? 
-      (awayStats.defensiveEfficiency || (awayStats.pointsAllowedPerGame / expectedPace) * 100);
-    
-    const awayOffensiveRating = awayAnalytics.adjustedOffensiveEfficiency ?? awayStats.offensiveEfficiency;
-    const homeDefensiveRating = homeAnalytics.adjustedDefensiveEfficiency ?? 
-      (homeStats.defensiveEfficiency || (homeStats.pointsAllowedPerGame / expectedPace) * 100);
-    
-    // Base score = (Offensive Rating / 100) * Pace
+    expectedPace = Math.max(league.paceMin, Math.min(league.paceMax, expectedPace));
+
+    const homeOffensiveRating = homeAnalytics.adjustedOffensiveEfficiency ?? homeOffEff;
+    const awayDefensiveRating = awayAnalytics.adjustedDefensiveEfficiency ?? awayDefEff;
+    const awayOffensiveRating = awayAnalytics.adjustedOffensiveEfficiency ?? awayOffEff;
+    const homeDefensiveRating = homeAnalytics.adjustedDefensiveEfficiency ?? homeDefEff;
+
     const homeBaseScore = (homeOffensiveRating / 100) * expectedPace;
     const awayBaseScore = (awayOffensiveRating / 100) * expectedPace;
-    
-    // Phase 3: Calculate defensive percentiles
+
     const homeDefPercentile = calculateDefensivePercentile(homeDefensiveRating);
     const awayDefPercentile = calculateDefensivePercentile(awayDefensiveRating);
-    
-    // Phase 3: Apply non-linear defensive adjustments
+
     const homeDefenseImpact = calculateDefensiveAdjustment(
       homeOffensiveRating,
       awayDefensiveRating,
@@ -905,88 +940,87 @@ export function predictMatchup(
       homeDefensiveRating,
       homeDefPercentile.percentile
     );
-    
-    // Apply defensive adjustment
-    homePredicted = homeBaseScore * (1 + homeDefenseImpact) + (homeAnalytics.homeAdvantage || COEFFICIENTS.homeAdvantage);
+
+    homePredicted = homeBaseScore * (1 + homeDefenseImpact) + (homeAnalytics.homeAdvantage ?? league.homeAdvantage);
     awayPredicted = awayBaseScore * (1 + awayDefenseImpact);
-    
-    // Ensure scores are realistic for college basketball (typically 55-100 points)
-    // Higher cap allows for high-scoring games while preventing unrealistic values
-    homePredicted = Math.max(50, Math.min(105, homePredicted));
-    awayPredicted = Math.max(50, Math.min(105, awayPredicted));
+
+    homePredicted = Math.max(league.scoreMin, Math.min(league.scoreMax, homePredicted));
+    awayPredicted = Math.max(league.scoreMin, Math.min(league.scoreMax, awayPredicted));
   } else {
-    // FALLBACK: Use points per game with opponent defensive adjustment
-    // Matchup-adjusted scoring: team's offense vs opponent's defense
-    
-    // Base prediction: team's PPG, but adjust based on opponent's defensive quality
-    const leagueAvgPPG = 72; // Average college basketball scoring
-    
-    // Estimate defensive ratings from PAPG (for percentile calculation)
-    const estimatedHomeDefRating = (homeStats.pointsAllowedPerGame / 70) * 100; // Rough estimate
-    const estimatedAwayDefRating = (awayStats.pointsAllowedPerGame / 70) * 100;
-    
-    // Phase 3: Use percentile-based defensive adjustments in fallback too
+    // FALLBACK: Use PPG with opponent defensive adjustment (sport-specific league scale)
+    const leagueAvgPPG = league.leagueAvgPpg;
+    const leaguePace = league.leagueAvgPace;
+    const estimatedHomeDefRating = (homeStats.pointsAllowedPerGame ?? leagueAvgPPG) / leaguePace * 100;
+    const estimatedAwayDefRating = (awayStats.pointsAllowedPerGame ?? leagueAvgPPG) / leaguePace * 100;
+
     const homeDefPercentile = calculateDefensivePercentile(estimatedHomeDefRating);
     const awayDefPercentile = calculateDefensivePercentile(estimatedAwayDefRating);
-    
-    // Calculate defensive strength relative to league average
-    const awayDefStrength = (awayStats.pointsAllowedPerGame - leagueAvgPPG) / leagueAvgPPG;
-    const homeDefStrength = (homeStats.pointsAllowedPerGame - leagueAvgPPG) / leagueAvgPPG;
-    
-    // Phase 3: Apply percentile-based adjustment
+
+    const homeOffEst = (homeStats.pointsPerGame ?? leagueAvgPPG) / leaguePace * 100;
+    const awayOffEst = (awayStats.pointsPerGame ?? leagueAvgPPG) / leaguePace * 100;
+
     const homeDefenseAdjustment = calculateDefensiveAdjustment(
-      homeStats.pointsPerGame * 1.05, // Estimate offensive efficiency
+      homeOffEst,
       estimatedAwayDefRating,
       awayDefPercentile.percentile
     );
-    
     const awayDefenseAdjustment = calculateDefensiveAdjustment(
-      awayStats.pointsPerGame * 1.05,
+      awayOffEst,
       estimatedHomeDefRating,
       homeDefPercentile.percentile
     );
-    
-    // Calculate base scores with defensive adjustment
-    homePredicted = homeStats.pointsPerGame * (1 + homeDefenseAdjustment);
-    awayPredicted = awayStats.pointsPerGame * (1 + awayDefenseAdjustment);
-    
-    // Apply predicted margin/spread from the model (totalScore is home advantage in points)
+
+    homePredicted = (homeStats.pointsPerGame ?? leagueAvgPPG) * (1 + homeDefenseAdjustment);
+    awayPredicted = (awayStats.pointsPerGame ?? leagueAvgPPG) * (1 + awayDefenseAdjustment);
+
     const spreadAdjustment = totalScore / 2;
-    homePredicted = homePredicted + spreadAdjustment;
+    homePredicted = homePredicted + spreadAdjustment + (homeAnalytics.homeAdvantage ?? league.homeAdvantage);
     awayPredicted = awayPredicted - spreadAdjustment;
-    
-    // Add home court advantage (typically 3-4 points in college basketball)
-    homePredicted = homePredicted + (homeAnalytics.homeAdvantage || COEFFICIENTS.homeAdvantage);
-    
-    // Ensure scores are realistic for college basketball (typically 55-100 points)
-    // Higher cap allows for high-scoring games while preventing unrealistic values
-    homePredicted = Math.max(52, Math.min(105, homePredicted));
-    awayPredicted = Math.max(52, Math.min(105, awayPredicted));
+
+    homePredicted = Math.max(league.scoreMin, Math.min(league.scoreMax, homePredicted));
+    awayPredicted = Math.max(league.scoreMin, Math.min(league.scoreMax, awayPredicted));
   }
-  
-  // Predicted spread
+
+  // Unified model: keep tempo-free total, set margin from win probability so one source of truth
+  // Implied spread (points): in basketball ~4 pt margin ≈ 60% win prob; use spread = k * log(p/(1-p))
+  const rawTotal = homePredicted + awayPredicted;
+  const impliedSpread = (() => {
+    const p = Math.max(0.01, Math.min(0.99, homeWinProb));
+    const logit = Math.log(p / (1 - p));
+    const k = 5; // ~5 points per logit unit: 60% → ~2.5 pt, 70% → ~5 pt
+    return Math.max(-25, Math.min(25, k * logit));
+  })();
+  homePredicted = (rawTotal + impliedSpread) / 2;
+  awayPredicted = (rawTotal - impliedSpread) / 2;
+  homePredicted = Math.max(league.scoreMin, Math.min(league.scoreMax, homePredicted));
+  awayPredicted = Math.max(league.scoreMin, Math.min(league.scoreMax, awayPredicted));
+
+  // Predicted spread (now aligned with win probability by construction)
   const predictedSpread = homePredicted - awayPredicted;
-  
-  // Calculate confidence based on:
-  // 1. Data quality (Four Factors available = higher confidence)
-  // 2. Game consistency
-  // 3. Win probability (closer to 50% = lower confidence)
+
   const dataQuality = hasFourFactors ? 85 : 70;
   const avgConsistency = (awayAnalytics.consistency + homeAnalytics.consistency) / 2;
-  const certaintyBonus = Math.abs(homeWinProb - 0.5) * 20; // More certain predictions = higher confidence
-  
+  const certaintyBonus = Math.abs(homeWinProb - 0.5) * 20;
   const confidence = Math.min(95, Math.max(60, (dataQuality + avgConsistency + certaintyBonus) / 3));
-  
+
+  // Round; no ties (favored team gets +1 if needed)
+  let awayFinal = Math.round(awayPredicted);
+  let homeFinal = Math.round(homePredicted);
+  if (awayFinal === homeFinal) {
+    if (homeWinProb >= 0.5) homeFinal += 1;
+    else awayFinal += 1;
+  }
+
   return {
     winProbability: {
       away: awayWinProb * 100,
       home: homeWinProb * 100,
     },
     predictedScore: {
-      away: Math.round(awayPredicted),
-      home: Math.round(homePredicted),
+      away: awayFinal,
+      home: homeFinal,
     },
-    predictedSpread: predictedSpread,
+    predictedSpread: homeFinal - awayFinal,
     confidence,
     keyFactors,
     valueBets: [], // To be populated by odds comparison

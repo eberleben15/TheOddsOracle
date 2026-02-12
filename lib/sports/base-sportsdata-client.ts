@@ -1,7 +1,8 @@
 /**
- * Base SportsData.io Client
- * 
- * Shared functionality for all sports using SportsData.io API
+ * Base SportsData client (stubbed – SportsData.io no longer used)
+ *
+ * NBA/NFL/NHL/MLB use this base. When SPORTSDATA_API_KEY is not set, all
+ * methods return empty/null so no API calls are made. CBB uses ESPN instead.
  */
 
 import { Sport, SportConfig, getSportConfig } from "./sport-config";
@@ -9,6 +10,7 @@ import { apiTracker } from "../api-tracker";
 import { teamLookupCache } from "../team-lookup-cache";
 
 const API_KEY = process.env.SPORTSDATA_API_KEY;
+const SPORTSDATA_DISABLED = !API_KEY;
 
 export interface SportsDataTeam {
   TeamID: number;
@@ -55,12 +57,17 @@ export class BaseSportsDataClient {
     this.baseUrl = this.config.baseUrl;
   }
 
+  /** True when SPORTSDATA_API_KEY is set (used by NBA/NFL/NHL/MLB). */
+  isConfigured(): boolean {
+    return !SPORTSDATA_DISABLED;
+  }
+
   /**
-   * Make an API request to SportsData.io
+   * Make an API request to SportsData.io (throws when key not set)
    */
   protected async fetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    if (!API_KEY) {
-      throw new Error(`SPORTSDATA_API_KEY is not set in environment variables`);
+    if (SPORTSDATA_DISABLED) {
+      throw new Error("SportsData.io is not configured; use ESPN for CBB or set SPORTSDATA_API_KEY for other sports.");
     }
 
     const url = `${this.baseUrl}${endpoint}`;
@@ -70,7 +77,7 @@ export class BaseSportsDataClient {
       const response = await fetch(url, {
         ...options,
         headers: {
-          "Ocp-Apim-Subscription-Key": API_KEY,
+          "Ocp-Apim-Subscription-Key": API_KEY!,
           ...options?.headers,
         },
       });
@@ -100,36 +107,27 @@ export class BaseSportsDataClient {
   private readonly TEAMS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   /**
-   * Get all teams for the sport
-   * Uses in-memory cache to avoid fetching teams list repeatedly
+   * Get all teams for the sport (returns [] when SportsData not configured)
    */
   async getTeams(): Promise<SportsDataTeam[]> {
-    // Check cache
+    if (SPORTSDATA_DISABLED) return [];
     if (this.teamsCache && Date.now() < this.teamsCacheExpiry) {
       return this.teamsCache;
     }
-
     const endpoint = "/Teams";
     const teams = await this.fetch<SportsDataTeam[]>(endpoint);
-    
-    // Cache the result
     this.teamsCache = teams;
     this.teamsCacheExpiry = Date.now() + this.TEAMS_CACHE_TTL;
-    
     return teams;
   }
 
   /**
-   * Find a team by name (case-insensitive partial match)
-   * Uses caching to avoid redundant API calls
+   * Find a team by name (returns null when SportsData not configured)
    */
   async findTeamByName(teamName: string): Promise<SportsDataTeam | null> {
-    // Check cache first
+    if (SPORTSDATA_DISABLED) return null;
     const cached = teamLookupCache.get(this.sport, teamName);
-    if (cached) {
-      return cached;
-    }
-
+    if (cached) return cached;
     const teams = await this.getTeams();
     const normalized = teamName.toLowerCase();
 

@@ -16,7 +16,7 @@ export async function GET() {
       stripe: { status: string; configured: boolean };
       apis: {
         odds: { configured: boolean };
-        sportsdata: { configured: boolean };
+        sportsdata: { configured: boolean; note?: string };
       };
     };
     uptime: number;
@@ -35,6 +35,7 @@ export async function GET() {
         },
         sportsdata: {
           configured: !!process.env.SPORTSDATA_API_KEY,
+          note: "Optional; CBB uses ESPN. Key only needed for NBA/NFL/NHL/MLB.",
         },
       },
     },
@@ -57,11 +58,11 @@ export async function GET() {
     health.status = "error";
   } else if (
     !health.services.stripe.configured ||
-    !health.services.apis.odds.configured ||
-    !health.services.apis.sportsdata.configured
+    !health.services.apis.odds.configured
   ) {
     health.status = "degraded";
   }
+  // sportsdata is optional (CBB uses ESPN)
 
   const statusCode = health.status === "ok" ? 200 : health.status === "degraded" ? 200 : 503;
 

@@ -1,4 +1,5 @@
 import { OddsGame, OddsMarket, OddsOutcome } from "@/types";
+import { parseOddsWithValidation } from "./team-matcher";
 
 export interface ParsedOdds {
   bookmaker: string;
@@ -10,95 +11,52 @@ export interface ParsedOdds {
     away: OddsOutcome | null;
     home: OddsOutcome | null;
   };
+  matchQuality?: {
+    moneyline?: {
+      confidence: 'high' | 'medium' | 'low';
+      method: string;
+      warnings?: string[];
+    };
+    spread?: {
+      confidence: 'high' | 'medium' | 'low';
+      method: string;
+      warnings?: string[];
+    };
+  };
 }
 
 /**
- * Parse odds data and match outcomes to teams
+ * Parse odds data and match outcomes to teams using robust matching
  */
 export function parseOdds(game: OddsGame): ParsedOdds[] {
   if (!game.bookmakers || game.bookmakers.length === 0) {
     return [];
   }
 
-  return game.bookmakers.map((bookmaker) => {
-    const moneylineMarket = bookmaker.markets.find((m) => m.key === "h2h");
-    const spreadMarket = bookmaker.markets.find((m) => m.key === "spreads");
+  // Use the enhanced team matcher
+  const results = parseOddsWithValidation(
+    { away_team: game.away_team, home_team: game.home_team },
+    game.bookmakers.map(b => ({ title: b.title, markets: b.markets }))
+  );
 
-    const parseMarket = (
-      market: OddsMarket | undefined,
-      team1: string,
-      team2: string
-    ) => {
-      if (!market) return { team1: null, team2: null };
-
-      // Normalize team names for matching
-      const normalizeTeamName = (name: string): string[] => {
-        const parts = name.toLowerCase().split(" ");
-        const variations = [
-          name.toLowerCase(), // Full name
-          parts[0], // First word
-        ];
-        
-        if (parts.length > 1) {
-          variations.push(parts[parts.length - 1]); // Last word
-          variations.push(parts.slice(0, 2).join(" ")); // First two words
-        }
-        
-        return variations;
-      };
-
-      const team1Variations = normalizeTeamName(team1);
-      const team2Variations = normalizeTeamName(team2);
-
-      // Try to match outcomes to teams
-      let team1Outcome: OddsOutcome | null = null;
-      let team2Outcome: OddsOutcome | null = null;
-
-      for (const outcome of market.outcomes) {
-        const outcomeName = outcome.name.toLowerCase();
-        
-        // Check if this outcome matches team1
-        if (!team1Outcome && team1Variations.some((variant) => outcomeName.includes(variant) || variant.includes(outcomeName))) {
-          team1Outcome = outcome;
-          continue;
-        }
-        
-        // Check if this outcome matches team2
-        if (!team2Outcome && team2Variations.some((variant) => outcomeName.includes(variant) || variant.includes(outcomeName))) {
-          team2Outcome = outcome;
-          continue;
-        }
-      }
-
-      // Fallback: if we couldn't match by name, use position (first = away, second = home)
-      if (!team1Outcome && market.outcomes.length >= 1) {
-        team1Outcome = market.outcomes[0];
-      }
-      if (!team2Outcome && market.outcomes.length >= 2) {
-        team2Outcome = market.outcomes[1];
-      }
-
-      return {
-        team1: team1Outcome,
-        team2: team2Outcome,
-      };
-    };
-
-    const moneyline = parseMarket(moneylineMarket, game.away_team, game.home_team);
-    const spread = parseMarket(spreadMarket, game.away_team, game.home_team);
-
-    return {
-      bookmaker: bookmaker.title,
-      moneyline: {
-        away: moneyline.team1,
-        home: moneyline.team2,
-      },
-      spread: {
-        away: spread.team1,
-        home: spread.team2,
-      },
-    };
-  });
+  // Convert to ParsedOdds format
+  return results.map((result) => ({
+    bookmaker: result.bookmaker,
+    moneyline: result.moneyline,
+    spread: result.spread,
+    matchQuality: result.matchQuality ? {
+      moneyline: result.matchQuality.moneyline ? {
+        confidence: result.matchQuality.moneyline.confidence,
+        method: result.matchQuality.moneyline.method,
+        warnings: result.matchQuality.moneyline.warnings,
+      } : undefined,
+      spread: result.matchQuality.spread ? {
+        confidence: result.matchQuality.spread.confidence,
+        method: result.matchQuality.spread.method,
+        warnings: result.matchQuality.spread.warnings,
+      } : undefined,
+    } : undefined,
+  }));
 }
 
 /**

@@ -145,24 +145,31 @@ model UsageTracking {
   @@schema("oddsoracle")
 }
 
-// Prediction model for tracking predictions and outcomes
+// Prediction model for tracking predictions and outcomes (feedback loop)
 model Prediction {
   id       String   @id @default(cuid())
   gameId   String // External game ID from odds API
   date     DateTime // Game date/time
   homeTeam String
   awayTeam String
+  sport    String?  // e.g. "cbb", "nba", "nhl" for per-sport feedback
 
-  // Prediction data (stored as JSON)
-  predictedScore  Json // { home: number, away: number }
-  predictedSpread Float
-  winProbability  Json // { home: number, away: number }
-  confidence      Float
+  // Core prediction (stored as JSON where needed)
+  predictedScore   Json   // { home: number, away: number }
+  predictedSpread  Float
+  predictedTotal   Float? // home + away for totals feedback
+  winProbability   Json   // { home: number, away: number }
+  confidence       Float
+  keyFactors       Json?  // string[] - what drove the prediction
+  valueBets        Json?  // MatchupPrediction.valueBets - value bet recommendations
+  favorableBets    Json?  // Serialized FavorableBet[] - bookmaker, edge, etc.
+  oddsSnapshot     Json?  // { spread?, total?, moneyline?: { away?, home? } } at prediction time
 
   // Actual outcome (filled in after game)
   actualHomeScore Int?
   actualAwayScore Int?
   actualWinner    String? // "home" or "away"
+  actualTotal     Int?    // actualHomeScore + actualAwayScore for totals feedback
 
   // Status tracking
   validated   Boolean   @default(false)
@@ -176,6 +183,7 @@ model Prediction {
   @@index([date])
   @@index([validated])
   @@index([validated, date])
+  @@index([sport])
   @@map("predictions")
   @@schema("oddsoracle")
 }

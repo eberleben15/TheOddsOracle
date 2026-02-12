@@ -9,15 +9,17 @@ import { TeamStats, GameResult } from "@/types";
 import { SportsDataTeam } from "./base-sportsdata-client";
 
 // Import sport-specific clients
-import { nbaClient, getNBATeamSeasonStats, getNBARecentGames, findNBATeamByName } from "./nba-api";
+import { getNBATeamSeasonStats, getNBARecentGames, findNBATeamByName } from "./nba-api";
 import { nflClient, getNFLTeamSeasonStats, getNFLRecentGames, findNFLTeamByName } from "./nfl-api";
-import { nhlClient, getNHLTeamSeasonStats, getNHLRecentGames, findNHLTeamByName } from "./nhl-api";
+import { getNHLTeamSeasonStats, getNHLRecentGames, findNHLTeamByName } from "./nhl-api";
 import { mlbClient, getMLBTeamSeasonStats, getMLBRecentGames, findMLBTeamByName } from "./mlb-api";
 import {
   getCBBTeamSeasonStats,
   getCBBRecentGames,
   findCBBTeamByName,
 } from "./cbb-api-wrapper";
+import { espnClient } from "@/lib/api-clients/espn-client";
+import { espnNBAClient, espnNHLClient } from "@/lib/api-clients/espn-sport-client";
 
 /**
  * Get team season stats for any sport
@@ -94,5 +96,27 @@ export async function findTeamByName(
  */
 export function getOddsApiSportKey(sport: Sport): string {
   return getSportConfig(sport).oddsApiKey;
+}
+
+/**
+ * Get team logo URL for a sport (CBB, NBA, NHL use ESPN; NFL/MLB return null).
+ */
+export async function getTeamLogoUrl(
+  sport: Sport,
+  teamName: string
+): Promise<string | null> {
+  switch (sport) {
+    case "cbb":
+      return (await espnClient.getTeamLogoUrl(teamName)) ?? null;
+    case "nba":
+      return (await espnNBAClient.getTeamLogoUrl(teamName)) ?? null;
+    case "nhl":
+      return (await espnNHLClient.getTeamLogoUrl(teamName)) ?? null;
+    case "nfl":
+    case "mlb":
+      return null;
+    default:
+      return null;
+  }
 }
 

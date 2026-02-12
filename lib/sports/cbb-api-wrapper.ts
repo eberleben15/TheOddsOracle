@@ -1,47 +1,31 @@
 /**
  * CBB API Wrapper
- * 
- * Wraps the existing sportsdata-api.ts to match the new unified interface
+ *
+ * Uses ESPN (via free-stats-aggregator) for all college basketball data.
+ * No SportsData.io dependency.
  */
 
 import { TeamStats, GameResult } from "@/types";
 import { SportsDataTeam } from "./base-sportsdata-client";
-import {
-  getTeamSeasonStats as getCBBTeamSeasonStatsOriginal,
-  findTeamByName as findCBBTeamByNameOriginal,
-} from "../sportsdata-api";
+import { freeStatsAggregator } from "../free-stats-aggregator";
+import { espnClient } from "../api-clients/espn-client";
 
-/**
- * Get CBB team season stats (wrapper for existing function)
- */
 export async function getCBBTeamSeasonStats(teamName: string): Promise<TeamStats | null> {
-  return getCBBTeamSeasonStatsOriginal(teamName);
+  return freeStatsAggregator.getTeamStats(teamName);
 }
 
-/**
- * Get CBB recent games (extracted from TeamStats)
- */
 export async function getCBBRecentGames(teamName: string, limit?: number): Promise<GameResult[]> {
-  const stats = await getCBBTeamSeasonStatsOriginal(teamName);
-  return stats?.recentGames?.slice(0, limit || 5) || [];
+  return freeStatsAggregator.getRecentGames(teamName, limit ?? 5);
 }
 
-/**
- * Find CBB team by name (wrapper for existing function)
- */
 export async function findCBBTeamByName(teamName: string): Promise<SportsDataTeam | null> {
-  const team = await findCBBTeamByNameOriginal(teamName);
+  const team = await espnClient.findTeamByName(teamName);
   if (!team) return null;
-  
-  // Transform to SportsDataTeam format
   return {
-    TeamID: team.TeamID,
-    Key: team.Key,
-    Active: team.Active,
-    Name: team.School || team.Name,
-    City: undefined,
-    GlobalTeamID: team.GlobalTeamID,
-    Conference: team.Conference,
+    TeamID: parseInt(team.id, 10) || 0,
+    Key: team.id,
+    Active: true,
+    Name: team.displayName || team.shortDisplayName || teamName,
+    Conference: undefined,
   };
 }
-

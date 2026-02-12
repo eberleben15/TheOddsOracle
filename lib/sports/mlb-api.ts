@@ -12,6 +12,7 @@ export class MLBClient extends BaseSportsDataClient {
   }
 
   async getTeamSeasonStats(teamName: string): Promise<TeamStats | null> {
+    if (!this.isConfigured()) return null;
     try {
       const team = await this.findTeamByName(teamName);
       if (!team) {
@@ -37,6 +38,7 @@ export class MLBClient extends BaseSportsDataClient {
   }
 
   async getRecentGames(teamName: string, limit: number = 5): Promise<GameResult[]> {
+    if (!this.isConfigured()) return [];
     try {
       const team = await this.findTeamByName(teamName);
       if (!team) return [];

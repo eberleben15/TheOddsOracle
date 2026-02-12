@@ -41,6 +41,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error("Chat API error:", error);
+    
+    // Check if it's a connection error
+    const isConnectionError = error instanceof Error && (
+      error.message.includes("ECONNREFUSED") ||
+      error.message.includes("fetch failed") ||
+      (error as any).code === "ECONNREFUSED"
+    );
+    
+    if (isConnectionError) {
+      return NextResponse.json(
+        {
+          error: "MCP server is not running",
+          message: `Unable to connect to MCP server at ${MCP_SERVER_URL}. Please start the MCP server with: cd odds-oracle-mcp-server && npm run server:dev`,
+          details: "The MCP server HTTP API must be running for chat to work.",
+        },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       {
         error: "Failed to communicate with MCP server",

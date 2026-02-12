@@ -3,31 +3,7 @@
 import { Card, CardBody, CardHeader, Chip, Button } from "@nextui-org/react";
 import { FaStar, FaChartLine, FaArrowRight, FaFire } from "react-icons/fa";
 import Link from "next/link";
-
-export interface RecommendedBet {
-  id: string;
-  gameId: string;
-  gameTitle: string;
-  gameTime: string;
-  type: 'moneyline' | 'spread' | 'total';
-  recommendation: string;
-  bookmaker: string;
-  bookmakers?: string[]; // List of all books offering this bet at this price
-  team?: 'away' | 'home'; // Team for moneyline/spread bets
-  currentOdds: {
-    decimal: number;
-    american: number;
-    impliedProbability: number;
-  };
-  ourPrediction: {
-    probability: number;
-    expectedValue: number;
-  };
-  edge: number;
-  confidence: number;
-  reason: string;
-  valueRating: 'high' | 'medium' | 'low';
-}
+import type { RecommendedBet } from "@/types";
 
 interface RecommendedBetsProps {
   bets: RecommendedBet[];

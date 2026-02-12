@@ -115,3 +115,29 @@ export interface Matchup {
   headToHead?: HeadToHead;
 }
 
+// Recommended bet (used by lib and components)
+export interface RecommendedBet {
+  id: string;
+  gameId: string;
+  gameTitle: string;
+  gameTime: string;
+  type: "moneyline" | "spread" | "total";
+  recommendation: string;
+  bookmaker: string;
+  bookmakers?: string[];
+  team?: "away" | "home";
+  currentOdds: {
+    decimal: number;
+    american: number;
+    impliedProbability: number;
+  };
+  ourPrediction: {
+    probability: number;
+    expectedValue: number;
+  };
+  edge: number;
+  confidence: number;
+  reason: string;
+  valueRating: "high" | "medium" | "low";
+}
+
