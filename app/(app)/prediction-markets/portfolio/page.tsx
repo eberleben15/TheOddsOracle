@@ -1,15 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { kalshiTickerToABEContractId } from "@/lib/abe";
-import type { ABEPosition, PortfolioRiskReport } from "@/types/abe";
+import type { ABEPosition, ABEContract, PortfolioRiskReport, BankrollSummary } from "@/types/abe";
 import type { KalshiSettlement } from "@/types/kalshi";
 
 type KalshiStatus = {
   signedIn: boolean;
   connected: boolean;
   apiKeyIdMasked?: string;
+};
+
+type PolymarketStatus = {
+  signedIn: boolean;
+  connected: boolean;
+  walletAddressMasked?: string;
 };
 
 export default function PortfolioPage() {
@@ -23,17 +29,43 @@ export default function PortfolioPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [kalshiStatus, setKalshiStatus] = useState<KalshiStatus | null>(null);
+  const [polymarketStatus, setPolymarketStatus] = useState<PolymarketStatus | null>(null);
   const [settlements, setSettlements] = useState<KalshiSettlement[]>([]);
-  const [connectLoading, setConnectLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
-  const [connectForm, setConnectForm] = useState({ apiKeyId: "", privateKeyPem: "" });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [useDemoPortfolio, setUseDemoPortfolio] = useState(false);
+  const [demoContracts, setDemoContracts] = useState<ABEContract[]>([]);
+  const [bankrollSummary, setBankrollSummary] = useState<BankrollSummary | null>(null);
 
   useEffect(() => {
     fetch("/api/kalshi/status")
       .then((r) => r.json())
       .then((data: KalshiStatus) => setKalshiStatus(data))
       .catch(() => setKalshiStatus({ signedIn: false, connected: false }));
+    fetch("/api/polymarket/status")
+      .then((r) => r.json())
+      .then((data: PolymarketStatus) => setPolymarketStatus(data))
+      .catch(() => setPolymarketStatus({ signedIn: false, connected: false }));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { admin?: boolean } | null) => setIsAdmin(!!data?.admin))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
+  const fetchBankroll = useCallback((demo?: boolean) => {
+    const url = demo ? "/api/bankroll?demo=1" : "/api/bankroll";
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: BankrollSummary | null) => setBankrollSummary(data))
+      .catch(() => setBankrollSummary(null));
+  }, []);
+
+  useEffect(() => {
+    fetchBankroll(useDemoPortfolio && isAdmin);
+  }, [useDemoPortfolio, isAdmin, fetchBankroll]);
 
   const addPosition = () => {
     const t = ticker.trim().toUpperCase();
@@ -62,10 +94,12 @@ export default function PortfolioPage() {
     setError(null);
     setReport(null);
     try {
+      const body: { positions: ABEPosition[]; contracts?: ABEContract[] } = { positions };
+      if (useDemoPortfolio && demoContracts.length > 0) body.contracts = demoContracts;
       const res = await fetch("/api/abe/portfolio-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ positions }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analysis failed");
@@ -77,59 +111,76 @@ export default function PortfolioPage() {
     }
   };
 
-  const connectKalshi = async () => {
-    setConnectLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/kalshi/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(connectForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Connect failed");
-      setConnectForm({ apiKeyId: "", privateKeyPem: "" });
-      const statusRes = await fetch("/api/kalshi/status");
-      const statusData = await statusRes.json();
-      setKalshiStatus(statusData);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Connect failed");
-    } finally {
-      setConnectLoading(false);
-    }
-  };
-
-  const disconnectKalshi = async () => {
-    setConnectLoading(true);
-    setError(null);
-    try {
-      await fetch("/api/kalshi/connect", { method: "DELETE" });
-      setKalshiStatus((prev) => (prev ? { ...prev, connected: false, apiKeyIdMasked: undefined } : null));
-      setPositions([]);
-      setSettlements([]);
-      setReport(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Disconnect failed");
-    } finally {
-      setConnectLoading(false);
-    }
-  };
-
-  const syncFromKalshi = async () => {
+  const syncPositions = async () => {
     setSyncLoading(true);
     setError(null);
     setReport(null);
     try {
-      const res = await fetch("/api/kalshi/positions");
+      const res = await fetch("/api/positions");
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Sync failed");
-      setPositions(data.positions ?? []);
-      setSettlements(data.settlements ?? []);
-      setKalshiStatus((prev) => prev ? { ...prev, connected: true } : null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sync failed");
+      const nextPositions = data.positions ?? [];
+      setPositions(nextPositions);
+      setSettlements([]);
+      setKalshiStatus((prev) => prev ? { ...prev, connected: !!(data.kalshiConnected) } : null);
+      setPolymarketStatus((prev) => prev ? { ...prev, connected: !!(data.polymarketConnected) } : null);
+      if (nextPositions.length > 0) {
+        fetch("/api/positions/snapshot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ positions: nextPositions }),
+        }).catch(() => {});
+      }
+      if (data.positions?.length && data.kalshiConnected) {
+        const kalshiRes = await fetch("/api/kalshi/positions");
+        const kalshiData = await kalshiRes.json();
+        if (kalshiRes.ok && kalshiData.settlements) setSettlements(kalshiData.settlements ?? []);
+      }
+    } catch {
+      setPositions([]);
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  const loadSavedSnapshot = async () => {
+    setError(null);
+    setReport(null);
+    try {
+      const res = await fetch("/api/positions/snapshot");
+      const data = await res.json();
+      setPositions(data.positions ?? []);
+      if (data.contracts?.length) setDemoContracts(data.contracts);
+    } catch {
+      setPositions([]);
+    }
+  };
+
+  const loadDemoPortfolio = async () => {
+    setError(null);
+    setReport(null);
+    try {
+      const res = await fetch("/api/demo-portfolio");
+      if (!res.ok) throw new Error("Demo portfolio is admin-only");
+      const data = await res.json();
+      setPositions(data.positions ?? []);
+      setDemoContracts(data.contracts ?? []);
+      setUseDemoPortfolio(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load demo");
+    }
+  };
+
+  const loadRealPositions = async () => {
+    setError(null);
+    setReport(null);
+    setUseDemoPortfolio(false);
+    setDemoContracts([]);
+    try {
+      const res = await fetch("/api/positions");
+      const data = await res.json();
+      setPositions(data.positions ?? []);
+    } catch {
+      setPositions([]);
     }
   };
 
@@ -146,82 +197,96 @@ export default function PortfolioPage() {
           Portfolio Risk
         </h1>
         <p className="text-[var(--text-body)] mt-1">
-          Add Kalshi positions to see factor exposure, concentration risk, and
-          overexposure warnings. Connect your Kalshi account to sync positions automatically.
+          View positions, factor exposure, and concentration risk. Connect Kalshi and Polymarket in <Link href="/settings" className="text-primary underline">Settings</Link> to sync positions.
         </p>
       </div>
 
-      {/* Connect Kalshi */}
-      {kalshiStatus && (
+      <>
+      {/* Admin: demo portfolio toggle */}
+      {isAdmin && (
         <div className="rounded-xl border border-[var(--border-color)] bg-white p-4 mb-6">
-          <h2 className="text-sm font-semibold text-[var(--text-dark)] mb-3">
-            Kalshi connection
+          <h2 className="text-sm font-semibold text-[var(--text-dark)] mb-2">
+            Demo portfolio (admin)
           </h2>
-          {!kalshiStatus.signedIn ? (
-            <p className="text-sm text-gray-500">
-              Sign in to connect your Kalshi API keys and sync positions automatically.
-            </p>
-          ) : kalshiStatus.connected ? (
+          {useDemoPortfolio ? (
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-[var(--text-body)]">
-                Connected {kalshiStatus.apiKeyIdMasked && `(${kalshiStatus.apiKeyIdMasked})`}
-              </span>
+              <span className="text-sm text-emerald-600 font-medium">Showing demo portfolio</span>
               <button
                 type="button"
-                onClick={syncFromKalshi}
-                disabled={syncLoading}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                onClick={loadRealPositions}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
               >
-                {syncLoading ? "Syncing…" : "Sync from Kalshi"}
-              </button>
-              <button
-                type="button"
-                onClick={disconnectKalshi}
-                disabled={connectLoading}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-              >
-                Disconnect
+                Load my real positions
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500">
-                Add your API Key ID and private key from Kalshi → Account &amp; security → API Keys. Your key is stored encrypted and never shared.
+            <>
+              <p className="text-sm text-[var(--text-body)] mb-2">
+                Load a dummy portfolio to test risk and bankroll views without real data.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">API Key ID</label>
-                  <input
-                    type="text"
-                    value={connectForm.apiKeyId}
-                    onChange={(e) => setConnectForm((p) => ({ ...p, apiKeyId: e.target.value }))}
-                    placeholder="e.g. a952bcbe-ec3b-4b5b-b8f9-11dae589608c"
-                    className="w-72 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
-                </div>
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-xs text-gray-500 mb-1">Private key (PEM)</label>
-                  <textarea
-                    value={connectForm.privateKeyPem}
-                    onChange={(e) => setConnectForm((p) => ({ ...p, privateKeyPem: e.target.value }))}
-                    placeholder="-----BEGIN RSA PRIVATE KEY-----..."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
-                </div>
-              </div>
               <button
                 type="button"
-                onClick={connectKalshi}
-                disabled={connectLoading || !connectForm.apiKeyId.trim() || !connectForm.privateKeyPem.trim()}
-                className="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50"
+                onClick={loadDemoPortfolio}
+                className="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm font-medium hover:bg-gray-700"
               >
-                {connectLoading ? "Connecting…" : "Connect Kalshi"}
+                Use demo portfolio
               </button>
-            </div>
+            </>
           )}
         </div>
       )}
+
+      {/* Bankroll summary (edit in Settings) */}
+      <div className="rounded-xl border border-[var(--border-color)] bg-white p-4 mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-[var(--text-dark)]">
+            Bankroll {bankrollSummary?.isDemo && <span className="text-amber-600 text-xs">(demo)</span>}
+          </h2>
+          <Link href="/settings" className="text-xs text-primary hover:underline font-medium">
+            Edit in Settings
+          </Link>
+        </div>
+        {bankrollSummary ? (
+          <div className="p-3 rounded-lg bg-gray-50 text-sm text-[var(--text-body)] space-y-1">
+            <p>Risk capital: <strong>${bankrollSummary.bankrollUsd.toFixed(0)}</strong></p>
+            <p className="mt-1">{bankrollSummary.riskMessage}</p>
+            {bankrollSummary.pDrawdown30In45Days != null && (
+              <p>P(30% drawdown in 45 days): <strong>{(bankrollSummary.pDrawdown30In45Days * 100).toFixed(0)}%</strong></p>
+            )}
+            {bankrollSummary.riskOfRuin != null && bankrollSummary.riskOfRuin > 0 && (
+              <p>Risk-of-ruin (heuristic): <strong>{(bankrollSummary.riskOfRuin * 100).toFixed(0)}%</strong></p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">Set risk capital and Kelly fraction in <Link href="/settings" className="text-primary underline">Settings</Link> to see sizing and risk metrics.</p>
+        )}
+      </div>
+
+      {/* Sync + connection hint */}
+      {kalshiStatus && polymarketStatus && !kalshiStatus.connected && !polymarketStatus.connected && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900">
+          Connect Kalshi or Polymarket in <Link href="/settings" className="font-medium underline">Settings</Link> to sync positions, or add positions manually below.
+        </div>
+      )}
+      <div className="mb-6 flex flex-wrap gap-3">
+        {(kalshiStatus?.connected || polymarketStatus?.connected) && (
+          <button
+            type="button"
+            onClick={syncPositions}
+            disabled={syncLoading}
+            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {syncLoading ? "Syncing…" : "Sync positions"}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={loadSavedSnapshot}
+          className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+        >
+          Load saved snapshot
+        </button>
+      </div>
 
       {/* Add position form */}
       <div className="rounded-xl border border-[var(--border-color)] bg-white p-4 mb-6">
@@ -293,7 +358,7 @@ export default function PortfolioPage() {
         </h2>
         {positions.length === 0 ? (
           <p className="text-sm text-gray-500">
-            No positions yet. Sync from Kalshi above or add one manually (use real Kalshi tickers for live factor data).
+            No positions yet. Connect accounts in <Link href="/settings" className="text-primary underline">Settings</Link> and sync, or add one manually (use real Kalshi tickers for live factor data).
           </p>
         ) : (
           <ul className="space-y-2">
@@ -303,7 +368,10 @@ export default function PortfolioPage() {
                 className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
               >
                 <span className="text-sm font-mono">
-                  {p.contractId.replace("kalshi:", "")} · {p.size} @ {(p.costPerShare * 100).toFixed(0)}¢
+                  {p.contractId.startsWith("polymarket:")
+                    ? p.contractId.replace("polymarket:", "").replace(/:yes|:no$/, "")
+                    : p.contractId.replace("kalshi:", "")}{" "}
+                  · {p.side} · {p.size} @ {(p.costPerShare * 100).toFixed(0)}¢
                 </span>
                 <button
                   type="button"
@@ -346,8 +414,78 @@ export default function PortfolioPage() {
               {" · "}
               Concentration risk:{" "}
               <strong>{(report.concentrationRisk * 100).toFixed(0)}%</strong>
+              {report.avgLockupDays != null && (
+                <> · Avg lockup: <strong>{report.avgLockupDays} days</strong></>
+              )}
             </p>
           </div>
+
+          {report.varianceCurve && (
+            <div className="rounded-xl border border-[var(--border-color)] bg-white p-4">
+              <h2 className="text-sm font-semibold text-[var(--text-dark)] mb-3">
+                Variance curve
+              </h2>
+              <p className="text-xs text-[var(--text-body)] mb-3">
+                Correlation-aware portfolio P&L volatility. 1σ = one standard deviation; 90% range ≈ 5th to 95th percentile under normal approximation.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div className="p-3 rounded-lg bg-gray-50">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">1σ volatility</p>
+                  <p className="text-lg font-semibold text-[var(--text-dark)] tabular-nums">
+                    ±${report.varianceCurve.volatilityUsd.toFixed(0)}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-red-50">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">5th % (downside)</p>
+                  <p className="text-lg font-semibold text-red-700 tabular-nums">
+                    ${report.varianceCurve.p5PnlUsd.toFixed(0)}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-emerald-50">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">95th % (upside)</p>
+                  <p className="text-lg font-semibold text-emerald-700 tabular-nums">
+                    +${report.varianceCurve.p95PnlUsd.toFixed(0)}
+                  </p>
+                </div>
+              </div>
+              <div className="relative h-8 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="absolute inset-y-0 bg-red-200 rounded-l-full"
+                  style={{
+                    left: "0%",
+                    width: "50%",
+                  }}
+                />
+                <div
+                  className="absolute inset-y-0 left-1/2 -translate-x-px w-0.5 bg-[var(--text-dark)]"
+                  style={{ zIndex: 1 }}
+                  title="Expected (0)"
+                />
+                <div
+                  className="absolute inset-y-0 bg-emerald-200 rounded-r-full"
+                  style={{
+                    left: "50%",
+                    width: "50%",
+                  }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 text-[10px] font-mono text-gray-600 left-2"
+                  style={{ zIndex: 2 }}
+                >
+                  {report.varianceCurve.p5PnlUsd.toFixed(0)}
+                </div>
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 text-[10px] font-mono text-gray-500 right-2"
+                  style={{ zIndex: 2 }}
+                >
+                  +{report.varianceCurve.p95PnlUsd.toFixed(0)}
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                90% P&L range: ${report.varianceCurve.p5PnlUsd.toFixed(0)} to +${report.varianceCurve.p95PnlUsd.toFixed(0)}
+              </p>
+            </div>
+          )}
 
           <div className="rounded-xl border border-[var(--border-color)] bg-white p-4">
             <h2 className="text-sm font-semibold text-[var(--text-dark)] mb-3">
@@ -398,7 +536,7 @@ export default function PortfolioPage() {
               <ul className="text-xs text-[var(--text-body)] space-y-1 font-mono">
                 {report.correlations.slice(0, 10).map((c, i) => (
                   <li key={i}>
-                    {c.contractIdA.replace("kalshi:", "")} ↔ {c.contractIdB.replace("kalshi:", "")}:{" "}
+                    {c.contractIdA.replace(/^(kalshi|polymarket):/, "").replace(/:yes|:no$/, "")} ↔ {c.contractIdB.replace(/^(kalshi|polymarket):/, "").replace(/:yes|:no$/, "")}:{" "}
                     {(c.correlation * 100).toFixed(0)}%
                     {c.reason ? ` (${c.reason})` : ""}
                   </li>
@@ -428,6 +566,7 @@ export default function PortfolioPage() {
           )}
         </div>
       )}
+      </>
     </div>
   );
 }

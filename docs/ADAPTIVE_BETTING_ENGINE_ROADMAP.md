@@ -134,39 +134,39 @@ It tells users:
 ## 6. Phased Roadmap
 
 ### Phase 0: Foundation (current / in progress)
-- [ ] Prediction market data: Kalshi (and optionally Polymarket) integration.
-- [ ] Unified types and interfaces for “contracts” and “positions” that the core engine can consume.
-- [ ] Basic portfolio data model (positions, size, cost, market).
+- [x] Prediction market data: Kalshi (and optionally Polymarket) integration.
+- [x] Unified types and interfaces for “contracts” and “positions” that the core engine can consume.
+- [x] Basic portfolio data model (positions, size, cost, market).
 
 ### Phase 1: Portfolio Risk & Exposure (first differentiator) — **Target: 60-day MVP slice**
-- [ ] Correlation model: covariance/correlation estimation across contracts (same event / same factor).
-- [ ] Effective exposure and concentration metrics (e.g. single-event and single-factor exposure).
-- [ ] Variance curve and overexposure warnings in UI.
-- [ ] Prediction-market first: factor clustering (e.g. political, macro) and factor exposure view.
+- [x] Correlation model: covariance/correlation estimation across contracts (same event / same factor).
+- [x] Effective exposure and concentration metrics (e.g. single-event and single-factor exposure).
+- [x] Variance curve and overexposure warnings in UI.
+- [x] Prediction-market first: factor clustering (e.g. political, macro) and factor exposure view.
 
 **MVP slice (shippable in ~60 days):**  
 *“Portfolio view for prediction markets: positions, correlation matrix, effective exposure and one macro factor (e.g. ‘Republican performance’), plus overexposure alerts.”*
 
 ### Phase 2: Bankroll & Risk Intelligence
-- [ ] Adaptive Kelly (fractional, user risk profile).
-- [ ] Drawdown simulation and risk-of-ruin.
-- [ ] Capital velocity and lockup-aware metrics.
-- [ ] One clear output: e.g. “P(30% drawdown in next 45 days).”
+- [x] Adaptive Kelly (fractional, user risk profile).
+- [x] Drawdown simulation and risk-of-ruin.
+- [x] Capital velocity and lockup-aware metrics.
+- [x] One clear output: e.g. “P(30% drawdown in next 45 days).”
 
 ### Phase 3: Strategy Simulator
-- [ ] Strategy-level Monte Carlo (sequence of bets, multiple strategies).
-- [ ] Strategy comparison (flat vs fractional Kelly vs CLV filter).
-- [ ] Outputs: median, percentiles, max drawdown distribution.
+- [x] Strategy-level Monte Carlo (sequence of bets, multiple strategies).
+- [x] Strategy comparison (flat vs fractional Kelly vs CLV filter).
+- [x] Outputs: median, percentiles, max drawdown distribution.
 
 ### Phase 4: Condition-Based Action Engine
-- [ ] Rule model and DSL or UI (triggers + conditions + actions).
-- [ ] Event pipeline (odds/market/portfolio events).
-- [ ] Notifications and logging.
+- [x] Rule model and DSL or UI (triggers + conditions + actions).
+- [x] Event pipeline (odds/market/portfolio events).
+- [x] Notifications and logging.
 
 ### Phase 5: Strategy DNA & Behavioral Layer
-- [ ] User risk/market/sport profile.
-- [ ] CLV and edge accuracy tracking.
-- [ ] “Betting DNA” and comparison to sharp / successful cohorts.
+- [x] User risk/market/sport profile.
+- [x] CLV and edge accuracy tracking.
+- [x] "Betting DNA" and comparison to sharp / successful cohorts.
 
 ---
 

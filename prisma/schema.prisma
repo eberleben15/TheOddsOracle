@@ -3,7 +3,7 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../node_modules/.prisma/client"
+  output   = "../generated/prisma-client"
 }
 
 datasource db {
@@ -36,7 +36,54 @@ model User {
   // Kalshi API connection (optional, for syncing portfolio)
   kalshiConnection KalshiConnection?
 
+  // Polymarket wallet (optional; positions fetched via Data API by address)
+  polymarketConnection PolymarketConnection?
+
+  // Bankroll settings for adaptive sizing and risk (optional)
+  bankrollSettings UserBankrollSettings?
+
+  // Phase 4: Condition-based action engine
+  rules          ABERule[]
+  notifications ABENotification[]
+
+  // Phase 5: Betting profile (market/sport preferences)
+  bettingProfile UserBettingProfile?
+
+  // Phase 0: Last synced portfolio snapshot (positions + optional contracts for risk engine)
+  portfolioSnapshot PortfolioSnapshot?
+
   @@map("users")
+  @@schema("oddsoracle")
+}
+
+// Per-user bankroll and risk preferences (multi-tenant: one row per user).
+model UserBankrollSettings {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  bankrollUsd    Float    @default(0) // Risk capital in USD
+  kellyFraction  Float    @default(0.25) // Fraction of full Kelly (e.g. 0.25 = quarter Kelly)
+  riskProfile    String?  // conservative | moderate | aggressive
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_bankroll_settings")
+  @@schema("oddsoracle")
+}
+
+// Phase 5: User betting profile (market/sport preferences for DNA).
+model UserBettingProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  preferredMarkets  Json?    // string[] e.g. ["kalshi", "polymarket"]
+  preferredSports   Json?    // string[] e.g. ["cbb", "nba"]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_betting_profiles")
   @@schema("oddsoracle")
 }
 
@@ -203,5 +250,74 @@ model KalshiConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("kalshi_connections")
+  @@schema("oddsoracle")
+}
+
+// Phase 0: Basic portfolio data model — last synced positions (and optional contracts) per user.
+model PortfolioSnapshot {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  positions  Json     // ABEPosition[] — contractId, side, size, costPerShare
+  contracts  Json?    // ABEContract[] optional, for factor/exposure without refetch
+  fetchedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("portfolio_snapshots")
+  @@schema("oddsoracle")
+}
+
+// Polymarket: user's wallet address for pulling positions via Data API (no API key).
+model PolymarketConnection {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  walletAddress String  // 0x + 40 hex (Ethereum address used on Polymarket)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("polymarket_connections")
+  @@schema("oddsoracle")
+}
+
+// Phase 4: User-defined rules (triggers + conditions + actions).
+model ABERule {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  triggerType   String   // price_above | price_below | portfolio_exposure_above | concentration_above | manual
+  triggerConfig Json     // { contractId?, factorId?, value? } per trigger type
+  actions       Json     // [{ type: "notify"|"log", message? }]
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications ABENotification[]
+
+  @@index([userId])
+  @@index([userId, enabled])
+  @@map("abe_rules")
+  @@schema("oddsoracle")
+}
+
+// Phase 4: In-app notifications (when a rule fires or system).
+model ABENotification {
+  id        String   @id @default(cuid())
+  userId    String
+  ruleId    String?
+  title     String
+  body      String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rule ABERule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("abe_notifications")
   @@schema("oddsoracle")
 }

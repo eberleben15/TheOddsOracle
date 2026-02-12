@@ -7,7 +7,7 @@
  */
 
 import { MatchupPrediction } from "./advanced-analytics";
-import type { Prisma } from ".prisma/client/client";
+import type { Prisma } from "@/generated/prisma-client/client";
 import { prisma } from "./prisma";
 
 /** Serializable favorable-bet summary for storage (feedback loop). */

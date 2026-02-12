@@ -20,7 +20,7 @@ export async function GET() {
 
   if (!conn) {
     return Response.json(
-      { error: "Kalshi not connected. Connect your Kalshi API keys in Portfolio Risk." },
+      { error: "Kalshi not connected. Connect your Kalshi API keys in Settings." },
       { status: 400 }
     );
   }

@@ -1,3 +1,5 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -25,17 +27,20 @@ const nextConfig = {
   // Turbopack configuration (Next.js 16 uses Turbopack by default)
   turbopack: {
     resolveAlias: {
-      '.prisma/client': './node_modules/.prisma/client',
-      // Resolve patched @prisma/client default.js require (relative from node_modules/@prisma/client)
-      '../../.prisma/client/default.js': './node_modules/.prisma/client/default.js',
+      "@prisma/client": "./generated/prisma-client",
+      ".prisma/client": "./generated/prisma-client",
     },
-    // Mark stripe as external to avoid build-time resolution
-    resolveExtensions: ['.js', '.jsx', '.ts', '.tsx'],
+    resolveExtensions: [".js", ".jsx", ".ts", ".tsx"],
   },
-  // Webpack configuration for optional dependencies
   webpack: (config, { isServer }) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      // Exact match only so @prisma/client/runtime/* still resolves to node_modules
+      "@prisma/client$": path.join(__dirname, "generated/prisma-client/default.js"),
+      ".prisma/client": path.join(__dirname, "generated/prisma-client"),
+    };
     if (isServer) {
-      // Make stripe optional on server-side
       config.externals = config.externals || [];
       config.externals.push({
         'stripe': 'commonjs stripe',

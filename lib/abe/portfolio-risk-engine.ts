@@ -10,8 +10,10 @@ import type {
   FactorExposure,
   ContractCorrelation,
   PortfolioRiskReport,
+  VarianceCurve,
 } from "@/types/abe";
 import { getFactorName } from "./factors";
+import { computeAvgLockupDays } from "./bankroll-engine";
 
 /** Notional for a position: size × cost per share (what user has at risk). */
 function positionNotional(pos: ABEPosition): number {
@@ -103,6 +105,13 @@ function estimateCorrelation(
     // Same event prefix (e.g. KXBTC-24 vs KXBTC-25) could be correlated; use factor overlap
   }
 
+  // Same Polymarket condition (polymarket:conditionId:yes vs :no) => -1
+  const pmMatchA = /^polymarket:(.+):(yes|no)$/.exec(idA);
+  const pmMatchB = /^polymarket:(.+):(yes|no)$/.exec(idB);
+  if (pmMatchA && pmMatchB && pmMatchA[1] === pmMatchB[1]) {
+    return -1; // same market, opposite sides
+  }
+
   const factorsA = new Set(contractA?.factorIds ?? ["other"]);
   const factorsB = new Set(contractB?.factorIds ?? ["other"]);
   const overlap = [...factorsA].filter((f) => factorsB.has(f)).length;
@@ -187,10 +196,53 @@ function generateWarnings(
 }
 
 /**
- * Run the portfolio risk engine: exposure, correlation, concentration, warnings.
+ * Compute portfolio variance and variance curve from positions and correlations.
+ * Binary positions: P&L variance per position = size² × p × (1-p) with p = costPerShare.
+ */
+function computeVarianceCurve(
+  portfolio: ABEPortfolio,
+  byContract: Map<string, number>,
+  contractById: Map<string, ABEContract>
+): VarianceCurve | undefined {
+  const positions = portfolio.positions;
+  if (positions.length === 0) return undefined;
+
+  const n = positions.length;
+  const sigmas: number[] = [];
+  const contractIds: string[] = [];
+
+  for (const pos of positions) {
+    const p = pos.costPerShare;
+    const variance = pos.size * pos.size * p * (1 - p);
+    sigmas.push(Math.sqrt(variance));
+    contractIds.push(pos.contractId);
+  }
+
+  let portfolioVariance = 0;
+  for (let i = 0; i < n; i++) {
+    portfolioVariance += sigmas[i] * sigmas[i];
+    for (let j = i + 1; j < n; j++) {
+      const rho = estimateCorrelation(contractIds[i], contractIds[j], contractById);
+      portfolioVariance += 2 * rho * sigmas[i] * sigmas[j];
+    }
+  }
+
+  if (portfolioVariance <= 0) return undefined;
+  const volatilityUsd = Math.sqrt(portfolioVariance);
+  return {
+    volatilityUsd,
+    p5PnlUsd: -1.65 * volatilityUsd,
+    p95PnlUsd: 1.65 * volatilityUsd,
+  };
+}
+
+/**
+ * Run the portfolio risk engine: exposure, correlation, concentration, warnings, variance curve.
  */
 export function runPortfolioRiskAnalysis(portfolio: ABEPortfolio): PortfolioRiskReport {
   const { total: totalNotional, byContract } = computeNotionals(portfolio);
+  const contracts = portfolio.contracts ?? [];
+  const contractById = contractMap(contracts);
 
   const factorExposures = computeFactorExposures(
     portfolio,
@@ -206,6 +258,9 @@ export function runPortfolioRiskAnalysis(portfolio: ABEPortfolio): PortfolioRisk
     totalNotional
   );
 
+  const varianceCurve = computeVarianceCurve(portfolio, byContract, contractById);
+  const avgLockupDays = computeAvgLockupDays(portfolio.positions, contracts);
+
   return {
     totalNotional,
     factorExposures,
@@ -213,5 +268,7 @@ export function runPortfolioRiskAnalysis(portfolio: ABEPortfolio): PortfolioRisk
     concentrationRisk,
     warnings,
     suggestedFactorCap: 0.4,
+    varianceCurve,
+    avgLockupDays,
   };
 }

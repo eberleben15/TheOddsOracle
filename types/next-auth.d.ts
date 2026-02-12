@@ -1,5 +1,5 @@
 import "next-auth"
-import { SubscriptionStatus } from "@prisma/client"
+import { SubscriptionStatus } from "@/generated/prisma-client/client"
 
 declare module "next-auth" {
   interface Session {

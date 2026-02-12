@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { 
   ChevronDownIcon, 
@@ -12,34 +12,32 @@ import {
   XMarkIcon,
   Bars3Icon,
   ChatBubbleLeftRightIcon,
-  ArrowTrendingUpIcon
+  ArrowTrendingUpIcon,
+  BoltIcon,
 } from "@heroicons/react/24/outline";
 import { Sport, SPORT_CONFIGS } from "@/lib/sports/sport-config";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sportsOpen, setSportsOpen] = useState(true);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    "Prediction Markets": true,
+    Sports: true,
+  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Get current sport from URL params, default to cbb
-  const currentSport = (searchParams?.get("sport") as Sport) || "cbb";
   const isDashboard = pathname === "/" || pathname === "/dashboard";
-  
-  // Update Dashboard href to include current sport if on dashboard
-  const dashboardHref = isDashboard && currentSport !== "cbb" 
-    ? `/dashboard?sport=${currentSport}` 
-    : "/dashboard";
+  const isSportsPage = pathname.startsWith("/sports/");
+  const isPredictionMarkets = pathname.startsWith("/prediction-markets") && pathname !== "/prediction-markets/portfolio";
 
   const navigation = [
     { 
       name: "Dashboard", 
-      href: dashboardHref, 
+      href: "/dashboard", 
       icon: HomeIcon, 
       current: isDashboard
     },
@@ -53,7 +51,11 @@ export function Sidebar() {
       name: "Prediction Markets",
       href: "/prediction-markets",
       icon: ArrowTrendingUpIcon,
-      current: pathname.startsWith("/prediction-markets") && pathname !== "/prediction-markets/portfolio"
+      current: isPredictionMarkets,
+      children: [
+        { name: "Kalshi", href: "/prediction-markets/kalshi", current: pathname === "/prediction-markets/kalshi" },
+        { name: "Polymarket", href: "/prediction-markets/polymarket", current: pathname === "/prediction-markets/polymarket" },
+      ]
     },
     {
       name: "Portfolio Risk",
@@ -62,39 +64,57 @@ export function Sidebar() {
       current: pathname === "/prediction-markets/portfolio"
     },
     {
+      name: "Strategy Simulator",
+      href: "/prediction-markets/simulator",
+      icon: ChartBarIcon,
+      current: pathname === "/prediction-markets/simulator"
+    },
+    {
+      name: "Rules",
+      href: "/prediction-markets/rules",
+      icon: BoltIcon,
+      current: pathname === "/prediction-markets/rules"
+    },
+    {
+      name: "Betting DNA",
+      href: "/prediction-markets/dna",
+      icon: ChartPieIcon,
+      current: pathname === "/prediction-markets/dna"
+    },
+    {
       name: "Sports",
       icon: ChartBarIcon,
       children: [
         { 
           name: "College Basketball", 
-          href: "/dashboard?sport=cbb", 
-          current: isDashboard && currentSport === "cbb",
+          href: "/sports/cbb", 
+          current: isSportsPage && pathname === "/sports/cbb",
           sport: "cbb" as Sport
         },
         { 
           name: "NBA", 
-          href: "/dashboard?sport=nba", 
-          current: isDashboard && currentSport === "nba",
+          href: "/sports/nba", 
+          current: isSportsPage && pathname === "/sports/nba",
           sport: "nba" as Sport
         },
         { 
           name: "NFL", 
-          href: "/dashboard?sport=nfl", 
-          current: isDashboard && currentSport === "nfl",
+          href: "/sports/nfl", 
+          current: isSportsPage && pathname === "/sports/nfl",
           sport: "nfl" as Sport,
           disabled: true,
           comingSoon: true
         },
         { 
           name: "NHL", 
-          href: "/dashboard?sport=nhl", 
-          current: isDashboard && currentSport === "nhl",
+          href: "/sports/nhl", 
+          current: isSportsPage && pathname === "/sports/nhl",
           sport: "nhl" as Sport
         },
         { 
           name: "MLB", 
-          href: "/dashboard?sport=mlb", 
-          current: isDashboard && currentSport === "mlb",
+          href: "/sports/mlb", 
+          current: isSportsPage && pathname === "/sports/mlb",
           sport: "mlb" as Sport,
           disabled: true,
           comingSoon: true
@@ -105,8 +125,7 @@ export function Sidebar() {
       name: "Settings", 
       href: "/settings", 
       icon: Cog6ToothIcon, 
-      current: pathname === "/settings",
-      disabled: true 
+      current: pathname?.startsWith("/settings") ?? false
     },
   ];
 
@@ -158,16 +177,16 @@ export function Sidebar() {
                     flex items-center gap-3 px-4 py-3 rounded-lg transition-all
                     ${item.current
                       ? "bg-gray-100 text-gray-900"
-                      : item.disabled
+                      : (item as { disabled?: boolean }).disabled
                       ? "text-gray-400 cursor-not-allowed opacity-50"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }
                   `}
-                  onClick={(e) => item.disabled && e.preventDefault()}
+                  onClick={(e) => (item as { disabled?: boolean }).disabled && e.preventDefault()}
                 >
                   {item.icon && <item.icon className="h-5 w-5" />}
                   <span className="font-medium">{item.name}</span>
-                  {item.disabled && (
+                  {(item as { disabled?: boolean }).disabled && (
                     <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
                       Soon
                     </span>
@@ -176,16 +195,16 @@ export function Sidebar() {
               ) : (
                 <div>
                   <button
-                    onClick={() => setSportsOpen(!sportsOpen)}
+                    onClick={() => setOpenSections((prev) => ({ ...prev, [item.name]: !prev[item.name] }))}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
                   >
                     {item.icon && <item.icon className="h-5 w-5" />}
                     <span className="font-medium flex-1 text-left">{item.name}</span>
                     <ChevronDownIcon
-                      className={`h-4 w-4 transition-transform ${sportsOpen ? "rotate-180" : ""}`}
+                      className={`h-4 w-4 transition-transform ${openSections[item.name] ? "rotate-180" : ""}`}
                     />
                   </button>
-                  {sportsOpen && (
+                  {openSections[item.name] && (
                     <div className="ml-4 mt-2 space-y-1">
                       {item.children.map((child) =>
                         (child as { disabled?: boolean; comingSoon?: boolean }).disabled ? (

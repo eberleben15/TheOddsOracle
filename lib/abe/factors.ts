@@ -87,6 +87,31 @@ export function getFactorIdsForKalshiMarket(market: { title?: string; event_tick
   return Array.from(matched);
 }
 
+/**
+ * Assign factor ids to a Polymarket market/event based on question, title, and tags.
+ */
+export function getFactorIdsForPolymarketMarket(
+  market: { question?: string },
+  event?: { title?: string; tags?: { label?: string; slug?: string }[] }
+): string[] {
+  const parts: string[] = [market.question, event?.title].filter(Boolean) as string[];
+  if (event?.tags?.length) {
+    for (const t of event.tags) {
+      if (t.label) parts.push(t.label);
+      if (t.slug) parts.push(t.slug);
+    }
+  }
+  const text = parts.join(" ").toLowerCase();
+  if (!text) return ["other"];
+
+  const matched = new Set<string>();
+  for (const { keywords, factorId } of KEYWORD_TO_FACTOR) {
+    if (keywords.some((k) => text.includes(k))) matched.add(factorId);
+  }
+  if (matched.size === 0) matched.add("other");
+  return Array.from(matched);
+}
+
 export function getFactorById(id: string): ABEFactor | undefined {
   return ABE_FACTORS.find((f) => f.id === id);
 }

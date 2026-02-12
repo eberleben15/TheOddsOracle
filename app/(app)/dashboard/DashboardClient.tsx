@@ -1,14 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { MatchupCard } from "./_components/MatchupCard";
-import { LiveGameCard } from "./_components/LiveGameCard";
 import { StatusCard } from "@/components/StatusCard";
-import { StatsCards } from "./_components/StatsCards";
+import { DashboardWelcome } from "./_components/DashboardWelcome";
+import { DashboardStatsStrip } from "./_components/DashboardStatsStrip";
+import { OpenBetsSection } from "./_components/OpenBetsSection";
+import { ActionFlowsSection } from "./_components/ActionFlowsSection";
 import { RecommendedBetsSection } from "./_components/RecommendedBetsSection";
-import { GameSearchAndFilter } from "./_components/GameSearchAndFilter";
-import { EmptyState } from "@/components/EmptyState";
-import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { GamesSection } from "./_components/GamesSection";
 import { OddsGame, LiveGame } from "@/types";
 import { Sport } from "@/lib/sports/sport-config";
 
@@ -21,8 +19,6 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ liveGames, upcomingGames, error, sport, teamLogos }: DashboardClientProps) {
-  const [filteredUpcomingGames, setFilteredUpcomingGames] = useState<OddsGame[]>(upcomingGames);
-
   if (error) {
     return (
       <StatusCard
@@ -34,70 +30,24 @@ export function DashboardClient({ liveGames, upcomingGames, error, sport, teamLo
 
   return (
     <>
-      {/* Stats Overview */}
-      <StatsCards liveCount={liveGames.length} upcomingCount={upcomingGames.length} />
+      <DashboardWelcome />
+      <DashboardStatsStrip liveCount={liveGames.length} upcomingCount={upcomingGames.length} />
+      <OpenBetsSection />
+      <ActionFlowsSection />
 
-      {/* Recommended Bets Section */}
-      <RecommendedBetsSection />
+      {/* Value / Recommended Bets */}
+      <section className="mb-8" id="value-bets">
+        <RecommendedBetsSection />
+      </section>
 
-      {/* Live Games Section */}
-      {liveGames.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-xl font-semibold text-text-dark">Live Games</h2>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <span className="flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-600 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-600"></span>
-                </span>
-              </div>
-              <span className="text-gray-600 text-sm font-medium">
-                {liveGames.length} in progress
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {liveGames.map((game) => (
-              <LiveGameCard key={game.id} game={game} teamLogos={teamLogos} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Upcoming Games Section */}
-      {upcomingGames.length > 0 ? (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-text-dark">
-              Upcoming Matchups
-            </h2>
-          </div>
-          
-          <GameSearchAndFilter 
-            games={upcomingGames} 
-            onFilteredGamesChange={setFilteredUpcomingGames}
-          />
-
-          {filteredUpcomingGames.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredUpcomingGames.map((game) => (
-              <MatchupCard key={game.id} game={game} sport={sport} teamLogos={teamLogos} />
-            ))}
-            </div>
-          ) : (
-            <EmptyState 
-              type="no_results"
-              message="No games match your search criteria. Try adjusting your filters."
-            />
-          )}
-        </div>
-      ) : !liveGames.length ? (
-        <EmptyState 
-          type="no_games"
-          message="No upcoming games found. Check back later for new matchups!"
-        />
-      ) : null}
+      {/* Today's games — one sport preview on home */}
+      <GamesSection
+        liveGames={liveGames}
+        upcomingGames={upcomingGames}
+        sport={sport}
+        teamLogos={teamLogos}
+        compact
+      />
     </>
   );
 }

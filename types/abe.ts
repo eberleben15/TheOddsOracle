@@ -96,7 +96,19 @@ export interface ContractCorrelation {
 }
 
 /**
- * Output of the portfolio risk engine: exposure, concentration, and warnings.
+ * Variance curve: portfolio P&L volatility and percentile range (from correlation-aware variance).
+ */
+export interface VarianceCurve {
+  /** Portfolio volatility in USD (1 standard deviation of P&L) */
+  volatilityUsd: number;
+  /** Approx. 5th percentile P&L (worst-case band) in USD */
+  p5PnlUsd: number;
+  /** Approx. 95th percentile P&L (best-case band) in USD */
+  p95PnlUsd: number;
+}
+
+/**
+ * Output of the portfolio risk engine: exposure, concentration, warnings, and variance curve.
  */
 export interface PortfolioRiskReport {
   /** Total notional (sum of |position| × cost or size × price) */
@@ -111,4 +123,174 @@ export interface PortfolioRiskReport {
   warnings: string[];
   /** Suggested max exposure per factor for balance (optional) */
   suggestedFactorCap?: number;
+  /** Variance curve (volatility and P&L range) when positions have notional */
+  varianceCurve?: VarianceCurve;
+  /** Capital lockup: avg days to resolution (notional-weighted) when contracts have resolutionTime */
+  avgLockupDays?: number;
+}
+
+/** Risk profile: influences default Kelly and interpretation of metrics. */
+export type RiskProfile = "conservative" | "moderate" | "aggressive";
+
+/** User bankroll settings (persisted per user). */
+export interface BankrollSettings {
+  bankrollUsd: number;
+  /** Fraction of full Kelly to use (e.g. 0.25 = quarter Kelly). */
+  kellyFraction: number;
+  /** Optional risk profile (conservative / moderate / aggressive). */
+  riskProfile?: RiskProfile | null;
+}
+
+/** Output of bankroll intelligence: recommended sizing and risk metrics (Phase 2). */
+export interface BankrollSummary {
+  bankrollUsd: number;
+  kellyFraction: number;
+  /** Total notional at risk from current (or demo) positions. */
+  totalNotional: number;
+  /** Recommended max single position in USD (fraction of bankroll). */
+  recommendedMaxPositionUsd: number;
+  /** Approx. probability of 20% drawdown (heuristic). */
+  pDrawdown20: number | null;
+  /** Roadmap: P(30% drawdown in next 45 days). */
+  pDrawdown30In45Days: number | null;
+  /** Simple risk-of-ruin style metric (0–1). */
+  riskOfRuin: number | null;
+  /** Human-readable risk message. */
+  riskMessage: string;
+  /** True when summary was computed using demo portfolio (admin only). */
+  isDemo?: boolean;
+  /** Optional risk profile from settings. */
+  riskProfile?: RiskProfile | null;
+}
+
+// --- Phase 3: Strategy Simulator ---
+
+/** Single bet in a simulated sequence: your edge (winProb) vs market (price). */
+export interface SimulatedBet {
+  /** Your estimated probability of winning (0–1). */
+  winProb: number;
+  /** Market price / cost per share (0–1). Binary: payoff $1 if win. */
+  price: number;
+}
+
+/** Strategy identifier for comparison. */
+export type StrategySimulatorStrategy =
+  | { type: "flat"; stakeUsd: number }
+  | { type: "flat_fraction"; fractionOfInitial: number }
+  | { type: "kelly"; kellyFraction: number };
+
+/** Result of one Monte Carlo run: terminal bankroll and max drawdown (0–1). */
+export interface StrategyRunResult {
+  terminalBankrollUsd: number;
+  /** Max drawdown during the run: (peak - trough) / peak. */
+  maxDrawdown: number;
+}
+
+/** Aggregated stats across many runs for one strategy. */
+export interface StrategyStats {
+  strategy: StrategySimulatorStrategy;
+  numRuns: number;
+  numBetsPerRun: number;
+  /** Median terminal bankroll across runs. */
+  medianTerminalBankrollUsd: number;
+  /** Percentiles of terminal bankroll. */
+  terminalBankrollPercentiles: { p5: number; p25: number; p75: number; p95: number };
+  /** Median max drawdown (0–1) across runs. */
+  medianMaxDrawdown: number;
+  /** Percentiles of max drawdown. */
+  maxDrawdownPercentiles: { p5: number; p25: number; p75: number; p95: number };
+}
+
+/** Full comparison: one entry per strategy. */
+export interface StrategyComparisonResult {
+  initialBankrollUsd: number;
+  strategies: StrategyStats[];
+}
+
+// --- Phase 4: Condition-Based Action Engine ---
+
+/** Trigger type: when should the rule be evaluated. */
+export type RuleTriggerType =
+  | "price_above"
+  | "price_below"
+  | "portfolio_exposure_above"
+  | "concentration_above"
+  | "manual";
+
+/** Trigger config: depends on trigger type (use rule.triggerType to discriminate). */
+export type RuleTriggerConfig =
+  | { contractId: string; value: number }
+  | { factorId: string; value: number }
+  | { value: number }
+  | Record<string, never>;
+
+/** Action when rule fires. */
+export type RuleActionType = "notify" | "log";
+
+export interface RuleAction {
+  type: RuleActionType;
+  /** For notify: message body (optional title in rule name). */
+  message?: string;
+}
+
+/** Rule definition (UI/API shape). */
+export interface ABERule {
+  id: string;
+  name: string;
+  triggerType: RuleTriggerType;
+  triggerConfig: RuleTriggerConfig;
+  actions: RuleAction[];
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Context passed to the rule engine (current state). */
+export interface RuleEngineContext {
+  /** Contract id -> current price (0–1). */
+  contractPrices?: Record<string, number>;
+  /** Portfolio risk report when available. */
+  portfolioReport?: PortfolioRiskReport;
+  /** Bankroll set and non-zero. */
+  bankrollSet?: boolean;
+}
+
+/** In-app notification created when a rule fires (or system). */
+export interface ABENotification {
+  id: string;
+  ruleId?: string | null;
+  ruleName?: string | null;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+}
+
+// --- Phase 5: Strategy DNA & Behavioral Layer ---
+
+/** User's market/sport focus (profile extension). */
+export interface UserBettingProfile {
+  preferredMarkets?: string[]; // e.g. ["kalshi", "polymarket"] or category slugs
+  preferredSports?: string[];  // e.g. ["cbb", "nba"]
+}
+
+/** Edge accuracy summary from validated predictions (platform or user). */
+export interface EdgeAccuracySummary {
+  totalBets: number;
+  wins: number;
+  winRate: number; // 0–1
+  /** Optional: average estimated edge on those bets (realized vs expected). */
+  avgRealizedEdge?: number;
+}
+
+/** "Betting DNA" — aggregated profile for display and comparison. */
+export interface BettingDNA {
+  riskProfile: RiskProfile | null;
+  kellyFraction: number;
+  preferredMarkets: string[];
+  preferredSports: string[];
+  /** From validated Prediction outcomes (platform-level for now). */
+  edgeSummary: EdgeAccuracySummary | null;
+  /** Human-readable comparison to cohorts (e.g. "More conservative than 60% of users"). */
+  comparisonSummary: string | null;
 }

@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 import { getKalshiClient } from "@/lib/api-clients/kalshi-client";
-import { abeContractIdToKalshiTicker, kalshiMarketToABEContracts } from "@/lib/abe";
+import { getPolymarketClient } from "@/lib/api-clients/polymarket-client";
+import {
+  abeContractIdToKalshiTicker,
+  abeContractIdToPolymarketConditionId,
+  kalshiMarketToABEContracts,
+  polymarketMarketToABEContracts,
+} from "@/lib/abe";
 import { runPortfolioRiskAnalysis } from "@/lib/abe/portfolio-risk-engine";
 import type { ABEPosition, ABEContract } from "@/types/abe";
 
@@ -15,7 +21,7 @@ type Body = {
 /**
  * POST /api/abe/portfolio-analysis
  * Body: { positions: ABEPosition[], contracts?: ABEContract[] }
- * If contracts omitted, we derive Kalshi tickers from position contractIds and fetch markets.
+ * If contracts omitted, we fetch Kalshi and/or Polymarket markets by position contractIds.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -40,28 +46,44 @@ export async function POST(request: NextRequest) {
     let contracts = body.contracts;
 
     if (!contracts?.length) {
-      const tickers = new Set<string>();
+      const kalshiTickers = new Set<string>();
+      const polymarketConditionIds = new Set<string>();
       for (const p of positions) {
-        const t = abeContractIdToKalshiTicker(p.contractId);
-        if (t) tickers.add(t);
+        const k = abeContractIdToKalshiTicker(p.contractId);
+        if (k) kalshiTickers.add(k);
+        const pm = abeContractIdToPolymarketConditionId(p.contractId);
+        if (pm) polymarketConditionIds.add(pm);
       }
-      if (tickers.size === 0) {
-        return Response.json(
-          { error: "No Kalshi contract IDs found in positions; cannot fetch contract data." },
-          { status: 400 }
-        );
-      }
-
-      const client = getKalshiClient();
-      const { markets } = await client.getMarkets({
-        tickers: Array.from(tickers).join(","),
-        status: "open",
-        limit: 500,
-      });
 
       const contractList: ABEContract[] = [];
-      for (const m of markets) {
-        contractList.push(...kalshiMarketToABEContracts(m));
+
+      if (kalshiTickers.size > 0) {
+        const kalshiClient = getKalshiClient();
+        const { markets } = await kalshiClient.getMarkets({
+          tickers: Array.from(kalshiTickers).join(","),
+          status: "open",
+          limit: 500,
+        });
+        for (const m of markets) {
+          contractList.push(...kalshiMarketToABEContracts(m));
+        }
+      }
+
+      if (polymarketConditionIds.size > 0) {
+        const polymarketClient = getPolymarketClient();
+        const marketMap = await polymarketClient.getMarketsForConditionIds(
+          Array.from(polymarketConditionIds)
+        );
+        for (const [, { market, event }] of marketMap) {
+          contractList.push(...polymarketMarketToABEContracts(market, event));
+        }
+      }
+
+      if (contractList.length === 0 && positions.length > 0) {
+        return Response.json(
+          { error: "Could not resolve any contract data for the given positions (Kalshi or Polymarket)." },
+          { status: 400 }
+        );
       }
       contracts = contractList;
     }

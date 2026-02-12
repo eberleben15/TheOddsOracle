@@ -3,19 +3,18 @@ import { DashboardClient } from "./DashboardClient";
 import { isAdmin } from "@/lib/admin-utils";
 import Link from "next/link";
 import { OddsGame, LiveGame } from "@/types";
-import { Sport, getSportConfig, SPORT_CONFIGS } from "@/lib/sports/sport-config";
+import { Sport, getSportConfig } from "@/lib/sports/sport-config";
 import { getTeamLogoUrl } from "@/lib/sports/unified-sports-api";
 
 export const revalidate = 30; // Revalidate every 30 seconds for live scores
 
-interface DashboardPageProps {
-  searchParams: Promise<{ sport?: string }>;
-}
-
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const params = await searchParams;
-  const sportParam = params.sport as Sport | undefined;
-  const sport: Sport = sportParam && sportParam in SPORT_CONFIGS ? sportParam : "cbb";
+/**
+ * Dashboard = user home (stats, positions, actions, value bets).
+ * "Today's games" section shows a single default sport (CBB) as a preview.
+ * For sport-specific pages use /sports/[sport] (e.g. /sports/nba, /sports/nhl).
+ */
+export default async function DashboardPage() {
+  const sport: Sport = "cbb";
   const config = getSportConfig(sport);
   
   const admin = await isAdmin();
@@ -68,26 +67,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      {/* Page Header */}
-      <div className="mb-6 flex justify-between items-start flex-wrap gap-4">
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-text-dark mb-2">{config.displayName}</h1>
-          <p className="text-text-body">Live scores, upcoming matchups, and betting insights</p>
-          {!error && (liveGames.length > 0 || upcomingGames.length > 0) && (
-            <p className="text-xs text-gray-500 mt-1">
-              Last updated: {new Date().toLocaleTimeString()}
-            </p>
-          )}
-        </div>
-        {admin && (
+      {admin && (
+        <div className="mb-4 flex justify-end">
           <Link
             href="/admin/predictions"
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             Admin Dashboard
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       <DashboardClient 
         liveGames={liveGames}
