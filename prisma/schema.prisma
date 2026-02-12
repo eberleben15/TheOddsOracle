@@ -33,6 +33,9 @@ model User {
   analytics     Analytics[]
   usageTracking UsageTracking[]
 
+  // Kalshi API connection (optional, for syncing portfolio)
+  kalshiConnection KalshiConnection?
+
   @@map("users")
   @@schema("oddsoracle")
 }
@@ -185,5 +188,20 @@ model Prediction {
   @@index([validated, date])
   @@index([sport])
   @@map("predictions")
+  @@schema("oddsoracle")
+}
+
+// Kalshi API credentials (encrypted at rest). One per user for portfolio sync.
+model KalshiConnection {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  apiKeyId           String   // Not secret; displayed in Kalshi UI
+  privateKeyEncrypted String  @db.Text // PEM encrypted with KALSHI_CREDENTIALS_ENCRYPTION_KEY
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("kalshi_connections")
   @@schema("oddsoracle")
 }

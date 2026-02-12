@@ -46,6 +46,13 @@ EMAIL_SERVER_PASSWORD="your-app-password"
 EMAIL_FROM="noreply@theoddsoracle.com"
 
 # ============================================
+# KALSHI (Optional - for Portfolio Risk sync)
+# ============================================
+# Required only if users will "Connect Kalshi" to sync positions.
+# 32-byte key as 64 hex chars. Generate with: openssl rand -hex 32
+KALSHI_CREDENTIALS_ENCRYPTION_KEY=""
+
+# ============================================
 # EXISTING API KEYS
 # ============================================
 THE_ODDS_API_KEY=your_odds_api_key_here

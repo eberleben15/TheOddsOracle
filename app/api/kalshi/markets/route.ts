@@ -1,0 +1,40 @@
+import { NextRequest } from "next/server";
+import { getKalshiClient } from "@/lib/api-clients/kalshi-client";
+import type { KalshiMarketStatus } from "@/types/kalshi";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10) || 50)
+    );
+    const cursor = searchParams.get("cursor") ?? undefined;
+    const status = (searchParams.get("status") as KalshiMarketStatus) || "open";
+    const series_ticker = searchParams.get("series_ticker") ?? undefined;
+    const category = searchParams.get("category") ?? undefined;
+
+    const client = getKalshiClient();
+
+    const data = category
+      ? await client.getMarketsByCategory(category, { status, limit })
+      : await client.getMarkets({
+          status,
+          limit,
+          cursor,
+          ...(series_ticker ? { series_ticker } : {}),
+        });
+
+    return Response.json(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch Kalshi markets";
+    console.error("[kalshi/markets]", message);
+    return Response.json(
+      { error: message },
+      { status: 500 }
+    );
+  }
+}

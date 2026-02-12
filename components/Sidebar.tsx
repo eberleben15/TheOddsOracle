@@ -7,10 +7,12 @@ import {
   ChevronDownIcon, 
   HomeIcon, 
   ChartBarIcon,
+  ChartPieIcon,
   Cog6ToothIcon,
   XMarkIcon,
   Bars3Icon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  ArrowTrendingUpIcon
 } from "@heroicons/react/24/outline";
 import { Sport, SPORT_CONFIGS } from "@/lib/sports/sport-config";
 
@@ -46,6 +48,18 @@ export function Sidebar() {
       href: "/chat",
       icon: ChatBubbleLeftRightIcon,
       current: pathname === "/chat"
+    },
+    {
+      name: "Prediction Markets",
+      href: "/prediction-markets",
+      icon: ArrowTrendingUpIcon,
+      current: pathname.startsWith("/prediction-markets") && pathname !== "/prediction-markets/portfolio"
+    },
+    {
+      name: "Portfolio Risk",
+      href: "/prediction-markets/portfolio",
+      icon: ChartPieIcon,
+      current: pathname === "/prediction-markets/portfolio"
     },
     {
       name: "Sports",
