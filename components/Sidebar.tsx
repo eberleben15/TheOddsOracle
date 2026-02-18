@@ -14,6 +14,7 @@ import {
   ChatBubbleLeftRightIcon,
   ArrowTrendingUpIcon,
   BoltIcon,
+  Square2StackIcon,
 } from "@heroicons/react/24/outline";
 import { Sport } from "@/lib/sports/sport-config";
 
@@ -68,6 +69,12 @@ export function Sidebar() {
       href: "/prediction-markets/portfolio",
       icon: ChartPieIcon,
       current: pathname === "/prediction-markets/portfolio",
+    },
+    {
+      name: "Sandbox",
+      href: "/sandbox",
+      icon: Square2StackIcon,
+      current: pathname === "/sandbox",
     },
     {
       name: "Strategy Simulator",

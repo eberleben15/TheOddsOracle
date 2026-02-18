@@ -49,13 +49,13 @@ export function SeriesBrowseClient() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch("/api/kalshi/series?limit=300")
+    fetch("/api/kalshi/series-browse")
       .then((res) => {
         if (!res.ok) throw new Error(res.statusText);
         return res.json();
       })
       .then((data) => {
-        if (!cancelled && Array.isArray(data.series)) {
+        if (!cancelled && Array.isArray(data?.series)) {
           setSeries(data.series);
         }
       })

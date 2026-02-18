@@ -52,6 +52,9 @@ model User {
   // Phase 0: Last synced portfolio snapshot (positions + optional contracts for risk engine)
   portfolioSnapshot PortfolioSnapshot?
 
+  // Sandbox: user-built portfolio from matchups and prediction markets
+  sandboxPortfolio SandboxPortfolio?
+
   @@map("users")
   @@schema("oddsoracle")
 }
@@ -264,6 +267,20 @@ model PortfolioSnapshot {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("portfolio_snapshots")
+  @@schema("oddsoracle")
+}
+
+// Sandbox: user-built portfolio (positions + optional contracts) from matchups and PM events.
+model SandboxPortfolio {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  positions  Json     // ABEPosition[]
+  contracts  Json?    // ABEContract[] optional
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sandbox_portfolios")
   @@schema("oddsoracle")
 }
 

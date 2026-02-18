@@ -10,6 +10,7 @@ import type {
   KalshiSeriesListResponse,
   GetSeriesListParams,
   KalshiMarket,
+  KalshiSeries,
   KalshiMarketStatus,
   GetPositionsResponse,
   GetSettlementsResponse,
@@ -232,6 +233,40 @@ export class KalshiClient {
   }
 
   /**
+   * Returns series that have at least one open market in the given category.
+   * Used to filter the browse view so we only show series with tradeable markets.
+   * Builds from per-category data to avoid global vs per-category list mismatch.
+   */
+  async getSeriesWithOpenMarkets(
+    category: string,
+    options: { maxSeries?: number } = {}
+  ): Promise<KalshiSeries[]> {
+    const maxSeries = Math.min(30, options.maxSeries ?? 20);
+    const { series } = await this.getSeriesList({ category, limit: 50 });
+    const toCheck = series.slice(0, maxSeries);
+    const withOpen: KalshiSeries[] = [];
+
+    await Promise.all(
+      toCheck.map(async (s) => {
+        try {
+          const { markets } = await this.getMarkets({
+            series_ticker: s.ticker,
+            status: "open",
+            limit: 1,
+          });
+          if (markets.length > 0) withOpen.push(s);
+        } catch (err) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn(`[Kalshi] getMarkets(series=${s.ticker}) failed:`, err);
+          }
+        }
+      })
+    );
+
+    return withOpen;
+  }
+
+  /**
    * Fetch markets for all series in a category (aggregates multiple API calls).
    * Use when you want to show only contracts in e.g. "Sports" or "Politics".
    */
@@ -262,8 +297,10 @@ export class KalshiClient {
               allMarkets.push(m);
             }
           }
-        } catch {
-          // skip this series on error
+        } catch (err) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn(`[Kalshi] getMarkets(series=${seriesTicker}) failed:`, err);
+          }
         }
       })
     );

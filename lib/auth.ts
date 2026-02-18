@@ -135,6 +135,7 @@ if (
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma) as any,
   providers,
+  trustHost: true, // Avoid ClientFetchError when host is inferred (e.g. dev, reverse proxy)
   pages: {
     signIn: "/auth/signin",
     signOut: "/auth/signout",
@@ -144,18 +145,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async session({ session, token, user }) {
       // Handle both database sessions (OAuth) and JWT sessions (credentials)
-      const userId = user?.id || token?.id as string
-      
-      if (userId && session.user) {
-        // Fetch user subscription status from database
-        const dbUser = await prisma.user.findUnique({
-          where: { id: userId },
-          include: { subscription: true },
-        })
+      const userId = (user?.id ?? token?.id) as string | undefined
 
+      if (userId && session.user) {
         session.user.id = userId
-        session.user.subscriptionStatus = dbUser?.subscription?.status || "FREE"
-        session.user.stripeCustomerId = dbUser?.subscription?.stripeCustomerId || null
+        // Prefer token (from jwt callback) so session endpoint rarely hits DB
+        session.user.subscriptionStatus = (token.subscriptionStatus as "FREE" | "PREMIUM" | "PRO" | "CANCELLED" | "PAST_DUE") || "FREE"
+        session.user.stripeCustomerId = (token.stripeCustomerId as string) || null
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { subscription: true },
+          })
+          if (dbUser?.subscription) {
+            session.user.subscriptionStatus = dbUser.subscription.status || "FREE"
+            session.user.stripeCustomerId = dbUser.subscription.stripeCustomerId ?? null
+          }
+        } catch {
+          // Keep token-based values so session still returns 200; avoids ClientFetchError
+        }
       }
       return session
     },

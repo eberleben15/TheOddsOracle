@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RecommendedBets } from "@/components/RecommendedBets";
 import type { RecommendedBet } from "@/types";
@@ -8,7 +8,8 @@ import { PremiumGate } from "@/components/PremiumGate";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 
 export function RecommendedBetsSection() {
-  const searchParams = useSearchParams();
+  const searchParams = use(useSearchParams());
+  const sport = searchParams?.get("sport") || "cbb";
   const [bets, setBets] = useState<RecommendedBet[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUserPremium, setIsUserPremium] = useState<boolean | null>(null);
@@ -29,8 +30,6 @@ export function RecommendedBetsSection() {
         }
 
         // Fetch recommended bets if premium
-        // Get sport from URL or default to cbb
-        const sport = searchParams?.get("sport") || "cbb";
 
         setLoading(true);
         const response = await fetch(`/api/recommended-bets?sport=${sport}`);
@@ -56,7 +55,7 @@ export function RecommendedBetsSection() {
     // Refresh every 5 minutes
     const interval = setInterval(checkPremiumAndFetch, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [searchParams]); // Re-fetch when sport changes
+  }, [sport]); // Re-fetch when sport changes
 
   if (loading || isUserPremium === null) {
     return (

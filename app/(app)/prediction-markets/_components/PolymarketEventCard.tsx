@@ -1,8 +1,8 @@
 "use client";
 
-import { Card, CardBody, CardHeader } from "@nextui-org/react";
-import { ArrowTopRightOnSquareIcon, ChartBarIcon, ClockIcon } from "@heroicons/react/24/outline";
 import type { PolymarketEvent, PolymarketMarket } from "@/types/polymarket";
+import { polymarketMarketToABEContractId, polymarketMarketToABEContracts } from "@/lib/abe";
+import { PredictionMarketCardLayout } from "./PredictionMarketCardLayout";
 
 interface PolymarketEventCardProps {
   event: PolymarketEvent;
@@ -32,7 +32,6 @@ function getMarketPrices(market: PolymarketMarket | undefined): { yes: number; n
   if (validParsed) {
     return parsed;
   }
-  // outcomePrices missing or stale (0/1); use bestBid/bestAsk or lastTradePrice
   const bid = typeof market?.bestBid === "number" ? market.bestBid : NaN;
   const ask = typeof market?.bestAsk === "number" ? market.bestAsk : NaN;
   const last = typeof market?.lastTradePrice === "number" ? market.lastTradePrice : NaN;
@@ -84,72 +83,54 @@ function formatVolume(value: number | string | undefined): string {
   return num.toLocaleString();
 }
 
+const DEFAULT_SANDBOX_SIZE = 10;
+
 export function PolymarketEventCard({ event }: PolymarketEventCardProps) {
   const market = pickDisplayMarket(event.markets);
   const { yes, no } = getMarketPrices(market);
-  const hasPrices = yes > 0 || no > 0;
+  const yesCents = yes > 0 || no > 0 ? Math.round(yes * 100) : null;
+  const noCents = yesCents != null ? Math.round(no * 100) : null;
   const volumeStr = formatVolume(event.volume ?? event.liquidity ?? market?.volumeNum);
   const endDate = market?.endDateIso ?? market?.endDate ?? event.endDate;
+  const closeStr = formatDate(endDate);
   const url = event.slug ? `https://polymarket.com/event/${event.slug}` : "https://polymarket.com";
 
+  const addToSandbox = async (side: "yes" | "no") => {
+    if (!market) return;
+    const costPerShare = side === "yes" ? Math.max(0.01, Math.min(0.99, yes)) : Math.max(0.01, Math.min(0.99, no));
+    const position = {
+      contractId: polymarketMarketToABEContractId(market, side),
+      side,
+      size: DEFAULT_SANDBOX_SIZE,
+      costPerShare,
+    };
+    const contracts = polymarketMarketToABEContracts(market, event);
+    const contract = contracts.find((c) => c.id === position.contractId);
+    const res = await fetch("/api/sandbox/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        positions: [position],
+        contracts: contract ? [contract] : undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Failed to add");
+  };
+
   return (
-    <Card
-      className="
-        group bg-white border border-[var(--border-color)]
-        hover:border-gray-300 hover:shadow-md
-        transition-all duration-200 overflow-hidden
-      "
-      isPressable
-      as="a"
+    <PredictionMarketCardLayout
+      sourceLabel="Polymarket"
+      sourceVariant="polymarket"
       href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      <CardHeader className="flex flex-col items-stretch gap-3 pb-3 pt-4 px-4 border-b border-[var(--border-color)]">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-1 rounded-md border text-violet-700 bg-violet-50 border-violet-200">
-            Polymarket
-          </span>
-          <span className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs">
-            <span className="hidden sm:inline">Polymarket</span>
-            <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
-          </span>
-        </div>
-        <h3 className="font-semibold text-[var(--text-dark)] text-left leading-snug line-clamp-2 min-h-[2.5rem]">
-          {event.title}
-        </h3>
-        {event.subtitle ? (
-          <p className="text-sm text-[var(--text-body)] text-left line-clamp-2">{event.subtitle}</p>
-        ) : null}
-      </CardHeader>
-
-      <CardBody className="p-4 pt-4 gap-4">
-        <div className="flex items-stretch rounded-lg border border-[var(--border-color)] overflow-hidden bg-gray-50/80">
-          <div className="flex-1 flex flex-col items-center justify-center py-3 px-3 border-r border-[var(--border-color)]">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-body)]">Yes</span>
-            <span className="text-lg font-bold text-[var(--text-dark)] mt-0.5 tabular-nums">
-              {hasPrices ? `${Math.round(yes * 100)}¢` : "—"}
-            </span>
-          </div>
-          <div className="flex-1 flex flex-col items-center justify-center py-3 px-3">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-body)]">No</span>
-            <span className="text-lg font-bold text-[var(--text-dark)] mt-0.5 tabular-nums">
-              {hasPrices ? `${Math.round(no * 100)}¢` : "—"}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-[var(--text-body)] pt-1">
-          <span className="flex items-center gap-1.5">
-            <ChartBarIcon className="h-3.5 w-3.5 text-gray-400" />
-            <span>Vol {volumeStr}</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <ClockIcon className="h-3.5 w-3.5 text-gray-400" />
-            <span>Closes {formatDate(endDate)}</span>
-          </span>
-        </div>
-      </CardBody>
-    </Card>
+      title={event.title}
+      subtitle={event.subtitle ?? undefined}
+      yesCents={yesCents}
+      noCents={noCents}
+      volumeLabel={volumeStr}
+      closeLabel={closeStr}
+      onAddToSandbox={addToSandbox}
+      addDisabled={!market}
+    />
   );
 }

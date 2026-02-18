@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { kalshiTickerToABEContractId } from "@/lib/abe";
 import type { ABEPosition, ABEContract, PortfolioRiskReport, BankrollSummary } from "@/types/abe";
 import type { KalshiSettlement } from "@/types/kalshi";
@@ -36,6 +37,56 @@ export default function PortfolioPage() {
   const [useDemoPortfolio, setUseDemoPortfolio] = useState(false);
   const [demoContracts, setDemoContracts] = useState<ABEContract[]>([]);
   const [bankrollSummary, setBankrollSummary] = useState<BankrollSummary | null>(null);
+  const searchParams = use(useSearchParams());
+  type PortfolioSource = "connected" | "sandbox" | "both";
+  const [portfolioSource, setPortfolioSource] = useState<PortfolioSource>("connected");
+
+  const sourceParam = searchParams?.get("source") ?? null;
+  useEffect(() => {
+    if (sourceParam === "sandbox") setPortfolioSource("sandbox");
+  }, [sourceParam]);
+
+  const loadSandbox = useCallback(async () => {
+    setError(null);
+    setReport(null);
+    try {
+      const res = await fetch("/api/sandbox");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load sandbox");
+      setPositions(data.positions ?? []);
+      setDemoContracts(data.contracts ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load sandbox");
+      setPositions([]);
+      setDemoContracts([]);
+    }
+  }, []);
+
+  const loadBoth = useCallback(async () => {
+    setError(null);
+    setReport(null);
+    try {
+      const [posRes, sandboxRes] = await Promise.all([
+        fetch("/api/positions"),
+        fetch("/api/sandbox"),
+      ]);
+      const posData = await posRes.json();
+      const sandboxData = await sandboxRes.json();
+      const connected = posData.positions ?? [];
+      const sandbox = sandboxData.positions ?? [];
+      setPositions([...connected, ...sandbox]);
+      setDemoContracts(sandboxData.contracts ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+      setPositions([]);
+      setDemoContracts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (portfolioSource === "sandbox") loadSandbox();
+    else if (portfolioSource === "both") loadBoth();
+  }, [portfolioSource, loadSandbox, loadBoth]);
 
   useEffect(() => {
     fetch("/api/kalshi/status")
@@ -243,6 +294,53 @@ export default function PortfolioPage() {
           )}
         </div>
       )}
+
+      {/* Portfolio source: Connected | Sandbox | Both */}
+      <div className="rounded-xl border border-[var(--border-color)] bg-white p-4 mb-6">
+        <h2 className="text-sm font-semibold text-[var(--text-dark)] mb-3">
+          Portfolio source
+        </h2>
+        <div className="flex flex-wrap items-center gap-3">
+          {(
+            [
+              { value: "connected" as const, label: "Connected" },
+              { value: "sandbox" as const, label: "Sandbox" },
+              { value: "both" as const, label: "Both" },
+            ] as const
+          ).map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setPortfolioSource(value)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                portfolioSource === value
+                  ? "bg-primary text-white"
+                  : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {portfolioSource === "sandbox" && (
+            <button
+              type="button"
+              onClick={loadSandbox}
+              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+            >
+              Refresh Sandbox
+            </button>
+          )}
+          {portfolioSource === "both" && (
+            <button
+              type="button"
+              onClick={loadBoth}
+              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+            >
+              Refresh both
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Bankroll summary (edit in Settings) */}
       <div className="rounded-xl border border-[var(--border-color)] bg-white p-4 mb-6">

@@ -2,6 +2,7 @@ import { getUpcomingGames, getGameOdds } from "@/lib/odds-api";
 import { apiCache } from "@/lib/api-cache";
 import { StatsDisplay } from "./_components/StatsDisplay";
 import { MatchupHeader } from "./_components/MatchupHeader";
+import { AddToSandboxOdds } from "./_components/AddToSandboxOdds";
 import { BettingInsights } from "./_components/BettingInsights";
 import { AdvancedAnalyticsWrapper } from "./_components/AdvancedAnalyticsWrapper";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
@@ -126,6 +127,13 @@ export default async function MatchupPage({ params, searchParams }: MatchupPageP
           game={game} 
           awayTeamStats={awayTeamStats || undefined}
           homeTeamStats={homeTeamStats || undefined}
+        />
+
+        <AddToSandboxOdds
+          gameId={game.id}
+          awayTeamName={game.away_team}
+          homeTeamName={game.home_team}
+          firstOdds={parseOdds(game)[0] ?? null}
         />
 
         {apiError && (

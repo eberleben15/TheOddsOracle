@@ -2,15 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { KalshiMarketCard } from "./KalshiMarketCard";
-import type { KalshiMarket, KalshiMarketStatus } from "@/types/kalshi";
-import { ArrowPathIcon, FunnelIcon } from "@heroicons/react/24/outline";
-
-const STATUS_OPTIONS: { value: KalshiMarketStatus | ""; label: string }[] = [
-  { value: "open", label: "Open" },
-  { value: "closed", label: "Closed" },
-  { value: "settled", label: "Settled" },
-  { value: "", label: "All" },
-];
+import type { KalshiMarket } from "@/types/kalshi";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 
 interface PredictionMarketsClientProps {
   /** When set, only markets for this series are shown. */
@@ -24,7 +17,6 @@ interface PredictionMarketsClientProps {
 export function PredictionMarketsClient({ seriesTicker, category, title }: PredictionMarketsClientProps) {
   const [markets, setMarkets] = useState<KalshiMarket[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [status, setStatus] = useState<KalshiMarketStatus | "">("open");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +32,6 @@ export function PredictionMarketsClient({ seriesTicker, category, title }: Predi
       try {
         const params = new URLSearchParams();
         params.set("limit", category ? "80" : "24");
-        if (status) params.set("status", status);
         if (!category && cursorParam) params.set("cursor", cursorParam);
         if (seriesTicker) params.set("series_ticker", seriesTicker);
         if (category) params.set("category", category);
@@ -64,7 +55,7 @@ export function PredictionMarketsClient({ seriesTicker, category, title }: Predi
         setLoadingMore(false);
       }
     },
-    [status, seriesTicker, category]
+    [seriesTicker, category]
   );
 
   useEffect(() => {
@@ -80,33 +71,11 @@ export function PredictionMarketsClient({ seriesTicker, category, title }: Predi
       {title && (
         <h2 className="text-lg font-semibold text-text-dark">{title}</h2>
       )}
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <FunnelIcon className="h-5 w-5 text-gray-500" />
-          <span className="text-sm font-medium text-text-body">Status</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {STATUS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value || "all"}
-              onClick={() => setStatus(opt.value as KalshiMarketStatus | "")}
-              className={`
-                px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                ${status === opt.value
-                  ? "bg-gray-800 text-white"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                }
-              `}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <button
           onClick={() => fetchMarkets(null, false)}
           disabled={loading}
-          className="ml-auto flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-sm font-medium"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-sm font-medium"
         >
           <ArrowPathIcon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Refresh
@@ -164,9 +133,9 @@ export function PredictionMarketsClient({ seriesTicker, category, title }: Predi
       {/* Empty */}
       {!loading && !error && markets.length === 0 && (
         <div className="text-center py-12 rounded-xl bg-gray-50 border border-gray-200">
-          <p className="text-text-body">No markets found for this filter.</p>
+          <p className="text-text-body">No open markets found.</p>
           <p className="text-sm text-gray-400 mt-1">
-            Try a different status or refresh.
+            Only open (tradeable) markets are shown. Try refreshing.
           </p>
         </div>
       )}
