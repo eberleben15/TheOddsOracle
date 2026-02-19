@@ -30,10 +30,11 @@ export async function GET(request: NextRequest) {
           ...(series_ticker ? { series_ticker } : {}),
         });
 
-    // Ensure only open markets are returned (safety net if API returns others)
-    const markets = (data.markets ?? []).filter(
-      (m: KalshiMarket) => (m.status ?? "").toLowerCase() === "open"
-    );
+    // Ensure only open/active markets are returned (API can return "open" or "active")
+    const markets = (data.markets ?? []).filter((m: KalshiMarket) => {
+      const s = (m.status ?? "").toLowerCase();
+      return s === "open" || s === "active";
+    });
 
     return Response.json({ ...data, markets });
   } catch (error) {

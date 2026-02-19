@@ -51,7 +51,11 @@ export function PolymarketBrowseClient() {
     );
   }
 
-  if (events.length === 0) {
+  const hasOpenMarket = (event: PolymarketEvent) =>
+    event.markets?.some((m) => !m.closed) ?? false;
+  const displayEvents = events.filter(hasOpenMarket);
+
+  if (displayEvents.length === 0) {
     return (
       <p className="text-sm text-[var(--text-body)] py-8">
         No active Polymarket events right now.
@@ -61,7 +65,7 @@ export function PolymarketBrowseClient() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {events.map((event) => (
+      {displayEvents.map((event) => (
         <PolymarketEventCard key={event.id} event={event} />
       ))}
     </div>

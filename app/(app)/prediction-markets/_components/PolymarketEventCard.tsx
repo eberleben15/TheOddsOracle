@@ -45,7 +45,7 @@ function getMarketPrices(market: PolymarketMarket | undefined): { yes: number; n
   return parsed ?? { yes: 0.5, no: 0.5 };
 }
 
-/** For multi-market events, prefer the first active, open market with valid prices (not 0/1). */
+/** First open market with valid prices. Never returns a closed market. */
 function pickDisplayMarket(markets: PolymarketMarket[] | undefined): PolymarketMarket | undefined {
   if (!markets?.length) return undefined;
   for (const m of markets) {
@@ -57,7 +57,7 @@ function pickDisplayMarket(markets: PolymarketMarket[] | undefined): PolymarketM
     const hasLast = Number.isFinite(m.lastTradePrice) && (m.lastTradePrice ?? 0) > 0 && (m.lastTradePrice ?? 0) < 1;
     if (hasBidAsk || hasLast) return m;
   }
-  return markets[0];
+  return undefined;
 }
 
 function formatDate(iso: string | undefined): string {
@@ -85,15 +85,34 @@ function formatVolume(value: number | string | undefined): string {
 
 const DEFAULT_SANDBOX_SIZE = 10;
 
+/** Truncate description to ~120 chars for card display */
+function truncateDescription(text: string | undefined, maxLen = 120): string | null {
+  if (!text || !text.trim()) return null;
+  const stripped = text.replace(/\s+/g, " ").trim();
+  if (stripped.length <= maxLen) return stripped;
+  return stripped.slice(0, maxLen).trim() + "…";
+}
+
 export function PolymarketEventCard({ event }: PolymarketEventCardProps) {
   const market = pickDisplayMarket(event.markets);
   const { yes, no } = getMarketPrices(market);
   const yesCents = yes > 0 || no > 0 ? Math.round(yes * 100) : null;
   const noCents = yesCents != null ? Math.round(no * 100) : null;
-  const volumeStr = formatVolume(event.volume ?? event.liquidity ?? market?.volumeNum);
+  const volumeStr = formatVolume(market?.volumeNum ?? event.volume ?? event.liquidity);
   const endDate = market?.endDateIso ?? market?.endDate ?? event.endDate;
   const closeStr = formatDate(endDate);
-  const url = event.slug ? `https://polymarket.com/event/${event.slug}` : "https://polymarket.com";
+  const url = market?.slug
+    ? `https://polymarket.com/event/${event.slug}?market=${market.slug}`
+    : event.slug
+      ? `https://polymarket.com/event/${event.slug}`
+      : "https://polymarket.com";
+
+  const title = market?.question ?? event.title;
+  const subtitle =
+    market?.groupItemTitle && event.markets && event.markets.length > 1
+      ? market.groupItemTitle
+      : event.subtitle ?? undefined;
+  const description = truncateDescription(market?.description ?? event.description);
 
   const addToSandbox = async (side: "yes" | "no") => {
     if (!market) return;
@@ -123,14 +142,16 @@ export function PolymarketEventCard({ event }: PolymarketEventCardProps) {
       sourceLabel="Polymarket"
       sourceVariant="polymarket"
       href={url}
-      title={event.title}
-      subtitle={event.subtitle ?? undefined}
+      title={title}
+      subtitle={subtitle}
+      description={description}
       yesCents={yesCents}
       noCents={noCents}
       volumeLabel={volumeStr}
       closeLabel={closeStr}
       onAddToSandbox={addToSandbox}
       addDisabled={!market}
+      externalLinkOnly
     />
   );
 }

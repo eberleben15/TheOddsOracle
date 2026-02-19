@@ -13,6 +13,7 @@ export interface PolymarketTag {
 export interface PolymarketMarket {
   id: string;
   question: string;
+  description?: string;
   conditionId?: string;
   slug?: string;
   clobTokenIds?: string[]; // [yesTokenId, noTokenId]
@@ -28,6 +29,8 @@ export interface PolymarketMarket {
   bestBid?: number;
   bestAsk?: number;
   lastTradePrice?: number;
+  /** Multi-market events: date/context label (e.g. "December 31, 2026") */
+  groupItemTitle?: string;
 }
 
 /** Event = one question; can have multiple markets (e.g. multi-outcome). */

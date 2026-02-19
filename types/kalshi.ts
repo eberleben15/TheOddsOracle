@@ -6,6 +6,7 @@
 export type KalshiMarketStatus =
   | "unopened"
   | "open"
+  | "active" // API may return "active" for tradeable markets
   | "paused"
   | "closed"
   | "settled"

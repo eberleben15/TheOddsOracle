@@ -36,12 +36,47 @@ export function CronJobsClient({ initialJobs }: { initialJobs: Job[] }) {
     ? jobs.filter((j) => j.jobName === filter)
     : jobs;
 
+  async function runJob(job: string) {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/cron/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || `Failed to run ${job}`);
+        return;
+      }
+      await refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to run job");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <Button size="sm" variant="flat" onPress={refresh} isLoading={loading}>
           Refresh
         </Button>
+        <span className="text-sm text-gray-500 mx-1">|</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">Run manually:</span>
+        {(["refresh-team-stats", "generate-predictions", "record-outcomes"] as const).map((j) => (
+          <Button
+            key={j}
+            size="sm"
+            color="primary"
+            variant="flat"
+            onPress={() => runJob(j)}
+            isDisabled={loading}
+          >
+            {j.replace(/-/g, " ")}
+          </Button>
+        ))}
         <select
           className="rounded border px-2 py-1 text-sm"
           value={filter}

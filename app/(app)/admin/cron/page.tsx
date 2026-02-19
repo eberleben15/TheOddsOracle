@@ -20,6 +20,16 @@ export default async function AdminCronPage() {
         Recent runs of generate-predictions, record-outcomes, and refresh-team-stats.
       </p>
       <CronJobsClient initialJobs={jobs} />
+      <p className="text-xs text-gray-500">
+        <a
+          href="/api/admin/debug/prediction-markets-payloads"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          Debug: View raw Kalshi & Polymarket API payloads
+        </a>
+      </p>
     </div>
   );
 }

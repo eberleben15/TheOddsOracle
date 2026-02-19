@@ -10,9 +10,11 @@ import { OpenBetsSection } from "./_components/OpenBetsSection";
 
 export interface DashboardHomeProps {
   isAdmin: boolean;
+  liveCount?: number;
+  upcomingCount?: number;
 }
 
-export function DashboardHome({ isAdmin }: DashboardHomeProps) {
+export function DashboardHome({ isAdmin, liveCount = 0, upcomingCount = 0 }: DashboardHomeProps) {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header: welcome + admin */}
@@ -29,7 +31,7 @@ export function DashboardHome({ isAdmin }: DashboardHomeProps) {
       </div>
 
       {/* At-a-glance stats */}
-      <DashboardStatsStrip />
+      <DashboardStatsStrip liveCount={liveCount} upcomingCount={upcomingCount} />
 
       {/* Portfolio summary */}
       <DashboardPortfolioSection />

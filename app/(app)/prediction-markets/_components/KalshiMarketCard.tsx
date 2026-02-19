@@ -34,7 +34,13 @@ function formatVolume(value: string | number | undefined): string {
 const DEFAULT_SANDBOX_SIZE = 10;
 
 export function KalshiMarketCard({ market }: KalshiMarketCardProps) {
-  const yesCents = market.last_price != null ? market.last_price : null;
+  // last_price (0-100); fallback to mid of yes_bid/yes_ask when missing
+  const yesCents =
+    market.last_price != null
+      ? market.last_price
+      : market.yes_bid != null && market.yes_ask != null
+        ? Math.round((market.yes_bid + market.yes_ask) / 2)
+        : market.yes_ask ?? market.yes_bid ?? null;
   const noCents = yesCents != null ? 100 - yesCents : null;
   const volumeStr = formatVolume(market.volume_fp ?? market.volume);
   const closeStr = formatCloseDate(market.close_time);
