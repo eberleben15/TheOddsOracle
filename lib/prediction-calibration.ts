@@ -87,13 +87,14 @@ async function generatePredictionsWithCoefficients(
         continue; // Skip if we don't have stats for both teams
       }
       
-      // Calculate analytics (this uses current coefficients, but we'll optimize later)
-      // For now, we'll use the current implementation
-      const homeAnalytics = calculateTeamAnalytics(homeStats, [], true);
-      const awayAnalytics = calculateTeamAnalytics(awayStats, [], false);
+      // Use recent games from stats if available (empty for historical backtest)
+      const homeRecentGames = Array.isArray(homeStats.recentGames) ? homeStats.recentGames : [];
+      const awayRecentGames = Array.isArray(awayStats.recentGames) ? awayStats.recentGames : [];
+
+      const homeAnalytics = calculateTeamAnalytics(homeStats, homeRecentGames, true, undefined, coefficients);
+      const awayAnalytics = calculateTeamAnalytics(awayStats, awayRecentGames, false, undefined, coefficients);
       
-      // Make prediction
-      const prediction = predictMatchup(awayAnalytics, homeAnalytics, awayStats, homeStats);
+      const prediction = predictMatchup(awayAnalytics, homeAnalytics, awayStats, homeStats, undefined, coefficients);
       
       // Validate
       const validation = validateGamePrediction(prediction, {
@@ -152,11 +153,9 @@ export async function optimizeCoefficients(
   let bestMetrics = defaultMetrics;
   let bestMAE = defaultMetrics.meanAbsoluteError.total;
   
-  // Optimize recent form weight (0.4 to 0.8, step 0.1)
+  // Grid search: test each coefficient combination and keep the best
   for (let rfWeight = 0.4; rfWeight <= 0.8; rfWeight += 0.1) {
-    // Optimize SOS factor (0.2 to 0.4, step 0.05)
     for (let sosFactor = 0.2; sosFactor <= 0.4; sosFactor += 0.05) {
-      // Optimize defensive adjustment (0.08 to 0.16, step 0.02)
       for (let defAdj = 0.08; defAdj <= 0.16; defAdj += 0.02) {
         const testCoefficients: CalibrationCoefficients = {
           ...DEFAULT_COEFFICIENTS,
@@ -165,14 +164,20 @@ export async function optimizeCoefficients(
           sosAdjustmentFactor: sosFactor,
           baseDefensiveAdjustmentFactor: defAdj,
         };
-        
-        // Note: This is a simplified test - in production, we'd need to actually
-        // use these coefficients in the prediction functions
-        // For now, we'll return a placeholder that indicates optimization is needed
-        // The actual integration requires refactoring calculateTeamAnalytics to accept coefficients
-        
-        // Skip actual testing for now as it requires refactoring
-        // In a full implementation, we'd test these coefficients here
+
+        const testValidations = await generatePredictionsWithCoefficients(
+          sampleGames,
+          dataset,
+          testCoefficients
+        );
+        const testMetrics = calculateValidationMetrics(testValidations);
+        const testMAE = testMetrics.meanAbsoluteError.total;
+
+        if (testMAE < bestMAE) {
+          bestMAE = testMAE;
+          bestMetrics = testMetrics;
+          bestCoefficients = testCoefficients;
+        }
       }
     }
   }
@@ -233,17 +238,36 @@ export async function validateCoefficients(
   dataset: HistoricalDataSet,
   sampleSize: number = 100
 ): Promise<ValidationMetrics> {
+  const { validations } = await validateCoefficientsWithValidations(
+    coefficients,
+    dataset,
+    sampleSize
+  );
+  return calculateValidationMetrics(validations);
+}
+
+/**
+ * Validate coefficients and return raw validations (for recalibration fitting)
+ */
+export async function validateCoefficientsWithValidations(
+  coefficients: CalibrationCoefficients,
+  dataset: HistoricalDataSet,
+  sampleSize: number = 100
+): Promise<{ metrics: ValidationMetrics; validations: PredictionValidation[] }> {
   const sampleGames = dataset.games
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, sampleSize);
-  
+
   const validations = await generatePredictionsWithCoefficients(
     sampleGames,
     dataset,
     coefficients
   );
-  
-  return calculateValidationMetrics(validations);
+
+  return {
+    metrics: calculateValidationMetrics(validations),
+    validations,
+  };
 }
 
 /**

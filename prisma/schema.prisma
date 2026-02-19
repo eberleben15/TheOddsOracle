@@ -217,6 +217,7 @@ model Prediction {
   valueBets        Json?  // MatchupPrediction.valueBets - value bet recommendations
   favorableBets    Json?  // Serialized FavorableBet[] - bookmaker, edge, etc.
   oddsSnapshot     Json?  // { spread?, total?, moneyline?: { away?, home? } } at prediction time
+  predictionTrace  Json?  // Audit trail: modelPath, totalScore, homeWinProbRaw, etc. for training
 
   // Actual outcome (filled in after game)
   actualHomeScore Int?
@@ -238,6 +239,32 @@ model Prediction {
   @@index([validated, date])
   @@index([sport])
   @@map("predictions")
+  @@schema("oddsoracle")
+}
+
+// Cron job execution history (for admin monitoring)
+model JobExecution {
+  id          String    @id @default(cuid())
+  jobName     String    // "generate-predictions", "record-outcomes", "refresh-team-stats"
+  status      String    // "success", "failed"
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?   @db.Text
+  metadata    Json?     // { totalGames?, successCount?, errorCount?, etc. }
+
+  @@index([jobName, startedAt])
+  @@map("job_executions")
+  @@schema("oddsoracle")
+}
+
+// Model config for trained params (recalibration, etc.) - feedback loop persistence
+model ModelConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. "recalibration_platt"
+  value     Json     // e.g. { A: 1.2, B: -0.1 }
+  updatedAt DateTime @updatedAt
+
+  @@map("model_config")
   @@schema("oddsoracle")
 }
 

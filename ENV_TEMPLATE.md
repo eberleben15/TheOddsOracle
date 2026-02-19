@@ -53,6 +53,13 @@ EMAIL_FROM="noreply@theoddsoracle.com"
 KALSHI_CREDENTIALS_ENCRYPTION_KEY=""
 
 # ============================================
+# CRON JOBS (Required for scheduled jobs)
+# ============================================
+# Required for /api/cron/* endpoints (generate-predictions, record-outcomes, refresh-team-stats).
+# Vercel Cron and external cron services must send: Authorization: Bearer <CRON_SECRET>
+CRON_SECRET=generate-a-random-secret-for-cron-auth
+
+# ============================================
 # EXISTING API KEYS
 # ============================================
 THE_ODDS_API_KEY=your_odds_api_key_here

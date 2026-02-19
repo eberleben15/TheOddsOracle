@@ -65,7 +65,7 @@ export async function getLiveGamesBySport(
     }
 
     const data: LiveGame[] = await response.json();
-    
+
     // Filter for only in-progress games (not completed, has scores)
     const liveGames = data.filter(
       (game) => !game.completed && game.scores && game.scores.length > 0
@@ -75,6 +75,59 @@ export async function getLiveGamesBySport(
   } catch (error) {
     console.error("Error fetching live games:", error);
     throw error;
+  }
+}
+
+export interface CompletedScoresResult {
+  games: LiveGame[];
+  error?: string;
+}
+
+/**
+ * Fetch completed games with final scores from Odds API.
+ * Use for matching predictions (stored with Odds API game IDs) to outcomes.
+ * Returns games + optional error message (surfaced instead of silently failing).
+ * @param sport - Odds API sport key (e.g. basketball_ncaab)
+ * @param daysFrom - Look back this many days (API max varies by plan; use 1 to avoid 422)
+ */
+export async function getCompletedScoresBySport(
+  sport: string = "basketball_ncaab",
+  daysFrom: number = 1
+): Promise<CompletedScoresResult> {
+  const apiKey = process.env.THE_ODDS_API_KEY;
+  if (!apiKey) {
+    return { games: [], error: "THE_ODDS_API_KEY not set" };
+  }
+
+  try {
+    const url = `${THE_ODDS_API_BASE_URL}/sports/${sport}/scores/?daysFrom=${daysFrom}&apiKey=${apiKey}`;
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 300 },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      let errMsg = `Odds API ${sport} scores: ${response.status}`;
+      try {
+        const json = JSON.parse(text);
+        if (json.message) errMsg += ` - ${json.message}`;
+        else if (json.error) errMsg += ` - ${json.error}`;
+      } catch {
+        if (text) errMsg += ` - ${text.slice(0, 100)}`;
+      }
+      return { games: [], error: errMsg };
+    }
+
+    const data: LiveGame[] = await response.json();
+    const games = data.filter(
+      (g) => g.completed && g.scores && g.scores.length >= 2
+    );
+    return { games };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn("Error fetching completed scores:", error);
+    return { games: [], error: `Odds API ${sport}: ${msg}` };
   }
 }
 

@@ -19,7 +19,7 @@ config();
 import { getGamesByDate } from "../lib/sportsdata-api";
 import { 
   getValidatedPredictions,
-  recordOutcomeByGameId,
+  recordOutcomeByMatchup,
   getTrackingStats,
   clearOldPredictions,
 } from "../lib/prediction-tracker";
@@ -65,11 +65,13 @@ async function validateDaily(targetDate?: string) {
     
     console.log(`Found ${completedGames.length} completed games`);
     
-    // Record outcomes for tracked predictions
+    // Record outcomes by matchup - predictions use Odds API IDs, ESPN uses different IDs
     let outcomesRecorded = 0;
     for (const game of completedGames) {
-      const recorded = await recordOutcomeByGameId(
-        String(game.GameID),
+      const recorded = await recordOutcomeByMatchup(
+        game.HomeTeam,
+        game.AwayTeam,
+        game.DateTime || game.Day,
         game.HomeTeamScore!,
         game.AwayTeamScore!
       );

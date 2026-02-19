@@ -3,7 +3,7 @@
  * Calibration Script
  * 
  * Runs coefficient optimization on historical data to find best coefficients.
- * Usage: npx tsx scripts/calibrate-predictions.ts [--seasons 2023,2024] [--sample-size 200]
+ * Usage: npx tsx scripts/calibrate-predictions.ts [--seasons 2023,2024] [--sample-size 200] [--fit-recalibration]
  */
 
 import { config } from "dotenv";
@@ -22,9 +22,11 @@ import {
   DEFAULT_COEFFICIENTS,
   optimizeCoefficients,
   validateCoefficients,
+  validateCoefficientsWithValidations,
   compareCoefficients,
 } from "../lib/prediction-calibration";
 import { logValidationMetrics } from "../lib/score-prediction-validator";
+import { fitFromValidations } from "../lib/recalibration";
 
 async function calibratePredictions() {
   console.log("\n🔧 Prediction Model Calibration\n");
@@ -33,6 +35,7 @@ async function calibratePredictions() {
   const args = process.argv.slice(2);
   let seasonsToUse: number[] = [];
   let sampleSize = 200;
+  let fitRecalibration = false;
   
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--seasons' && i + 1 < args.length) {
@@ -40,6 +43,9 @@ async function calibratePredictions() {
     }
     if (args[i] === '--sample-size' && i + 1 < args.length) {
       sampleSize = parseInt(args[i + 1]);
+    }
+    if (args[i] === '--fit-recalibration') {
+      fitRecalibration = true;
     }
   }
   
@@ -97,6 +103,28 @@ async function calibratePredictions() {
     // Output optimized coefficients
     console.log("\n📋 Optimized Coefficients:");
     console.log(JSON.stringify(optimizedCoefficients, null, 2));
+    
+    // Optional: fit Platt scaling for recalibration (industry best practice)
+    if (fitRecalibration) {
+      console.log("\n📐 Fitting Platt scaling (recalibration)...");
+      const { metrics, validations } = await validateCoefficientsWithValidations(
+        optimizedCoefficients,
+        dataset,
+        sampleSize
+      );
+      const pairs = validations.map((v) => ({
+        homeWinProb: v.homeWinProb,
+        actualWinner: v.actualWinner,
+      }));
+      if (pairs.length >= 20) {
+        const params = fitFromValidations(pairs, true);
+        console.log(`  Platt params: A=${params.A.toFixed(3)}, B=${params.B.toFixed(3)}`);
+        console.log(`  Brier (before recal): ${metrics.calibration.brierScore.toFixed(4)}`);
+        console.log("  Recalibration params set — future predictions will use them.");
+      } else {
+        console.log("  Skipped: need at least 20 validations to fit.");
+      }
+    }
     
     console.log("\n✅ Calibration complete\n");
     

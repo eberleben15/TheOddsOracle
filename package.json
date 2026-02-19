@@ -15,7 +15,9 @@
     "db:studio": "prisma studio",
     "create-admin": "node scripts/create-admin-user.js",
     "postinstall": "node scripts/postinstall-prisma.js",
-    "predictions:clear": "tsx scripts/clear-all-predictions.ts"
+    "predictions:clear": "tsx scripts/clear-all-predictions.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -57,11 +59,13 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.16.0",
+    "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.22",
     "postcss": "^8.5.6",
     "prisma": "^7.1.0",
     "tailwindcss": "^3.4.1",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.18"
   },
   "optionalDependencies": {
     "stripe": "^20.1.0"

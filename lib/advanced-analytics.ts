@@ -11,13 +11,7 @@ import { TeamStats, GameResult } from "@/types";
 import { CalibrationCoefficients, DEFAULT_COEFFICIENTS } from "./prediction-calibration";
 import { SimulationResult } from "./monte-carlo-simulation";
 import type { Sport } from "./sports/sport-config";
-
-/**
- * Use default coefficients
- * Note: In the future, coefficients can be loaded from an API endpoint or environment variables
- * For now, we use the default values defined in prediction-calibration.ts
- */
-const COEFFICIENTS = DEFAULT_COEFFICIENTS;
+import { applyPlattScaling, getRecalibrationParams } from "./recalibration";
 
 /** League constants per sport so predicted scores match sportsbook/ESPN scale (pace, PPG, score bounds). */
 export interface LeagueConstants {
@@ -37,7 +31,7 @@ const CBB_CONSTANTS: LeagueConstants = {
   paceMax: 80,
   scoreMin: 50,
   scoreMax: 105,
-  homeAdvantage: COEFFICIENTS.homeAdvantage,
+  homeAdvantage: DEFAULT_COEFFICIENTS.homeAdvantage,
 };
 
 const NBA_CONSTANTS: LeagueConstants = {
@@ -115,6 +109,20 @@ export interface TeamAnalytics {
   homeAdvantage?: number; // Estimated home court boost
 }
 
+/** Audit trail for prediction reproducibility and debugging */
+export interface PredictionTrace {
+  modelPath: 'fourFactors' | 'fallback';
+  totalScore: number;
+  fourFactorsScore?: number;
+  efficiencyScore?: number;
+  tempoAdjustment?: number;
+  homeAdvantage: number;
+  momentumScore?: number;
+  blended?: boolean; // true when Four Factors + efficiency were blended
+  homeWinProbRaw: number; // Before recalibration
+  recalibrationApplied: boolean;
+}
+
 export interface MatchupPrediction {
   winProbability: {
     away: number;
@@ -127,6 +135,8 @@ export interface MatchupPrediction {
   predictedSpread: number; // Positive = home favored
   confidence: number; // 0-100 prediction confidence
   keyFactors: string[]; // What drives the prediction
+  /** Audit trail: intermediate values for reproducibility */
+  trace?: PredictionTrace;
   valueBets: {
     type: 'moneyline' | 'spread' | 'total';
     recommendation: string;
@@ -139,12 +149,14 @@ export interface MatchupPrediction {
 /**
  * Calculate comprehensive team analytics.
  * @param sport - Optional sport for league constants (CBB vs NBA vs NHL); defaults to CBB.
+ * @param coefficients - Optional calibration coefficients; uses defaults when not provided.
  */
 export function calculateTeamAnalytics(
   stats: TeamStats,
   recentGames: GameResult[],
   isHome: boolean = false,
-  sport?: Sport
+  sport?: Sport,
+  coefficients: CalibrationCoefficients = DEFAULT_COEFFICIENTS
 ): TeamAnalytics {
   const league = getLeagueConstants(sport);
   const LEAGUE_AVG_PPG = league.leagueAvgPpg;
@@ -250,8 +262,8 @@ export function calculateTeamAnalytics(
   
   // Phase 2: Create weighted blend of season average and recent form
   // Use calibrated coefficients (default: 60% recent form, 40% season average)
-  const RECENT_FORM_WEIGHT = COEFFICIENTS.recentFormWeight;
-  const SEASON_AVG_WEIGHT = COEFFICIENTS.seasonAvgWeight;
+  const RECENT_FORM_WEIGHT = coefficients.recentFormWeight;
+  const SEASON_AVG_WEIGHT = coefficients.seasonAvgWeight;
   
   let weightedOffEff = offensiveEfficiency;
   let weightedDefEff = defensiveEfficiency;
@@ -276,15 +288,15 @@ export function calculateTeamAnalytics(
   }
   
   // Calculate SOS (will use cache if available, otherwise falls back to estimation)
-  const sosData = calculateStrengthOfSchedule(stats, recentGames, stats.name);
+  const sosData = calculateStrengthOfSchedule(stats, recentGames, stats.name, coefficients);
   
   // Phase 4: Calculate opponent-adjusted metrics (tier-based)
   const tierAdjustedData = calculateOpponentAdjustedMetrics(stats, recentGames, stats.name);
   
   // Use tier-adjusted metrics if available and different from season average
   // Blend using calibrated coefficients (default: 70% tier-adjusted, 30% weighted)
-  const FINAL_OFF_EFF = weightedOffEff * COEFFICIENTS.weightedEffWeight + tierAdjustedData.tierAdjustedOffEff * COEFFICIENTS.tierAdjustedWeight;
-  const FINAL_DEF_EFF = weightedDefEff * COEFFICIENTS.weightedEffWeight + tierAdjustedData.tierAdjustedDefEff * COEFFICIENTS.tierAdjustedWeight;
+  const FINAL_OFF_EFF = weightedOffEff * coefficients.weightedEffWeight + tierAdjustedData.tierAdjustedOffEff * coefficients.tierAdjustedWeight;
+  const FINAL_DEF_EFF = weightedDefEff * coefficients.weightedEffWeight + tierAdjustedData.tierAdjustedDefEff * coefficients.tierAdjustedWeight;
   
   return {
     offensiveRating,
@@ -553,7 +565,8 @@ function calculateOpponentAdjustedMetrics(
 function calculateStrengthOfSchedule(
   teamStats: TeamStats,
   recentGames: GameResult[],
-  teamName: string
+  teamName: string,
+  coefficients: CalibrationCoefficients = DEFAULT_COEFFICIENTS
 ): {
   strengthOfSchedule: number;
   adjustedOffensiveEfficiency: number;
@@ -658,7 +671,7 @@ function calculateStrengthOfSchedule(
     const defensiveSOS = avgOppOffEff - LEAGUE_AVG_OFF_EFF;
     const strengthOfSchedule = (offensiveSOS + defensiveSOS) / 2;
     
-    const SOS_ADJUSTMENT_FACTOR = COEFFICIENTS.sosAdjustmentFactor;
+    const SOS_ADJUSTMENT_FACTOR = coefficients.sosAdjustmentFactor;
     const adjustedOffensiveEfficiency = teamOffEff + (offensiveSOS * SOS_ADJUSTMENT_FACTOR);
     const adjustedDefensiveEfficiency = teamDefEff + (defensiveSOS * SOS_ADJUSTMENT_FACTOR);
     
@@ -684,13 +697,13 @@ function calculateStrengthOfSchedule(
   const avgOppDefEff = weightedOppDefEff / totalWeight;
   
   // SOS = how much better/worse opponents are than average
-  const offensiveSOS = avgOppDefEff - LEAGUE_AVG_DEF_EFF;
-  const defensiveSOS = avgOppOffEff - LEAGUE_AVG_OFF_EFF;
-  const strengthOfSchedule = (offensiveSOS + defensiveSOS) / 2;
-  
-  // Adjust efficiency ratings based on SOS
-  // Adjustment factor using calibrated coefficients (default: 0.3 means 30% of SOS difference is adjusted)
-  const SOS_ADJUSTMENT_FACTOR = COEFFICIENTS.sosAdjustmentFactor;
+    const offensiveSOS = avgOppDefEff - LEAGUE_AVG_DEF_EFF;
+    const defensiveSOS = avgOppOffEff - LEAGUE_AVG_OFF_EFF;
+    const strengthOfSchedule = (offensiveSOS + defensiveSOS) / 2;
+    
+    // Adjust efficiency ratings based on SOS
+    // Adjustment factor using calibrated coefficients (default: 0.3 means 30% of SOS difference is adjusted)
+    const SOS_ADJUSTMENT_FACTOR = coefficients.sosAdjustmentFactor;
   
   const adjustedOffensiveEfficiency = teamOffEff + (offensiveSOS * SOS_ADJUSTMENT_FACTOR);
   const adjustedDefensiveEfficiency = teamDefEff + (defensiveSOS * SOS_ADJUSTMENT_FACTOR);
@@ -715,15 +728,27 @@ export function predictMatchup(
   homeAnalytics: TeamAnalytics,
   awayStats: TeamStats,
   homeStats: TeamStats,
-  sport?: Sport
+  sport?: Sport,
+  coefficients: CalibrationCoefficients = DEFAULT_COEFFICIENTS
 ): MatchupPrediction {
   const league = getLeagueConstants(sport);
+
+  // Efficiency-based score (SOS-adjusted, schedule-aware) — always compute for disagreement check
+  const efficiencyScore =
+    (homeAnalytics.netRating - awayAnalytics.netRating) * 0.04 +
+    ((homeAnalytics.offensiveRating - awayAnalytics.defensiveRating) -
+      (awayAnalytics.offensiveRating - homeAnalytics.defensiveRating)) * 0.03;
 
   // Use Four Factors if available (from SportsData.io)
   const hasFourFactors = awayStats.effectiveFieldGoalPercentage && homeStats.effectiveFieldGoalPercentage;
 
   let totalScore = 0;
   let keyFactors: string[] = [];
+  let traceData: Omit<PredictionTrace, 'homeWinProbRaw' | 'recalibrationApplied'> = {
+    modelPath: hasFourFactors ? 'fourFactors' : 'fallback',
+    totalScore: 0,
+    homeAdvantage: coefficients.homeAdvantage,
+  };
   
   if (hasFourFactors) {
     // FOUR FACTORS MODEL (Industry Standard)
@@ -759,13 +784,49 @@ export function predictMatchup(
       tempoAdjustment = (efficiencyDiff / 100) * (expectedPace / 70) * 3; // Scale by pace
     }
     
-    // Home court advantage using calibrated coefficient (default: 3.5 points)
-    const homeAdvantage = COEFFICIENTS.homeAdvantage;
+    // Home court advantage: scale down when Four Factors heavily favor the away team.
+    // A fixed ~3.5 points shouldn't flip a huge talent gap (e.g. Troy vs UL Monroe).
+    const baseHomeAdv = coefficients.homeAdvantage;
+    let homeAdvantage = baseHomeAdv;
+    if (fourFactorsScore < -3) {
+      // Away team strongly favored by stats: cap home advantage to ~1.5 so it can't flip the result
+      const scale = Math.max(0.3, 1 + fourFactorsScore / 6); // e.g. -6 -> 0, -3 -> 0.5
+      homeAdvantage = baseHomeAdv * Math.max(0.4, scale);
+    }
     
     // Momentum (smaller weight with Four Factors)
     const momentumScore = ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 2;
     
-    totalScore = fourFactorsScore + tempoAdjustment + homeAdvantage + momentumScore;
+    let fourFactorsTotal = fourFactorsScore + tempoAdjustment + homeAdvantage + momentumScore;
+
+    // CRITICAL: Four Factors use raw stats (no SOS adjustment). When efficiency disagrees,
+    // favor the schedule-aware model. efficiencyScore scale: net rating diff * 0.04 ≈ 0.4 per 10 pts.
+    const STRONG_DISAGREEMENT = 0.8; // ~20 pt net rating gap triggers (was 4 = 100+ pt, never triggered)
+    const fourFactorsFavorsHome = fourFactorsTotal > 0;
+    const efficiencyFavorsAway = efficiencyScore < -0.5;
+    const efficiencyFavorsHome = efficiencyScore > 0.5;
+    let blended = false;
+    if (
+      (fourFactorsFavorsHome && efficiencyFavorsAway && Math.abs(efficiencyScore) > STRONG_DISAGREEMENT) ||
+      (!fourFactorsFavorsHome && efficiencyFavorsHome && Math.abs(efficiencyScore) > STRONG_DISAGREEMENT)
+    ) {
+      // Blend 70% efficiency (schedule-aware) + 30% Four Factors when they disagree
+      totalScore = efficiencyScore * 0.7 + fourFactorsTotal * 0.3;
+      blended = true;
+      keyFactors.push('Schedule-adjusted ratings override raw Four Factors (large disagreement)');
+    } else {
+      totalScore = fourFactorsTotal;
+    }
+    traceData = {
+      modelPath: 'fourFactors',
+      totalScore,
+      fourFactorsScore,
+      efficiencyScore,
+      tempoAdjustment,
+      homeAdvantage,
+      momentumScore,
+      blended,
+    };
     
     // Identify key factors
     if (Math.abs(efgDiff) > 3) {
@@ -790,9 +851,14 @@ export function predictMatchup(
       matchup: ((homeAnalytics.offensiveRating - awayAnalytics.defensiveRating) -
                 (awayAnalytics.offensiveRating - homeAnalytics.defensiveRating)) * 0.03,
       momentum: ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 1.5,
-      home: (homeAnalytics.homeAdvantage ?? COEFFICIENTS.homeAdvantage) * 0.35,
+      home: (homeAnalytics.homeAdvantage ?? coefficients.homeAdvantage) * 0.35,
     };
     totalScore = Object.values(factors).reduce((a, b) => a + b, 0);
+    traceData = {
+      modelPath: 'fallback',
+      totalScore,
+      homeAdvantage: factors.home,
+    };
     
     // Identify key factors (thresholds match scaled factors)
     if (Math.abs(factors.netRating) > 0.5) {
@@ -811,6 +877,13 @@ export function predictMatchup(
   // Win probability from Four Factors / fallback (primary "who wins" signal)
   let homeWinProb = 1 / (1 + Math.exp(-totalScore / 8));
   homeWinProb = Math.max(0.02, Math.min(0.98, homeWinProb));
+  const homeWinProbRaw = homeWinProb;
+  const recalParams = getRecalibrationParams();
+  const recalibrationApplied = recalParams != null && (recalParams.A !== 1 || recalParams.B !== 0);
+  if (recalibrationApplied && recalParams != null) {
+    homeWinProb = applyPlattScaling(homeWinProb, recalParams);
+    homeWinProb = Math.max(0.02, Math.min(0.98, homeWinProb));
+  }
   const awayWinProb = 1 - homeWinProb;
 
   // Predict scores: tempo-free gives expected total; margin is set from win probability (unified model)
@@ -875,23 +948,23 @@ export function predictMatchup(
     
     if (opponentDefPercentile < 10) {
       // Elite defense - stronger impact
-      percentileMultiplier = COEFFICIENTS.percentileMultipliers.elite;
+      percentileMultiplier = coefficients.percentileMultipliers.elite;
     } else if (opponentDefPercentile < 25) {
       // Good defense
-      percentileMultiplier = COEFFICIENTS.percentileMultipliers.good;
+      percentileMultiplier = coefficients.percentileMultipliers.good;
     } else if (opponentDefPercentile < 75) {
       // Average defense
       percentileMultiplier = 1.0;
     } else if (opponentDefPercentile < 90) {
       // Below average defense
-      percentileMultiplier = COEFFICIENTS.percentileMultipliers.belowAverage;
+      percentileMultiplier = coefficients.percentileMultipliers.belowAverage;
     } else {
       // Poor defense - weaker impact
-      percentileMultiplier = COEFFICIENTS.percentileMultipliers.poor;
+      percentileMultiplier = coefficients.percentileMultipliers.poor;
     }
     
     // Base adjustment factor (reduced from 0.15 to account for percentile multiplier)
-    const baseAdjustmentFactor = COEFFICIENTS.baseDefensiveAdjustmentFactor;
+    const baseAdjustmentFactor = coefficients.baseDefensiveAdjustmentFactor;
     
     // Calculate adjustment: (rating diff / 100) * factor * multiplier
     const adjustment = (ratingDiff / 100) * baseAdjustmentFactor * percentileMultiplier;
@@ -1023,6 +1096,11 @@ export function predictMatchup(
     predictedSpread: homeFinal - awayFinal,
     confidence,
     keyFactors,
+    trace: {
+      ...traceData,
+      homeWinProbRaw,
+      recalibrationApplied,
+    },
     valueBets: [], // To be populated by odds comparison
   };
 }

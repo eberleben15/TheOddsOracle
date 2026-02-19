@@ -7,8 +7,9 @@
 
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-utils";
-import { generatePerformanceReport, printPerformanceReport } from "@/lib/validation-dashboard";
+import { generatePerformanceReport } from "@/lib/validation-dashboard";
 import { getTrackingStats } from "@/lib/prediction-tracker";
+import { AdminPredictionsClient } from "./AdminPredictionsClient";
 
 export default async function AdminPredictionsPage() {
   // Check admin access
@@ -25,6 +26,8 @@ export default async function AdminPredictionsPage() {
     <div className="container mx-auto p-6 max-w-7xl">
       <h1 className="text-3xl font-bold mb-6">Admin: Prediction Performance Dashboard</h1>
       
+      <AdminPredictionsClient />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-2">Total Predictions</h3>

@@ -101,10 +101,15 @@ export function FavorableBets({ analysis }: FavorableBetsProps) {
                     </div>
                   )}
                   <p className="text-sm text-text-body">{bet.reason}</p>
+                  {bet.marketDiscrepancyWarning && (
+                    <p className="text-sm text-amber-600 mt-2 font-medium">
+                      ⚠️ {bet.marketDiscrepancyWarning}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right ml-4">
                   <Chip size="sm" className={getValueRatingColor(bet.valueRating)}>
-                    {bet.confidence}% Confidence
+                    {Math.round(bet.confidence)}% Confidence
                   </Chip>
                 </div>
               </div>

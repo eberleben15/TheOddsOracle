@@ -29,6 +29,8 @@ export interface FavorableBet {
   confidence: number; // 0-100 confidence in this bet
   reason: string;
   valueRating: 'high' | 'medium' | 'low'; // Value rating
+  /** Set when model strongly disagrees with market (e.g. heavy underdog favored); confidence is downweighted */
+  marketDiscrepancyWarning?: string;
 }
 
 export interface FavorableBetAnalysis {
@@ -69,8 +71,9 @@ export function analyzeFavorableBets(
 
           if (edge > 0.02) { // At least 2% edge
             const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
-            const confidence = calculateBetConfidence(edge, prediction.confidence);
+            let confidence = calculateBetConfidence(edge, prediction.confidence);
             const valueRating = getValueRating(edge, expectedValue);
+            const sanity = applyMarketDiscrepancySanity(impliedProb, ourProb, edge, confidence, (c) => { confidence = c; });
 
             favorableBets.push({
               type: 'moneyline',
@@ -90,6 +93,7 @@ export function analyzeFavorableBets(
               confidence: confidence,
               reason: generateBetReason('moneyline', 'away', edge, awayTeamStats, homeTeamStats, prediction),
               valueRating: valueRating,
+              marketDiscrepancyWarning: sanity,
             });
           }
         } else {
@@ -112,8 +116,9 @@ export function analyzeFavorableBets(
 
           if (edge > 0.02) { // At least 2% edge
             const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
-            const confidence = calculateBetConfidence(edge, prediction.confidence);
+            let confidence = calculateBetConfidence(edge, prediction.confidence);
             const valueRating = getValueRating(edge, expectedValue);
+            const sanity = applyMarketDiscrepancySanity(impliedProb, ourProb, edge, confidence, (c) => { confidence = c; });
 
             favorableBets.push({
               type: 'moneyline',
@@ -133,6 +138,7 @@ export function analyzeFavorableBets(
               confidence: confidence,
               reason: generateBetReason('moneyline', 'home', edge, awayTeamStats, homeTeamStats, prediction),
               valueRating: valueRating,
+              marketDiscrepancyWarning: sanity,
             });
           }
         } else {
@@ -290,25 +296,28 @@ function consolidateFavorableBets(bets: FavorableBet[]): FavorableBet[] {
     const bookmakers = Array.from(new Set(group.map(b => b.bookmaker)));
 
     // Find the best price (highest decimal odds = best for the bettor)
-    const bestPriceBet = group.reduce((best, current) => 
+    const bestPriceBet = group.reduce((best, current) =>
       current.currentOdds.decimal > best.currentOdds.decimal ? current : best
     );
 
-    // Calculate average edge and confidence for the group
-    const avgEdge = group.reduce((sum, b) => sum + b.edge, 0) / group.length;
-    const avgConfidence = group.reduce((sum, b) => sum + b.confidence, 0) / group.length;
+    // Edge must match the displayed odds: our prob - implied prob (from best-price book)
+    const edgeFromBestPrice =
+      bestPriceBet.ourPrediction.probability - bestPriceBet.currentOdds.impliedProbability;
 
-    // Create consolidated bet using best price but average edge/confidence
+    // Use best-price bet's confidence so odds, edge, and confidence are internally consistent
+    // Preserve marketDiscrepancyWarning from any bet in the group
+    const warningBet = group.find(b => b.marketDiscrepancyWarning) ?? baseBet;
     const consolidatedBet: FavorableBet = {
       ...baseBet,
-      currentOdds: bestPriceBet.currentOdds, // Use best price available
-      bookmaker: bookmakers.length === 1 
-        ? bookmakers[0] 
+      currentOdds: bestPriceBet.currentOdds,
+      ourPrediction: bestPriceBet.ourPrediction,
+      edge: edgeFromBestPrice,
+      confidence: bestPriceBet.confidence,
+      bookmaker: bookmakers.length === 1
+        ? bookmakers[0]
         : `${bookmakers.length} books`,
-      edge: avgEdge,
-      confidence: avgConfidence,
-      // Store all bookmakers
       bookmakers: bookmakers.length > 1 ? bookmakers : undefined,
+      marketDiscrepancyWarning: warningBet.marketDiscrepancyWarning,
     };
 
     consolidated.push(consolidatedBet);
@@ -318,7 +327,10 @@ function consolidateFavorableBets(bets: FavorableBet[]): FavorableBet[] {
 }
 
 /**
- * Calculate probability of covering a spread
+ * Calculate probability of covering a spread.
+ * Aligned with moneyline: uses predictedSpread (derived from win prob) so spread and ML never contradict.
+ * Spread convention: point is the line (e.g. away -17 => point=-17, home +17 => point=+17).
+ * To cover: away -17 needs (away-home) > 17, so threshold = -point.
  */
 function calculateSpreadCoverProbability(
   predictedSpread: number,
@@ -327,31 +339,48 @@ function calculateSpreadCoverProbability(
   homeTeamStats: TeamStats,
   isHome: boolean = false
 ): number {
-  // If betting on away team spread
+  // Threshold to cover: spreadPoint -17 means away needs margin > 17, so marginNeeded = -spreadPoint
+  const marginNeeded = -spreadPoint;
+  
   if (!isHome) {
-    // Away team needs to cover: awayScore - homeScore > spreadPoint
-    // Our prediction: predictedSpread (positive = home favored, negative = away favored)
-    // If predictedSpread is negative, away is favored
-    const marginNeeded = spreadPoint;
-    const predictedMargin = -predictedSpread; // Convert to away team perspective
-    
-    // Use a normal distribution approximation
-    // Standard deviation based on team consistency
-    const stdDev = 10; // Typical game margin std dev
-    const zScore = (predictedMargin - marginNeeded) / stdDev;
-    
-    // Probability of covering (normal CDF approximation)
-    return Math.max(0.1, Math.min(0.9, 0.5 + 0.5 * Math.tanh(zScore)));
-  } else {
-    // Home team spread
-    const marginNeeded = spreadPoint;
-    const predictedMargin = predictedSpread; // Home team perspective
-    
+    // Away perspective: predictedMargin = away - home = -predictedSpread
+    const predictedMargin = -predictedSpread;
     const stdDev = 10;
     const zScore = (predictedMargin - marginNeeded) / stdDev;
-    
+    return Math.max(0.1, Math.min(0.9, 0.5 + 0.5 * Math.tanh(zScore)));
+  } else {
+    // Home perspective: predictedMargin = home - away = predictedSpread
+    const predictedMargin = predictedSpread;
+    const stdDev = 10;
+    const zScore = (predictedMargin - marginNeeded) / stdDev;
     return Math.max(0.1, Math.min(0.9, 0.5 + 0.5 * Math.tanh(zScore)));
   }
+}
+
+/**
+ * Sanity gate: when model strongly disagrees with market (e.g. heavy underdog favored),
+ * downweight confidence and return a warning. Prevents presenting contrarian picks as high-confidence.
+ */
+function applyMarketDiscrepancySanity(
+  impliedProb: number,
+  ourProb: number,
+  edge: number,
+  currentConfidence: number,
+  setConfidence: (c: number) => void
+): string | undefined {
+  const IMPLIED_UNDERDOG_THRESHOLD = 0.15; // Market says <15% chance
+  const LARGE_EDGE_THRESHOLD = 0.25;       // We say 25%+ more than market
+
+  if (impliedProb < IMPLIED_UNDERDOG_THRESHOLD && edge > LARGE_EDGE_THRESHOLD) {
+    // Heavy underdog: market <15%, we disagree by 25%+. Downweight confidence.
+    setConfidence(Math.max(40, Math.round(currentConfidence * 0.6)));
+    return 'Large discrepancy vs market — consider lower stakes';
+  }
+  if (impliedProb < 0.20 && edge > 0.20) {
+    setConfidence(Math.max(50, Math.round(currentConfidence * 0.75)));
+    return undefined; // No visible warning for moderate case
+  }
+  return undefined;
 }
 
 /**

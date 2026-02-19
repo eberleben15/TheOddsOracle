@@ -13,23 +13,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUpcomingGames } from "@/lib/odds-api";
 import { getTeamSeasonStats, findTeamByName } from "@/lib/sportsdata-api";
+import { loadRecalibrationFromDb } from "@/lib/prediction-feedback-batch";
 import { calculateTeamAnalytics, predictMatchup } from "@/lib/advanced-analytics";
 import { trackPrediction } from "@/lib/prediction-tracker";
 import { getSportFromGame } from "@/lib/sports/sport-detection";
-import { prisma } from "@/lib/prisma";
+import { logJobExecution } from "@/lib/job-logger";
 
-// Verify request is from cron service (optional, for security)
 function verifyCronRequest(request: NextRequest): boolean {
-  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  
-  // If CRON_SECRET is set, require it
-  if (cronSecret) {
-    return authHeader === `Bearer ${cronSecret}`;
+  if (!cronSecret) {
+    return false; // CRON_SECRET must be set
   }
-  
-  // Otherwise, allow (not recommended for production)
-  return true;
+  const authHeader = request.headers.get("authorization");
+  return authHeader === `Bearer ${cronSecret}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -38,15 +34,20 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Verify this is a legitimate cron request (optional)
   if (!verifyCronRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized. Set CRON_SECRET and send Bearer token." },
+      { status: 401 }
+    );
   }
 
   const startTime = Date.now();
   console.log("\n🚀 Starting prediction generation job...\n");
 
   try {
+    // Load trained recalibration params (if any) for this process
+    await loadRecalibrationFromDb();
+
     // Step 1: Fetch upcoming games (next 5 days)
     console.log("📅 Fetching upcoming games...");
     const games = await getUpcomingGames("basketball_ncaab", "us", "h2h,spreads");
@@ -63,6 +64,13 @@ export async function POST(request: NextRequest) {
     console.log(`Found ${upcomingGames.length} upcoming games\n`);
 
     if (upcomingGames.length === 0) {
+      await logJobExecution({
+        jobName: "generate-predictions",
+        status: "success",
+        startedAt: new Date(startTime),
+        completedAt: new Date(),
+        metadata: { totalGames: 0, successCount: 0, errorCount: 0 },
+      });
       return NextResponse.json({
         success: true,
         message: "No upcoming games found",
@@ -125,7 +133,7 @@ export async function POST(request: NextRequest) {
           sport
         );
 
-        // Track prediction with full payload for feedback loop
+        // Track prediction with full payload for feedback loop (including trace for training)
         await trackPrediction(
           game.id,
           game.commence_time,
@@ -136,6 +144,7 @@ export async function POST(request: NextRequest) {
             sport: game.sport_key ?? "basketball_ncaab",
             keyFactors: prediction.keyFactors?.length ? prediction.keyFactors : undefined,
             valueBets: prediction.valueBets?.length ? prediction.valueBets : undefined,
+            predictionTrace: prediction.trace ?? undefined,
           }
         );
 
@@ -154,20 +163,13 @@ export async function POST(request: NextRequest) {
 
     const duration = Date.now() - startTime;
 
-    // Log job execution to database (optional)
-    try {
-      await prisma.$executeRaw`
-        INSERT INTO oddsoracle.job_executions (id, "jobName", status, "startedAt", "completedAt", metadata)
-        VALUES (gen_random_uuid()::text, 'generate-predictions', 'success', ${new Date(startTime)}, ${new Date()}, ${JSON.stringify({
-          totalGames: upcomingGames.length,
-          successCount,
-          errorCount,
-        })}::jsonb)
-      `;
-    } catch (dbError) {
-      // Job execution log table might not exist yet, that's okay
-      console.warn("Could not log job execution:", dbError);
-    }
+    await logJobExecution({
+      jobName: "generate-predictions",
+      status: "success",
+      startedAt: new Date(startTime),
+      completedAt: new Date(),
+      metadata: { totalGames: upcomingGames.length, successCount, errorCount },
+    });
 
     console.log(`\n✅ Job complete: ${successCount} predictions generated, ${errorCount} errors in ${duration}ms\n`);
 
@@ -181,6 +183,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("❌ Job failed:", error);
+    await logJobExecution({
+      jobName: "generate-predictions",
+      status: "failed",
+      startedAt: new Date(startTime),
+      completedAt: new Date(),
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       {
         success: false,

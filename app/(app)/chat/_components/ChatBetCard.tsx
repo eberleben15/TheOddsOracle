@@ -76,7 +76,7 @@ export function ChatBetCard({ bet }: ChatBetCardProps) {
                 variant="flat"
                 startContent={<FaStar className="text-xs" />}
               >
-                {bet.confidence}% Confidence
+                {Math.round(bet.confidence)}% Confidence
               </Chip>
             )}
           </div>

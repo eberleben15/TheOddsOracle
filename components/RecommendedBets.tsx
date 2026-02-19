@@ -113,7 +113,7 @@ export function RecommendedBets({ bets }: RecommendedBetsProps) {
                 </div>
                 <div className="text-right ml-4">
                   <Chip size="md" className="bg-gray-100 text-gray-800 font-semibold">
-                    {bet.confidence}% Confidence
+                    {Math.round(bet.confidence)}% Confidence
                   </Chip>
                 </div>
               </div>

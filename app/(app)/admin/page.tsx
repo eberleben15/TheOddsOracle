@@ -78,7 +78,7 @@ export default async function AdminOverviewPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {cards.map((card) => (
           <Link
-            key={card.href}
+            key={card.title}
             href={card.href}
             className="flex items-start gap-4 p-5 rounded-xl border border-[var(--border-color)] bg-white hover:border-gray-300 hover:shadow-sm transition-all group"
           >

@@ -5,13 +5,20 @@
  * and identifying trends, biases, and areas for improvement.
  */
 
-import { TrackedPrediction, getValidatedPredictions, getTrackingStats } from "./prediction-tracker";
+import { TrackedPrediction, getValidatedPredictions, getTrackingStats, StoredFavorableBet } from "./prediction-tracker";
 import { ValidationMetrics, calculateValidationMetrics, PredictionValidation, validateGamePrediction, logValidationMetrics } from "./score-prediction-validator";
 
 export interface PerformanceTrend {
   period: string; // e.g., "2024-01", "Last 7 days"
   metrics: ValidationMetrics;
   gameCount: number;
+}
+
+export interface FavorableBetPerformance {
+  totalRecommendations: number;
+  hitCount: number;
+  hitRate: number;
+  byType: { type: string; hit: number; total: number; rate: number }[];
 }
 
 export interface PerformanceReport {
@@ -24,6 +31,8 @@ export interface PerformanceReport {
     awayTeamBias?: number;
     scoreBias?: number; // Systematic over/under prediction for total scores
   };
+  favorableBetPerformance?: FavorableBetPerformance;
+  bySport?: Record<string, ValidationMetrics>;
 }
 
 /**
@@ -169,6 +178,12 @@ export async function generatePerformanceReport(days: number = 90): Promise<Perf
   // Detect biases
   const biases = detectBiases(validations);
   
+  // Favorable bet performance (when favorableBets were recorded)
+  const favorableBetPerformance = computeFavorableBetPerformance(recentPredictions);
+  
+  // Per-sport metrics
+  const bySport = computePerSportMetrics(recentPredictions);
+  
   return {
     overall,
     trends,
@@ -179,7 +194,108 @@ export async function generatePerformanceReport(days: number = 90): Promise<Perf
     },
     monthly,
     biases,
+    favorableBetPerformance,
+    bySport: Object.keys(bySport).length > 0 ? bySport : undefined,
   };
+}
+
+/**
+ * Compute favorable bet hit rate from validated predictions with favorableBets
+ */
+function computeFavorableBetPerformance(predictions: TrackedPrediction[]): FavorableBetPerformance | undefined {
+  const withBets = predictions.filter(
+    p => p.actualOutcome && Array.isArray(p.favorableBets) && p.favorableBets.length > 0
+  );
+  if (withBets.length === 0) return undefined;
+  
+  let totalHit = 0;
+  let totalRecs = 0;
+  const byType: Record<string, { hit: number; total: number }> = {};
+  
+  for (const p of withBets) {
+    const { homeScore, awayScore, winner } = p.actualOutcome!;
+    const actualSpread = homeScore - awayScore;
+    const actualTotal = homeScore + awayScore;
+    
+    for (const bet of p.favorableBets!) {
+      const won = didFavorableBetWin(bet, winner, actualSpread, actualTotal);
+      totalRecs++;
+      if (won) totalHit++;
+      
+      const key = bet.type;
+      if (!byType[key]) byType[key] = { hit: 0, total: 0 };
+      byType[key].total++;
+      if (won) byType[key].hit++;
+    }
+  }
+  
+  return {
+    totalRecommendations: totalRecs,
+    hitCount: totalHit,
+    hitRate: totalRecs > 0 ? (totalHit / totalRecs) * 100 : 0,
+    byType: Object.entries(byType).map(([type, { hit, total }]) => ({
+      type,
+      hit,
+      total,
+      rate: total > 0 ? (hit / total) * 100 : 0,
+    })),
+  };
+}
+
+function didFavorableBetWin(
+  bet: StoredFavorableBet,
+  actualWinner: "home" | "away",
+  actualSpread: number,
+  actualTotal: number
+): boolean {
+  if (bet.type === "moneyline") {
+    const betHome = bet.team === "home";
+    return (betHome && actualWinner === "home") || (!betHome && actualWinner === "away");
+  }
+  if (bet.type === "spread") {
+    const betHome = bet.team === "home";
+    const lineMatch = bet.recommendation.match(/(-?\d+\.?\d*)/);
+    const line = lineMatch ? parseFloat(lineMatch[1]) : 0;
+    if (betHome) {
+      return actualSpread + line > 0;
+    } else {
+      return -actualSpread - line > 0;
+    }
+  }
+  if (bet.type === "total") {
+    const over = bet.recommendation.toLowerCase().includes("over");
+    const lineMatch = bet.recommendation.match(/(\d+\.?\d*)/);
+    const line = lineMatch ? parseFloat(lineMatch[1]) : actualTotal;
+    return over ? actualTotal > line : actualTotal < line;
+  }
+  return false;
+}
+
+/**
+ * Compute validation metrics per sport
+ */
+function computePerSportMetrics(predictions: TrackedPrediction[]): Record<string, ValidationMetrics> {
+  const bySport: Record<string, PredictionValidation[]> = {};
+  for (const p of predictions) {
+    if (!p.actualOutcome) continue;
+    const sport = p.sport || "unknown";
+    if (!bySport[sport]) bySport[sport] = [];
+    bySport[sport].push(
+      validateGamePrediction(p.prediction, {
+        homeScore: p.actualOutcome.homeScore,
+        awayScore: p.actualOutcome.awayScore,
+        homeTeam: p.homeTeam,
+        awayTeam: p.awayTeam,
+        gameId: parseInt(p.gameId),
+        date: p.date,
+      })
+    );
+  }
+  const result: Record<string, ValidationMetrics> = {};
+  for (const [sport, validations] of Object.entries(bySport)) {
+    if (validations.length > 0) result[sport] = calculateValidationMetrics(validations);
+  }
+  return result;
 }
 
 /**
@@ -257,6 +373,22 @@ export async function printPerformanceReport(report: PerformanceReport): Promise
     }
     if (report.biases.scoreBias) {
       console.log(`  Total Score: ${report.biases.scoreBias > 0 ? '+' : ''}${report.biases.scoreBias.toFixed(2)} points (${report.biases.scoreBias > 0 ? 'over' : 'under'}predicting)`);
+    }
+  }
+  
+  if (report.favorableBetPerformance) {
+    const fb = report.favorableBetPerformance;
+    console.log("\n📈 Favorable Bet Performance:");
+    console.log(`  Total: ${fb.hitCount}/${fb.totalRecommendations} (${fb.hitRate.toFixed(1)}% hit rate)`);
+    for (const t of fb.byType) {
+      console.log(`  ${t.type}: ${t.hit}/${t.total} (${t.rate.toFixed(1)}%)`);
+    }
+  }
+  
+  if (report.bySport && Object.keys(report.bySport).length > 0) {
+    console.log("\n🏀 Performance by Sport:");
+    for (const [sport, metrics] of Object.entries(report.bySport)) {
+      console.log(`  ${sport}: ${metrics.accuracy.winner.toFixed(1)}% winner, MAE ${metrics.meanAbsoluteError.total.toFixed(2)} (n=${metrics.gameCount})`);
     }
   }
   

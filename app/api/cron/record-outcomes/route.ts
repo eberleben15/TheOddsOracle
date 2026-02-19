@@ -1,26 +1,23 @@
 /**
- * Cron Job: Record Game Outcomes
- * 
- * Scheduled to run daily at 2:00 AM (after games complete)
- * Matches completed games to predictions and records actual scores
- * 
- * This uses the existing validate-daily.ts logic
+ * Cron Job: Record Game Outcomes + Train Model
+ *
+ * Batch job that:
+ * 1. Checks ALL unvalidated predictions whose game date has passed
+ * 2. Fetches scores for each date and records outcomes
+ * 3. Trains model (Platt scaling) from validated predictions and persists params
+ *
+ * Scheduled to run daily at 2:00 AM (after games complete).
+ * Can also be triggered manually via POST /api/admin/predictions/batch-sync
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getGamesByDate } from "@/lib/sportsdata-api";
-import { recordOutcomeByGameId, getTrackingStats } from "@/lib/prediction-tracker";
-import { prisma } from "@/lib/prisma";
+import { runBatchSync } from "@/lib/prediction-feedback-batch";
+import { logJobExecution } from "@/lib/job-logger";
 
 function verifyCronRequest(request: NextRequest): boolean {
-  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  
-  if (cronSecret) {
-    return authHeader === `Bearer ${cronSecret}`;
-  }
-  
-  return true;
+  if (!cronSecret) return false;
+  return request.headers.get("authorization") === `Bearer ${cronSecret}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -29,73 +26,46 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!verifyCronRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized. Set CRON_SECRET and send Bearer token." },
+      { status: 401 }
+    );
   }
 
   const startTime = Date.now();
-  console.log("\n📊 Starting outcome recording job...\n");
+  console.log("\n📊 Starting batch outcome recording + training job...\n");
 
-  try {
-    // Get yesterday's date (games that completed)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateStr = yesterday.toISOString().split('T')[0];
+  const result = await runBatchSync();
 
-    console.log(`Checking games from ${dateStr}...`);
+  await logJobExecution({
+    jobName: "record-outcomes",
+    status: result.success ? "success" : "failed",
+    startedAt: new Date(startTime),
+    completedAt: new Date(),
+    error: result.errors?.length ? result.errors.join("; ") : undefined,
+    metadata: {
+      unvalidatedChecked: result.unvalidatedChecked,
+      outcomesRecorded: result.outcomesRecorded,
+      trainingRan: result.trainingRan,
+      validatedCount: result.validatedCount,
+    },
+  });
 
-    // Get completed games
-    const games = await getGamesByDate(dateStr);
-    const completedGames = games.filter(
-      g => g.IsClosed && g.HomeTeamScore !== null && g.AwayTeamScore !== null
-    );
+  console.log(
+    `✅ Batch complete: ${result.outcomesRecorded} outcomes recorded, ` +
+      `training ${result.trainingRan ? "ran" : "skipped"} (${result.validatedCount} validated)\n`
+  );
 
-    if (completedGames.length === 0) {
-      console.log(`No completed games found for ${dateStr}`);
-      return NextResponse.json({
-        success: true,
-        message: "No completed games found",
-        outcomesRecorded: 0,
-        duration: Date.now() - startTime,
-      });
-    }
-
-    console.log(`Found ${completedGames.length} completed games\n`);
-
-    // Record outcomes for tracked predictions
-    let outcomesRecorded = 0;
-    for (const game of completedGames) {
-      const recorded = await recordOutcomeByGameId(
-        String(game.GameID),
-        game.HomeTeamScore!,
-        game.AwayTeamScore!
-      );
-      if (recorded) {
-        outcomesRecorded++;
-      }
-    }
-
-    const stats = await getTrackingStats();
-    const duration = Date.now() - startTime;
-
-    console.log(`✅ Recorded ${outcomesRecorded} outcomes (${stats.validated} total validated predictions)\n`);
-
-    return NextResponse.json({
-      success: true,
-      outcomesRecorded,
-      totalCompletedGames: completedGames.length,
-      totalValidatedPredictions: stats.validated,
-      duration,
-    });
-  } catch (error) {
-    console.error("❌ Job failed:", error);
+  if (!result.success && result.errors?.length) {
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        duration: Date.now() - startTime,
-      },
+      { success: result.success, ...result, duration: result.duration },
       { status: 500 }
     );
   }
-}
 
+  return NextResponse.json({
+    success: result.success,
+    ...result,
+    duration: result.duration,
+  });
+}

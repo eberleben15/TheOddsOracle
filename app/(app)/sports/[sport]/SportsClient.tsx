@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { StatusCard } from "@/components/StatusCard";
 import { GamesSection } from "@/app/(app)/dashboard/_components/GamesSection";
+import { SportsRecommendedBetsCollapsible } from "./_components/SportsRecommendedBetsCollapsible";
 import { OddsGame, LiveGame } from "@/types";
 import { Sport } from "@/lib/sports/sport-config";
 
@@ -34,6 +35,8 @@ export function SportsClient({ liveGames, upcomingGames, error, sport, teamLogos
           ← Dashboard
         </Link>
       </div>
+
+      <SportsRecommendedBetsCollapsible sport={sport} />
 
       <GamesSection
         liveGames={liveGames}

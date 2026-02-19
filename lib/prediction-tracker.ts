@@ -6,7 +6,7 @@
  * favorable bets, and odds snapshot so the feedback loop can evaluate accuracy.
  */
 
-import { MatchupPrediction } from "./advanced-analytics";
+import { MatchupPrediction, PredictionTrace } from "./advanced-analytics";
 import type { Prisma } from "@/generated/prisma-client/client";
 import { prisma } from "./prisma";
 
@@ -36,6 +36,7 @@ export interface TrackPredictionOptions {
   valueBets?: MatchupPrediction["valueBets"];
   favorableBets?: StoredFavorableBet[] | null;
   oddsSnapshot?: OddsSnapshot | null;
+  predictionTrace?: PredictionTrace | null;
 }
 
 export interface TrackedPrediction {
@@ -44,8 +45,10 @@ export interface TrackedPrediction {
   date: string;
   homeTeam: string;
   awayTeam: string;
+  sport?: string | null;
   predictedAt: number;
   prediction: MatchupPrediction;
+  favorableBets?: StoredFavorableBet[] | null;
   actualOutcome?: {
     homeScore: number;
     awayScore: number;
@@ -57,6 +60,8 @@ export interface TrackedPrediction {
 
 /**
  * Track a prediction (before game is played). Stores all aspects for the feedback loop.
+ * Deduplication: if an unvalidated prediction already exists for this gameId, skips insert
+ * and returns the existing id (avoids duplicates from cron + client both tracking).
  */
 export async function trackPrediction(
   gameId: string,
@@ -67,6 +72,14 @@ export async function trackPrediction(
   options?: TrackPredictionOptions
 ): Promise<string> {
   try {
+    // Deduplication: one prediction per game (cron + client can both call)
+    const existing = await prisma.prediction.findFirst({
+      where: { gameId, validated: false },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (existing) return existing.id;
+
     const gameDate = new Date(date);
     const predictedTotal =
       prediction.predictedScore.home + prediction.predictedScore.away;
@@ -93,6 +106,7 @@ export async function trackPrediction(
         valueBets: (options?.valueBets ?? undefined) as Prisma.InputJsonValue | undefined,
         favorableBets: (options?.favorableBets ?? undefined) as Prisma.InputJsonValue | undefined,
         oddsSnapshot: (options?.oddsSnapshot ?? undefined) as Prisma.InputJsonValue | undefined,
+        predictionTrace: (options?.predictionTrace ?? undefined) as Prisma.InputJsonValue | undefined,
         validated: false,
       },
     });
@@ -167,6 +181,8 @@ export async function recordOutcome(
 
 /**
  * Record outcome by game ID (finds most recent unvalidated prediction)
+ * Note: Predictions use Odds API game IDs (UUID), while SportsData/ESPN use numeric GameIDs.
+ * Use recordOutcomeByMatchup when matching completed games from ESPN/SportsData to predictions.
  */
 export async function recordOutcomeByGameId(
   gameId: string,
@@ -192,6 +208,105 @@ export async function recordOutcomeByGameId(
     return await recordOutcome(prediction.id, homeScore, awayScore);
   } catch (error) {
     console.error("Error recording outcome by game ID:", error);
+    return false;
+  }
+}
+
+/**
+ * Normalize team name for fuzzy matching between Odds API and ESPN/SportsData.
+ * Odds API: "Wisconsin Badgers", "Michigan State Spartans"
+ * ESPN: "Wisconsin", "Michigan State"
+ */
+function normalizeTeamForMatch(name: string): string {
+  return (name || "").toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Check if two team names refer to the same team (handles Odds API vs ESPN naming).
+ */
+function teamsMatch(predName: string, resultName: string): boolean {
+  const p = normalizeTeamForMatch(predName);
+  const r = normalizeTeamForMatch(resultName);
+  if (!p || !r) return false;
+  if (p === r) return true;
+  // "Wisconsin Badgers" vs "Wisconsin" - first word matches
+  const pFirst = p.split(" ")[0];
+  const rFirst = r.split(" ")[0];
+  if (pFirst && rFirst && pFirst === rFirst) return true;
+  // One contains the other (e.g. "Michigan State" in "Michigan State Spartans")
+  if (p.includes(r) || r.includes(p)) return true;
+  // School name match: "North Carolina" vs "North Carolina Tar Heels"
+  const pWords = p.split(" ");
+  const rWords = r.split(" ");
+  const minLen = Math.min(pWords.length, rWords.length);
+  if (minLen >= 2) {
+    const pSchool = pWords.slice(0, 2).join(" ");
+    const rSchool = rWords.slice(0, 2).join(" ");
+    if (pSchool === rSchool) return true;
+  }
+  return false;
+}
+
+/**
+ * Record outcome by matchup (homeTeam, awayTeam, date).
+ * Use this when matching completed games from ESPN/SportsData to predictions
+ * that were tracked with Odds API game IDs (different ID schemes).
+ *
+ * @param homeTeam - Home team name from completed game (e.g. ESPN displayName)
+ * @param awayTeam - Away team name from completed game
+ * @param gameDate - Game date (ISO string or Date) - matched by calendar day
+ * @param homeScore - Actual home score
+ * @param awayScore - Actual away score
+ */
+export async function recordOutcomeByMatchup(
+  homeTeam: string,
+  awayTeam: string,
+  gameDate: string | Date,
+  homeScore: number,
+  awayScore: number
+): Promise<boolean> {
+  try {
+    const targetDate = new Date(gameDate);
+    const targetDayStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const targetDayEnd = new Date(targetDayStart);
+    targetDayEnd.setDate(targetDayEnd.getDate() + 1);
+
+    // Find unvalidated predictions within a 3-day window (handles timezone/date boundary issues)
+    const windowStart = new Date(targetDayStart);
+    windowStart.setDate(windowStart.getDate() - 1);
+    const windowEnd = new Date(targetDayEnd);
+    windowEnd.setDate(windowEnd.getDate() + 1);
+
+    const candidates = await prisma.prediction.findMany({
+      where: {
+        validated: false,
+        date: {
+          gte: windowStart,
+          lt: windowEnd,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    for (const prediction of candidates) {
+      const predDate = new Date(prediction.date);
+      const sameDay =
+        predDate.getFullYear() === targetDate.getFullYear() &&
+        predDate.getMonth() === targetDate.getMonth() &&
+        predDate.getDate() === targetDate.getDate();
+
+      if (
+        sameDay &&
+        teamsMatch(prediction.homeTeam, homeTeam) &&
+        teamsMatch(prediction.awayTeam, awayTeam)
+      ) {
+        return await recordOutcome(prediction.id, homeScore, awayScore);
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error recording outcome by matchup:", error);
     return false;
   }
 }
@@ -341,6 +456,7 @@ function convertDbToTracked(dbPrediction: any): TrackedPrediction {
     date: dbPrediction.date.toISOString(),
     homeTeam: dbPrediction.homeTeam,
     awayTeam: dbPrediction.awayTeam,
+    sport: dbPrediction.sport ?? undefined,
     predictedAt: dbPrediction.createdAt.getTime(),
     prediction: {
       predictedScore: {
@@ -356,6 +472,7 @@ function convertDbToTracked(dbPrediction: any): TrackedPrediction {
       keyFactors: Array.isArray(dbPrediction.keyFactors) ? dbPrediction.keyFactors : [],
       valueBets: Array.isArray(dbPrediction.valueBets) ? dbPrediction.valueBets : [],
     },
+    favorableBets: Array.isArray(dbPrediction.favorableBets) ? dbPrediction.favorableBets : undefined,
     actualOutcome: dbPrediction.actualHomeScore !== null ? {
       homeScore: dbPrediction.actualHomeScore!,
       awayScore: dbPrediction.actualAwayScore!,

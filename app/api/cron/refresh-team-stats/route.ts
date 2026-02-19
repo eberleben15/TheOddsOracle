@@ -1,27 +1,23 @@
 /**
  * Cron Job: Refresh Team Stats
- * 
+ *
  * Scheduled to run daily at 6:30 AM (after games complete)
  * Fetches updated team stats for all active teams
- * 
+ *
  * This job should run before generate-predictions to ensure
  * predictions use the latest data.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUpcomingGames } from "@/lib/odds-api";
-import { getTeamSeasonStats, findTeamByName } from "@/lib/sportsdata-api";
+import { getTeamSeasonStats } from "@/lib/sportsdata-api";
 import { getAllTeamRatings } from "@/lib/team-ratings-cache";
+import { logJobExecution } from "@/lib/job-logger";
 
 function verifyCronRequest(request: NextRequest): boolean {
-  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  
-  if (cronSecret) {
-    return authHeader === `Bearer ${cronSecret}`;
-  }
-  
-  return true;
+  if (!cronSecret) return false;
+  return request.headers.get("authorization") === `Bearer ${cronSecret}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -30,7 +26,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!verifyCronRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized. Set CRON_SECRET and send Bearer token." },
+      { status: 401 }
+    );
   }
 
   const startTime = Date.now();
@@ -74,6 +73,18 @@ export async function POST(request: NextRequest) {
 
     const duration = Date.now() - startTime;
 
+    await logJobExecution({
+      jobName: "refresh-team-stats",
+      status: "success",
+      startedAt: new Date(startTime),
+      completedAt: new Date(),
+      metadata: {
+        teamsRefreshed: successCount,
+        errorCount,
+        totalTeams: teamNames.size,
+      },
+    });
+
     console.log(`\n✅ Job complete: ${successCount} teams refreshed, ${errorCount} errors in ${duration}ms\n`);
 
     return NextResponse.json({
@@ -85,6 +96,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("❌ Job failed:", error);
+    await logJobExecution({
+      jobName: "refresh-team-stats",
+      status: "failed",
+      startedAt: new Date(startTime),
+      completedAt: new Date(),
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       {
         success: false,

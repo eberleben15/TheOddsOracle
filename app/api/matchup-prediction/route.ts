@@ -8,9 +8,12 @@ import { NextResponse } from "next/server";
 import { getTeamSeasonStats } from "@/lib/sports/unified-sports-api";
 import { calculateTeamAnalytics, predictMatchup } from "@/lib/advanced-analytics";
 import { Sport } from "@/lib/sports/sport-config";
+import { loadRecalibrationFromDb } from "@/lib/prediction-feedback-batch";
 
 export async function GET(request: Request) {
   try {
+    await loadRecalibrationFromDb();
+
     const { searchParams } = new URL(request.url);
     const awayTeam = searchParams.get("awayTeam");
     const homeTeam = searchParams.get("homeTeam");
