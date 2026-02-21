@@ -28,19 +28,34 @@ interface ModelConfigResponse {
   message: string;
 }
 
+type SyncMode = "full" | "sync" | "train";
+
+interface OddsCaptureResult {
+  success: boolean;
+  totalSnapshots: number;
+  totalErrors: number;
+  duration: number;
+  closingLinesMarked: number;
+}
+
 export function AdminPredictionsClient() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<SyncMode | null>(null);
+  const [oddsLoading, setOddsLoading] = useState(false);
   const [result, setResult] = useState<BatchSyncResult | null>(null);
+  const [oddsResult, setOddsResult] = useState<OddsCaptureResult | null>(null);
   const [modelConfig, setModelConfig] = useState<ModelConfigResponse | null>(null);
 
-  async function runBatchSync() {
-    setLoading(true);
+  async function runBatchSync(mode: SyncMode = "full") {
+    setLoading(mode);
     setResult(null);
     try {
-      const res = await fetch("/api/admin/predictions/batch-sync", { method: "POST" });
+      const url = mode === "full" 
+        ? "/api/admin/predictions/batch-sync"
+        : `/api/admin/predictions/batch-sync?mode=${mode}`;
+      const res = await fetch(url, { method: "POST" });
       const data: BatchSyncResult = await res.json();
       setResult(data);
-      if (data.success) {
+      if (data.success && (mode === "full" || mode === "train")) {
         const configRes = await fetch("/api/admin/predictions/batch-sync");
         const config: ModelConfigResponse = await configRes.json();
         setModelConfig(config);
@@ -57,7 +72,7 @@ export function AdminPredictionsClient() {
         errors: [err instanceof Error ? err.message : String(err)],
       });
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   }
 
@@ -71,6 +86,26 @@ export function AdminPredictionsClient() {
     }
   }
 
+  async function captureOdds() {
+    setOddsLoading(true);
+    setOddsResult(null);
+    try {
+      const res = await fetch("/api/admin/capture-odds", { method: "POST" });
+      const data: OddsCaptureResult = await res.json();
+      setOddsResult(data);
+    } catch (err) {
+      setOddsResult({
+        success: false,
+        totalSnapshots: 0,
+        totalErrors: 1,
+        duration: 0,
+        closingLinesMarked: 0,
+      });
+    } finally {
+      setOddsLoading(false);
+    }
+  }
+
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
       <h2 className="text-2xl font-bold mb-4">Prediction Feedback &amp; Training</h2>
@@ -81,14 +116,40 @@ export function AdminPredictionsClient() {
       <div className="flex flex-wrap gap-4 items-center">
         <Button
           color="primary"
-          onPress={runBatchSync}
-          isLoading={loading}
-          isDisabled={loading}
+          onPress={() => runBatchSync("sync")}
+          isLoading={loading === "sync"}
+          isDisabled={loading !== null}
         >
-          {loading ? "Running..." : "Run batch sync + train"}
+          {loading === "sync" ? "Syncing..." : "Sync outcomes"}
         </Button>
-        <Button variant="flat" onPress={loadModelConfig} isDisabled={loading}>
+        <Button
+          color="secondary"
+          onPress={() => runBatchSync("train")}
+          isLoading={loading === "train"}
+          isDisabled={loading !== null}
+        >
+          {loading === "train" ? "Training..." : "Train model"}
+        </Button>
+        <Button
+          color="success"
+          onPress={() => runBatchSync("full")}
+          isLoading={loading === "full"}
+          isDisabled={loading !== null}
+        >
+          {loading === "full" ? "Running..." : "Sync + Train"}
+        </Button>
+        <Button variant="flat" onPress={loadModelConfig} isDisabled={loading !== null}>
           Check model config
+        </Button>
+        <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
+        <Button
+          color="warning"
+          variant="flat"
+          onPress={captureOdds}
+          isLoading={oddsLoading}
+          isDisabled={loading !== null || oddsLoading}
+        >
+          {oddsLoading ? "Capturing..." : "Capture Odds"}
         </Button>
       </div>
       {modelConfig && (
@@ -149,6 +210,26 @@ export function AdminPredictionsClient() {
               ))}
             </div>
           )}
+        </div>
+      )}
+      {oddsResult && (
+        <div className="mt-4 p-4 border rounded space-y-2 border-warning-200 bg-warning-50 dark:bg-warning-900/20">
+          <h3 className="font-semibold">
+            {oddsResult.success ? "✓ Odds capture complete" : "Odds capture had issues"}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            <span>Snapshots captured:</span>
+            <span className="font-semibold">{oddsResult.totalSnapshots}</span>
+            <span>Closing lines marked:</span>
+            <span>{oddsResult.closingLinesMarked}</span>
+            <span>Errors:</span>
+            <span className={oddsResult.totalErrors > 0 ? "text-amber-600" : ""}>{oddsResult.totalErrors}</span>
+            <span>Duration:</span>
+            <span>{oddsResult.duration}ms</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Odds snapshots are used to track line movements and calculate CLV (Closing Line Value).
+          </p>
         </div>
       )}
     </div>

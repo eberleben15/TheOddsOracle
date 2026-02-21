@@ -9,6 +9,7 @@
 import { MatchupPrediction, PredictionTrace } from "./advanced-analytics";
 import type { Prisma } from "@/generated/prisma-client/client";
 import { prisma } from "./prisma";
+import { logPredictionCreated, logPredictionValidated, type PredictionSnapshot } from "./prediction-history";
 
 /** Serializable favorable-bet summary for storage (feedback loop). */
 export interface StoredFavorableBet {
@@ -96,6 +97,9 @@ export async function trackPrediction(
           away: prediction.predictedScore.away,
         },
         predictedSpread: prediction.predictedSpread,
+        alternateSpread: prediction.alternateSpread 
+          ? (prediction.alternateSpread as unknown as Prisma.InputJsonValue)
+          : undefined,
         predictedTotal,
         winProbability: {
           home: prediction.winProbability.home,
@@ -110,6 +114,16 @@ export async function trackPrediction(
         validated: false,
       },
     });
+
+    // Log to prediction history
+    await logPredictionCreated(dbPrediction.id, gameId, {
+      predictedScore: prediction.predictedScore,
+      predictedSpread: prediction.predictedSpread,
+      predictedTotal,
+      winProbability: prediction.winProbability,
+      confidence: prediction.confidence,
+      keyFactors: options?.keyFactors,
+    }, "system");
 
     return dbPrediction.id;
   } catch (error) {
@@ -149,7 +163,8 @@ export async function enrichPrediction(
 }
 
 /**
- * Record actual outcome for a tracked prediction - updates database
+ * Record actual outcome for a tracked prediction - updates database.
+ * Also calculates CLV (Closing Line Value) if odds history is available.
  */
 export async function recordOutcome(
   predictionId: string,
@@ -158,8 +173,76 @@ export async function recordOutcome(
 ): Promise<boolean> {
   try {
     const actualWinner = homeScore > awayScore ? 'home' : 'away';
-    
     const actualTotal = homeScore + awayScore;
+    
+    // Fetch the prediction to get gameId and predicted values
+    const prediction = await prisma.prediction.findUnique({
+      where: { id: predictionId },
+      select: { 
+        gameId: true, 
+        predictedSpread: true, 
+        predictedTotal: true,
+        predictedScore: true,
+        winProbability: true,
+        confidence: true,
+        validated: true,
+      },
+    });
+    
+    if (!prediction) {
+      console.error("Prediction not found:", predictionId);
+      return false;
+    }
+
+    // Try to get opening and closing lines for CLV calculation
+    let openingSpread: number | null = null;
+    let closingSpread: number | null = null;
+    let openingTotal: number | null = null;
+    let closingTotal: number | null = null;
+    let clvSpread: number | null = null;
+    let clvTotal: number | null = null;
+    let lineMovement: number | null = null;
+
+    try {
+      // Import dynamically to avoid circular dependency
+      const { getOpeningLine, getClosingLine } = await import("./odds-history");
+      
+      const [opening, closing] = await Promise.all([
+        getOpeningLine(prediction.gameId),
+        getClosingLine(prediction.gameId),
+      ]);
+
+      if (opening) {
+        openingSpread = opening.spread;
+        openingTotal = opening.total;
+      }
+
+      if (closing) {
+        closingSpread = closing.spread;
+        closingTotal = closing.total;
+      }
+
+      // Calculate CLV (Closing Line Value)
+      // Positive CLV = we predicted a line better than the closing line
+      // For spread: if we predicted home -5 and closing was home -7, CLV = -7 - (-5) = -2 (bad, line moved against us)
+      // For spread: if we predicted home -7 and closing was home -5, CLV = -5 - (-7) = +2 (good, we beat the close)
+      if (closingSpread !== null && prediction.predictedSpread !== null) {
+        clvSpread = closingSpread - prediction.predictedSpread;
+      }
+
+      if (closingTotal !== null && prediction.predictedTotal !== null) {
+        clvTotal = closingTotal - prediction.predictedTotal;
+      }
+
+      // Line movement = how much the line moved from open to close
+      if (openingSpread !== null && closingSpread !== null) {
+        lineMovement = closingSpread - openingSpread;
+      }
+    } catch (err) {
+      // CLV calculation failed, continue without it
+      console.warn("CLV calculation skipped:", err instanceof Error ? err.message : String(err));
+    }
+
     await prisma.prediction.update({
       where: { id: predictionId },
       data: {
@@ -169,8 +252,36 @@ export async function recordOutcome(
         actualTotal,
         validated: true,
         validatedAt: new Date(),
+        // CLV fields
+        openingSpread,
+        closingSpread,
+        openingTotal,
+        closingTotal,
+        clvSpread,
+        clvTotal,
+        lineMovement,
       },
     });
+
+    // Log validation to history
+    const prevSnapshot: PredictionSnapshot = {
+      predictedScore: prediction.predictedScore as { home: number; away: number },
+      predictedSpread: prediction.predictedSpread,
+      predictedTotal: prediction.predictedTotal,
+      winProbability: prediction.winProbability as { home: number; away: number },
+      confidence: prediction.confidence,
+      validated: prediction.validated,
+    };
+
+    const newSnapshot: PredictionSnapshot = {
+      ...prevSnapshot,
+      actualHomeScore: homeScore,
+      actualAwayScore: awayScore,
+      actualWinner,
+      validated: true,
+    };
+
+    await logPredictionValidated(predictionId, prediction.gameId, prevSnapshot, newSnapshot, "system");
     
     return true;
   } catch (error) {
@@ -314,19 +425,25 @@ export async function recordOutcomeByMatchup(
 /**
  * Get all validated predictions (for analysis) - from database
  */
-export async function getValidatedPredictions(): Promise<TrackedPrediction[]> {
+export async function getValidatedPredictions(sport?: string): Promise<TrackedPrediction[]> {
   try {
+    const where: Record<string, unknown> = {
+      validated: true,
+      actualHomeScore: { not: null },
+      actualAwayScore: { not: null },
+    };
+    
+    if (sport) {
+      where.sport = sport;
+    }
+    
     const dbPredictions = await prisma.prediction.findMany({
-      where: {
-        validated: true,
-        actualHomeScore: { not: null },
-        actualAwayScore: { not: null },
-      },
+      where,
       orderBy: {
         createdAt: 'asc',
       },
     });
-    
+
     return dbPredictions.map(convertDbToTracked);
   } catch (error) {
     console.error("Error getting validated predictions:", error);

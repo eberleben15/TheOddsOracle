@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron/generate-predictions",
-      "schedule": "0 7 * * *"
+      "path": "/api/cron/sync-games",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/capture-odds",
+      "schedule": "30 */2 * * *"
     },
     {
       "path": "/api/cron/refresh-team-stats",
@@ -10,8 +14,7 @@
     },
     {
       "path": "/api/cron/record-outcomes",
-      "schedule": "0 2 * * *"
+      "schedule": "0 */4 * * *"
     }
   ]
 }
-

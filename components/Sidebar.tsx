@@ -51,7 +51,7 @@ export function Sidebar() {
         { name: "NBA", href: "/sports/nba", current: isSportsPage && pathname === "/sports/nba", sport: "nba" as Sport },
         { name: "NHL", href: "/sports/nhl", current: isSportsPage && pathname === "/sports/nhl", sport: "nhl" as Sport },
         { name: "NFL", href: "/sports/nfl", current: isSportsPage && pathname === "/sports/nfl", sport: "nfl" as Sport, disabled: true, comingSoon: true },
-        { name: "MLB", href: "/sports/mlb", current: isSportsPage && pathname === "/sports/mlb", sport: "mlb" as Sport, disabled: true, comingSoon: true },
+        { name: "MLB", href: "/sports/mlb", current: isSportsPage && pathname === "/sports/mlb", sport: "mlb" as Sport },
       ],
     },
     {

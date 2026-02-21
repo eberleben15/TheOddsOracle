@@ -208,22 +208,32 @@ model Prediction {
   sport    String?  // e.g. "cbb", "nba", "nhl" for per-sport feedback
 
   // Core prediction (stored as JSON where needed)
-  predictedScore   Json   // { home: number, away: number }
-  predictedSpread  Float
-  predictedTotal   Float? // home + away for totals feedback
-  winProbability   Json   // { home: number, away: number }
-  confidence       Float
-  keyFactors       Json?  // string[] - what drove the prediction
-  valueBets        Json?  // MatchupPrediction.valueBets - value bet recommendations
-  favorableBets    Json?  // Serialized FavorableBet[] - bookmaker, edge, etc.
-  oddsSnapshot     Json?  // { spread?, total?, moneyline?: { away?, home? } } at prediction time
-  predictionTrace  Json?  // Audit trail: modelPath, totalScore, homeWinProbRaw, etc. for training
+  predictedScore    Json   // { home: number, away: number }
+  predictedSpread   Float
+  alternateSpread   Json?  // { spread, direction, team, reason, confidence, riskLevel }
+  predictedTotal    Float? // home + away for totals feedback
+  winProbability    Json   // { home: number, away: number }
+  confidence        Float
+  keyFactors        Json?  // string[] - what drove the prediction
+  valueBets         Json?  // MatchupPrediction.valueBets - value bet recommendations
+  favorableBets     Json?  // Serialized FavorableBet[] - bookmaker, edge, etc.
+  oddsSnapshot      Json?  // { spread?, total?, moneyline?: { away?, home? } } at prediction time
+  predictionTrace   Json?  // Audit trail: modelPath, totalScore, homeWinProbRaw, etc. for training
 
   // Actual outcome (filled in after game)
   actualHomeScore Int?
   actualAwayScore Int?
   actualWinner    String? // "home" or "away"
   actualTotal     Int?    // actualHomeScore + actualAwayScore for totals feedback
+
+  // Line movement & CLV (Closing Line Value) - filled after validation
+  openingSpread   Float?  // Market spread when game first appeared
+  closingSpread   Float?  // Market spread at game time (or last capture before)
+  openingTotal    Float?  // Opening over/under
+  closingTotal    Float?  // Closing over/under
+  clvSpread       Float?  // CLV for spread: closingSpread - predictedSpread (positive = beat the close)
+  clvTotal        Float?  // CLV for total: closingTotal - predictedTotal (positive = beat the close)
+  lineMovement    Float?  // closingSpread - openingSpread (how much line moved)
 
   // Status tracking
   validated   Boolean   @default(false)
@@ -239,6 +249,36 @@ model Prediction {
   @@index([validated, date])
   @@index([sport])
   @@map("predictions")
+  @@schema("oddsoracle")
+}
+
+// Tracked games for the prediction pipeline - ensures every game gets a prediction
+model TrackedGame {
+  id              String    @id @default(cuid())
+  externalId      String    @unique // Game ID from Odds API
+  sport           String    // e.g. "basketball_ncaab", "basketball_nba", "icehockey_nhl", "baseball_mlb"
+  homeTeam        String
+  awayTeam        String
+  commenceTime    DateTime  // When the game starts
+  
+  // Pipeline status
+  discoveredAt    DateTime  @default(now()) // When we first saw this game
+  predictionId    String?   // Link to the Prediction record once generated
+  predictedAt     DateTime? // When prediction was generated
+  status          String    @default("pending") // "pending", "predicted", "completed", "cancelled"
+  
+  // Odds data snapshot (for historical reference)
+  oddsSnapshot    Json?     // { spread?, total?, moneyline? } at discovery time
+  
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([sport])
+  @@index([status])
+  @@index([commenceTime])
+  @@index([sport, status])
+  @@map("tracked_games")
   @@schema("oddsoracle")
 }
 
@@ -265,6 +305,57 @@ model ModelConfig {
   updatedAt DateTime @updatedAt
 
   @@map("model_config")
+  @@schema("oddsoracle")
+}
+
+// Prediction history - tracks all changes to predictions for auditing
+model PredictionHistory {
+  id              String   @id @default(cuid())
+  predictionId    String   // Reference to the prediction
+  gameId          String   // Game ID for easy lookup
+  changeType      String   // "created", "regenerated", "validated", "updated"
+  previousValues  Json?    // Snapshot of previous values before change
+  newValues       Json     // Snapshot of new/current values
+  reason          String?  // Why the change was made (e.g., "model update", "manual regeneration")
+  triggeredBy     String?  // "cron", "admin", "system"
+  createdAt       DateTime @default(now())
+
+  @@index([predictionId])
+  @@index([gameId])
+  @@index([changeType])
+  @@index([createdAt])
+  @@map("prediction_history")
+  @@schema("oddsoracle")
+}
+
+// Historical odds tracking - captures line movements over time for CLV analysis
+model OddsHistory {
+  id          String   @id @default(cuid())
+  gameId      String   // External game ID from Odds API
+  sport       String   // e.g. "basketball_ncaab", "basketball_nba"
+  capturedAt  DateTime @default(now()) // When this snapshot was taken
+  
+  // Consensus/average lines across bookmakers
+  spread      Float?   // Home team spread (negative = home favored)
+  total       Float?   // Over/under total points
+  homeML      Int?     // Home moneyline (American odds)
+  awayML      Int?     // Away moneyline (American odds)
+  
+  // For tracking opening vs closing
+  isOpening   Boolean  @default(false) // True for first capture of this game
+  isClosing   Boolean  @default(false) // True for last capture before game starts
+  
+  // Raw bookmaker data (optional, for detailed analysis)
+  bookmakerData Json?  // Array of { bookmaker, spread, total, homeML, awayML }
+  
+  createdAt   DateTime @default(now())
+
+  @@index([gameId])
+  @@index([gameId, capturedAt])
+  @@index([sport, capturedAt])
+  @@index([isOpening])
+  @@index([isClosing])
+  @@map("odds_history")
   @@schema("oddsoracle")
 }
 

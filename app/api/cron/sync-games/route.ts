@@ -1,8 +1,12 @@
 /**
- * DEPRECATED: This endpoint is replaced by /api/cron/sync-games
+ * Cron Job: Sync Games & Generate Predictions
  * 
- * Keeping for backwards compatibility - redirects to the new endpoint.
- * The sync-games endpoint handles both game discovery AND prediction generation.
+ * Runs every 2 hours to:
+ * 1. Discover new games from the Odds API
+ * 2. Generate predictions for games that don't have one
+ * 
+ * This is the primary prediction pipeline - ensures every game
+ * gets a prediction as soon as it's discovered.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -31,42 +35,44 @@ export async function POST(request: NextRequest) {
   }
 
   const startTime = Date.now();
-  console.log("\n🔄 [DEPRECATED] generate-predictions redirecting to sync-games...\n");
+  console.log("\n🚀 Starting game sync cron job...\n");
 
   try {
-    // Use the new unified sync-games pipeline
     const result = await syncGames();
+    
+    // Get current stats
     const stats = await getSyncStats();
 
     await logJobExecution({
-      jobName: "generate-predictions",
+      jobName: "sync-games",
       status: result.success ? "success" : "partial",
       startedAt: new Date(startTime),
       completedAt: new Date(),
       metadata: {
-        redirectedTo: "sync-games",
         gamesDiscovered: result.gamesDiscovered,
         newGames: result.newGames,
         predictionsGenerated: result.predictionsGenerated,
         sportBreakdown: result.sportBreakdown,
         currentStats: stats,
+        errorCount: result.errors.length,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Redirected to sync-games pipeline",
-      predictionsGenerated: result.predictionsGenerated,
       gamesDiscovered: result.gamesDiscovered,
       newGames: result.newGames,
+      predictionsGenerated: result.predictionsGenerated,
       sportBreakdown: result.sportBreakdown,
+      currentStats: stats,
       duration: result.duration,
+      errors: result.errors.slice(0, 10),
     });
   } catch (error) {
-    console.error("❌ Job failed:", error);
+    console.error("❌ Game sync failed:", error);
     
     await logJobExecution({
-      jobName: "generate-predictions",
+      jobName: "sync-games",
       status: "failed",
       startedAt: new Date(startTime),
       completedAt: new Date(),

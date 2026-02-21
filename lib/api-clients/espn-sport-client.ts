@@ -27,7 +27,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   });
 }
 
-export type ESPNSportType = "basketball" | "hockey";
+export type ESPNSportType = "basketball" | "hockey" | "baseball";
 
 interface ESPNTeamRef {
   id: string;
@@ -123,7 +123,9 @@ export class ESPNSportClient {
   ) {}
 
   private getLogoFallbackPath(): string {
-    return this.sportType === "hockey" ? "nhl" : "nba";
+    if (this.sportType === "hockey") return "nhl";
+    if (this.sportType === "baseball") return "mlb";
+    return "nba";
   }
 
 
@@ -254,6 +256,8 @@ export class ESPNSportClient {
         this.applyBasketballStats(base, statMap);
       } else if (this.sportType === "hockey" && statMap) {
         this.applyHockeyStats(base, statMap);
+      } else if (this.sportType === "baseball" && statMap) {
+        this.applyBaseballStats(base, statMap);
       }
       return base;
     }
@@ -314,6 +318,8 @@ export class ESPNSportClient {
       this.applyBasketballStats(base, statMap);
     } else if (this.sportType === "hockey" && statMap) {
       this.applyHockeyStats(base, statMap);
+    } else if (this.sportType === "baseball" && statMap) {
+      this.applyBaseballStats(base, statMap);
     }
 
     return base;
@@ -366,6 +372,18 @@ export class ESPNSportClient {
     if (goalsAgainstPerGame != null && base.pointsAllowedPerGame === 0) base.pointsAllowedPerGame = goalsAgainstPerGame;
   }
 
+  private applyBaseballStats(base: TeamStats, statMap: Map<string, number>): void {
+    // ESPN MLB stats - use runs per game as "points"
+    const runsPerGame = statMap.get("runsPerGame") ?? statMap.get("avgRuns") ?? statMap.get("runs");
+    const runsAgainstPerGame = statMap.get("runsAgainstPerGame") ?? statMap.get("avgRunsAgainst");
+    if (runsPerGame != null && base.pointsPerGame === 0) {
+      base.pointsPerGame = Math.round(runsPerGame * 100) / 100;
+    }
+    if (runsAgainstPerGame != null && base.pointsAllowedPerGame === 0) {
+      base.pointsAllowedPerGame = Math.round(runsAgainstPerGame * 100) / 100;
+    }
+  }
+
   /** Get logo URL for a team by name (for use in cards, etc.). */
   async getTeamLogoUrl(teamName: string): Promise<string | undefined> {
     const team = await this.findTeamByName(teamName);
@@ -405,6 +423,8 @@ export class ESPNSportClient {
 
 const NBA_BASE = "https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba";
 const NHL_BASE = "https://site.web.api.espn.com/apis/site/v2/sports/hockey/nhl";
+const MLB_BASE = "https://site.web.api.espn.com/apis/site/v2/sports/baseball/mlb";
 
 export const espnNBAClient = new ESPNSportClient(NBA_BASE, "basketball");
 export const espnNHLClient = new ESPNSportClient(NHL_BASE, "hockey");
+export const espnMLBClient = new ESPNSportClient(MLB_BASE, "baseball");

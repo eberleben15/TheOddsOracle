@@ -19,7 +19,7 @@ import {
   findCBBTeamByName,
 } from "./cbb-api-wrapper";
 import { espnClient } from "@/lib/api-clients/espn-client";
-import { espnNBAClient, espnNHLClient } from "@/lib/api-clients/espn-sport-client";
+import { espnNBAClient, espnNHLClient, espnMLBClient } from "@/lib/api-clients/espn-sport-client";
 
 /**
  * Get team season stats for any sport
@@ -112,8 +112,9 @@ export async function getTeamLogoUrl(
       return (await espnNBAClient.getTeamLogoUrl(teamName)) ?? null;
     case "nhl":
       return (await espnNHLClient.getTeamLogoUrl(teamName)) ?? null;
-    case "nfl":
     case "mlb":
+      return (await espnMLBClient.getTeamLogoUrl(teamName)) ?? null;
+    case "nfl":
       return null;
     default:
       return null;

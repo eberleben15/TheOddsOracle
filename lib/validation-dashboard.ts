@@ -37,9 +37,11 @@ export interface PerformanceReport {
 
 /**
  * Generate performance report from tracked predictions
+ * @param days - Number of days to include in the report
+ * @param sport - Optional sport filter (e.g., "basketball_ncaab")
  */
-export async function generatePerformanceReport(days: number = 90): Promise<PerformanceReport> {
-  const validated = await getValidatedPredictions();
+export async function generatePerformanceReport(days: number = 90, sport?: string): Promise<PerformanceReport> {
+  const validated = await getValidatedPredictions(sport);
   
   // Filter to recent predictions
   const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);

@@ -16,7 +16,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await runBatchSync();
+  const searchParams = request.nextUrl.searchParams;
+  const mode = searchParams.get("mode"); // "sync" | "train" | null (full)
+  
+  const options = {
+    syncOnly: mode === "sync",
+    trainOnly: mode === "train",
+  };
+
+  const result = await runBatchSync(options);
   return NextResponse.json(result);
 }
 

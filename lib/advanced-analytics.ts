@@ -54,6 +54,16 @@ const NHL_CONSTANTS: LeagueConstants = {
   homeAdvantage: 0.15,
 };
 
+const MLB_CONSTANTS: LeagueConstants = {
+  leagueAvgPpg: 4.5,
+  leagueAvgPace: 9,
+  paceMin: 8,
+  paceMax: 12,
+  scoreMin: 0,
+  scoreMax: 15,
+  homeAdvantage: 0.25,
+};
+
 /** Default (CBB) used when sport is unknown or unsupported for scoring. */
 const DEFAULT_LEAGUE = CBB_CONSTANTS;
 
@@ -61,6 +71,7 @@ const LEAGUE_BY_SPORT: Partial<Record<Sport, LeagueConstants>> = {
   cbb: CBB_CONSTANTS,
   nba: NBA_CONSTANTS,
   nhl: NHL_CONSTANTS,
+  mlb: MLB_CONSTANTS,
 };
 
 export function getLeagueConstants(sport?: Sport | string): LeagueConstants {
@@ -123,6 +134,15 @@ export interface PredictionTrace {
   recalibrationApplied: boolean;
 }
 
+export interface AlternateSpread {
+  spread: number;
+  direction: 'buy' | 'sell';
+  team: 'home' | 'away';
+  reason: string;
+  confidence: number;
+  riskLevel: 'safer' | 'standard' | 'aggressive';
+}
+
 export interface MatchupPrediction {
   winProbability: {
     away: number;
@@ -133,6 +153,7 @@ export interface MatchupPrediction {
     home: number;
   };
   predictedSpread: number; // Positive = home favored
+  alternateSpread?: AlternateSpread; // Suggested alternate spread
   confidence: number; // 0-100 prediction confidence
   keyFactors: string[]; // What drives the prediction
   /** Audit trail: intermediate values for reproducibility */
@@ -716,6 +737,132 @@ function calculateStrengthOfSchedule(
 }
 
 /**
+ * Calculate an alternate spread suggestion based on prediction analysis.
+ * 
+ * Strategy:
+ * - If spread is near a key number (3, 7, 10 in basketball; 3, 7 in football; 1.5 in hockey/baseball),
+ *   suggest buying/selling the half point for value.
+ * - If confidence is high (>80%), suggest a more aggressive alternate.
+ * - If confidence is moderate, suggest a safer alternate.
+ */
+function calculateAlternateSpread(
+  mainSpread: number,
+  homeWinProb: number,
+  confidence: number,
+  homeTeamName: string,
+  awayTeamName: string,
+  sport?: Sport
+): AlternateSpread {
+  const absSpread = Math.abs(mainSpread);
+  const homeFavored = mainSpread > 0;
+  const favoredTeam = homeFavored ? 'home' : 'away';
+  const favoredName = homeFavored ? homeTeamName : awayTeamName;
+  const underdogName = homeFavored ? awayTeamName : homeTeamName;
+  
+  // Key numbers by sport where pushes are common
+  const keyNumbers: Record<string, number[]> = {
+    cbb: [3, 4, 5, 7, 10],
+    nba: [3, 4, 5, 7, 10],
+    nhl: [1, 1.5, 2],
+    mlb: [1, 1.5, 2],
+    nfl: [3, 7, 10, 14],
+  };
+  
+  const sportKey = sport || 'cbb';
+  const relevantKeyNumbers = keyNumbers[sportKey] || keyNumbers.cbb;
+  
+  // Check if near a key number
+  const nearKeyNumber = relevantKeyNumbers.find(k => Math.abs(absSpread - k) <= 0.5);
+  
+  let alternateSpread: number;
+  let direction: 'buy' | 'sell';
+  let team: 'home' | 'away';
+  let reason: string;
+  let altConfidence: number;
+  let riskLevel: 'safer' | 'standard' | 'aggressive';
+  
+  if (nearKeyNumber && confidence >= 70) {
+    // Near a key number - suggest buying past it for the favored team
+    const adjustment = sportKey === 'nhl' || sportKey === 'mlb' ? 0.5 : 1.5;
+    
+    if (confidence >= 80) {
+      // High confidence: buy points for the favorite (more aggressive spread)
+      alternateSpread = homeFavored ? mainSpread + adjustment : mainSpread - adjustment;
+      direction = 'buy';
+      team = favoredTeam;
+      reason = `High confidence pick - buy ${favoredName} past key number ${nearKeyNumber}`;
+      altConfidence = confidence - 5;
+      riskLevel = 'aggressive';
+    } else {
+      // Moderate confidence: sell points (take underdog + extra points)
+      alternateSpread = homeFavored ? mainSpread - adjustment : mainSpread + adjustment;
+      direction = 'sell';
+      team = homeFavored ? 'away' : 'home';
+      reason = `Sell past key number ${nearKeyNumber} - take ${underdogName} +${Math.abs(alternateSpread).toFixed(1)}`;
+      altConfidence = confidence + 5;
+      riskLevel = 'safer';
+    }
+  } else if (confidence >= 85) {
+    // Very high confidence without key number - suggest aggressive alternate
+    const aggressiveAdjustment = sportKey === 'nhl' || sportKey === 'mlb' ? 1 : 3;
+    alternateSpread = homeFavored 
+      ? mainSpread + aggressiveAdjustment 
+      : mainSpread - aggressiveAdjustment;
+    direction = 'buy';
+    team = favoredTeam;
+    reason = `Strong edge detected - consider ${favoredName} ${alternateSpread > 0 ? '-' : '+'}${Math.abs(alternateSpread).toFixed(1)}`;
+    altConfidence = confidence - 10;
+    riskLevel = 'aggressive';
+  } else if (confidence <= 65) {
+    // Low confidence - suggest safer alternate (more points for underdog)
+    const saferAdjustment = sportKey === 'nhl' || sportKey === 'mlb' ? 0.5 : 2;
+    alternateSpread = homeFavored 
+      ? mainSpread - saferAdjustment 
+      : mainSpread + saferAdjustment;
+    direction = 'sell';
+    team = homeFavored ? 'away' : 'home';
+    reason = `Lower confidence game - safer to take ${underdogName} +${Math.abs(alternateSpread).toFixed(1)}`;
+    altConfidence = Math.min(85, confidence + 10);
+    riskLevel = 'safer';
+  } else {
+    // Standard confidence - suggest a standard alternate (1-2 points different)
+    const standardAdjustment = sportKey === 'nhl' || sportKey === 'mlb' ? 0.5 : 1.5;
+    const winProbEdge = Math.abs(homeWinProb - 0.5);
+    
+    if (winProbEdge > 0.15) {
+      // Clear favorite - slightly more aggressive
+      alternateSpread = homeFavored 
+        ? mainSpread + standardAdjustment 
+        : mainSpread - standardAdjustment;
+      direction = 'buy';
+      team = favoredTeam;
+      reason = `Consider buying ${favoredName} to ${alternateSpread > 0 ? '-' : '+'}${Math.abs(alternateSpread).toFixed(1)}`;
+      altConfidence = confidence - 3;
+      riskLevel = 'standard';
+    } else {
+      // Close game - play it safer
+      alternateSpread = homeFavored 
+        ? mainSpread - standardAdjustment 
+        : mainSpread + standardAdjustment;
+      direction = 'sell';
+      team = homeFavored ? 'away' : 'home';
+      reason = `Close matchup - consider ${underdogName} +${Math.abs(alternateSpread).toFixed(1)} for safety`;
+      altConfidence = confidence + 3;
+      riskLevel = 'safer';
+    }
+  }
+  
+  return {
+    spread: Math.round(alternateSpread * 2) / 2, // Round to nearest 0.5
+    direction,
+    team,
+    reason,
+    confidence: Math.max(50, Math.min(95, altConfidence)),
+    riskLevel,
+  };
+}
+
+/**
  * Predict matchup outcome (unified model).
  *
  * - Win probability: Four Factors (eFG%, TOV%, ORB%, FTR) or net rating + momentum + home.
@@ -1084,6 +1231,18 @@ export function predictMatchup(
     else awayFinal += 1;
   }
 
+  const finalSpread = homeFinal - awayFinal;
+  
+  // Calculate alternate spread suggestion
+  const alternateSpread = calculateAlternateSpread(
+    finalSpread,
+    homeWinProb,
+    confidence,
+    homeStats.name,
+    awayStats.name,
+    sport
+  );
+
   return {
     winProbability: {
       away: awayWinProb * 100,
@@ -1093,7 +1252,8 @@ export function predictMatchup(
       away: awayFinal,
       home: homeFinal,
     },
-    predictedSpread: homeFinal - awayFinal,
+    predictedSpread: finalSpread,
+    alternateSpread,
     confidence,
     keyFactors,
     trace: {
