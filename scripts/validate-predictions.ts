@@ -21,7 +21,6 @@ import {
   getGamesByDate 
 } from "../lib/sportsdata-api";
 import {
-  validateHistoricalPredictions,
   calculateValidationMetrics,
   logValidationMetrics,
   PredictionValidation,

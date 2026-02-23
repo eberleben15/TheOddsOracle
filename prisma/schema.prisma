@@ -359,6 +359,49 @@ model OddsHistory {
   @@schema("oddsoracle")
 }
 
+// Admin bet tracking - records bets placed based on predictions
+model BetRecord {
+  id            String   @id @default(cuid())
+  predictionId  String   // Reference to the prediction this bet is based on
+  gameId        String   // External game ID
+  date          DateTime // Game date
+  sport         String?  // Sport key
+
+  // Teams
+  homeTeam      String
+  awayTeam      String
+
+  // Bet details
+  betType       String   // "spread", "moneyline", "total_over", "total_under"
+  betSide       String   // "home", "away" for spread/ML; "over", "under" for totals
+  line          Float?   // The line taken (spread value or total)
+  odds          Int      // American odds at time of bet
+  stake         Float    // Amount wagered
+  potentialPayout Float  // Potential winnings if bet hits
+
+  // Our prediction confidence
+  confidence    Float    // Confidence at time of bet
+  edge          Float?   // Calculated edge vs market
+
+  // Result (filled after game)
+  result        String?  // "win", "loss", "push", "pending"
+  actualPayout  Float?   // Actual profit/loss after result
+  settledAt     DateTime?
+
+  // Metadata
+  notes         String?  // Admin notes
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([predictionId])
+  @@index([gameId])
+  @@index([date])
+  @@index([result])
+  @@index([sport])
+  @@map("bet_records")
+  @@schema("oddsoracle")
+}
+
 // Kalshi API credentials (encrypted at rest). One per user for portfolio sync.
 model KalshiConnection {
   id                 String   @id @default(cuid())

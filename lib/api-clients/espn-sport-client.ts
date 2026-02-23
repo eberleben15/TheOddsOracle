@@ -365,11 +365,93 @@ export class ESPNSportClient {
   }
 
   private applyHockeyStats(base: TeamStats, statMap: Map<string, number>): void {
-    // ESPN NHL stats may use different keys; map common ones to pointsPerGame if not set
-    const goalsPerGame = statMap.get("goalsPerGame") ?? statMap.get("avgGoals");
-    const goalsAgainstPerGame = statMap.get("goalsAgainstPerGame") ?? statMap.get("avgGoalsAgainst");
-    if (goalsPerGame != null && base.pointsPerGame === 0) base.pointsPerGame = goalsPerGame;
-    if (goalsAgainstPerGame != null && base.pointsAllowedPerGame === 0) base.pointsAllowedPerGame = goalsAgainstPerGame;
+    const games = statMap.get("games") || 1;
+    
+    // Goals per game (use perGameValue if available, otherwise calculate)
+    const goals = statMap.get("goals");
+    const goalsPerGame = goals != null ? goals / games : 
+      (statMap.get("goalsPerGame") ?? statMap.get("avgGoals"));
+    if (goalsPerGame != null && base.pointsPerGame === 0) {
+      base.pointsPerGame = Math.round(goalsPerGame * 100) / 100;
+    }
+    
+    // Goals against per game
+    const goalsAgainst = statMap.get("goalsAgainst");
+    const goalsAgainstPerGame = goalsAgainst != null ? goalsAgainst / games :
+      (statMap.get("goalsAgainstPerGame") ?? statMap.get("avgGoalsAgainst"));
+    if (goalsAgainstPerGame != null && base.pointsAllowedPerGame === 0) {
+      base.pointsAllowedPerGame = Math.round(goalsAgainstPerGame * 100) / 100;
+    }
+    
+    // Shots per game
+    const shotsTotal = statMap.get("shotsTotal");
+    if (shotsTotal != null) {
+      base.shotsPerGame = Math.round((shotsTotal / games) * 100) / 100;
+    }
+    
+    // Shots against per game
+    const shotsAgainst = statMap.get("shotsAgainst");
+    if (shotsAgainst != null) {
+      base.shotsAgainstPerGame = Math.round((shotsAgainst / games) * 100) / 100;
+    }
+    
+    // Shooting percentage (goals / shots * 100)
+    const shootingPct = statMap.get("shootingPct");
+    if (shootingPct != null) {
+      base.shootingPercentage = Math.round(shootingPct * 100) / 100;
+    } else if (goals != null && shotsTotal != null && shotsTotal > 0) {
+      base.shootingPercentage = Math.round((goals / shotsTotal) * 10000) / 100;
+    }
+    
+    // Save percentage (saves / shots against, stored as 0-1 decimal)
+    const savePct = statMap.get("savePct");
+    if (savePct != null) {
+      // ESPN returns save% as decimal (e.g., 0.899)
+      base.savePercentage = savePct;
+    } else {
+      const saves = statMap.get("saves");
+      if (saves != null && shotsAgainst != null && shotsAgainst > 0) {
+        base.savePercentage = Math.round((saves / shotsAgainst) * 1000) / 1000;
+      }
+    }
+    
+    // Faceoff win percentage
+    const faceoffPercent = statMap.get("faceoffPercent");
+    if (faceoffPercent != null) {
+      base.faceoffWinPercentage = Math.round(faceoffPercent * 100) / 100;
+    } else {
+      const faceoffsWon = statMap.get("faceoffsWon");
+      const faceoffsLost = statMap.get("faceoffsLost");
+      if (faceoffsWon != null && faceoffsLost != null) {
+        const totalFaceoffs = faceoffsWon + faceoffsLost;
+        if (totalFaceoffs > 0) {
+          base.faceoffWinPercentage = Math.round((faceoffsWon / totalFaceoffs) * 10000) / 100;
+        }
+      }
+    }
+    
+    // Penalty minutes per game
+    const penaltyMinutes = statMap.get("penaltyMinutes");
+    if (penaltyMinutes != null) {
+      base.penaltyMinutesPerGame = Math.round((penaltyMinutes / games) * 100) / 100;
+    }
+    
+    // Power play percentage (estimate from available data)
+    // ESPN provides powerPlayGoals but not opportunities directly
+    // We estimate opportunities from penalty minutes (roughly 1 PP per 4 PIM against)
+    const powerPlayGoals = statMap.get("powerPlayGoals");
+    if (powerPlayGoals != null && penaltyMinutes != null) {
+      // Rough estimate: opponent's PIM correlates with our PP opportunities
+      // Average ~4 PP opportunities per game in NHL
+      const estimatedPPOpportunities = games * 3.5; // Conservative estimate
+      if (estimatedPPOpportunities > 0) {
+        base.powerPlayPercentage = Math.round((powerPlayGoals / estimatedPPOpportunities) * 10000) / 100;
+      }
+    }
+    
+    // Penalty kill percentage (estimate)
+    // We don't have direct PK data, but can estimate from goals against patterns
+    // For now, leave undefined unless we get better data
   }
 
   private applyBaseballStats(base: TeamStats, statMap: Map<string, number>): void {

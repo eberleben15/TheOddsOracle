@@ -8,6 +8,9 @@
  * Matching strategy:
  * - PRIMARY: Odds API completed scores (game IDs match exactly - most reliable).
  * - FALLBACK: ESPN APIs + team-name matching (for games outside Odds API window).
+ *
+ * Known limitation: Postponed/cancelled games are not explicitly detected. See
+ * docs/PREDICTION_VALIDATION_KNOWN_LIMITATIONS.md.
  */
 
 import { getCompletedScoresBySport } from "./odds-api";
@@ -163,6 +166,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
       let recalibrationParams: RecalibrationParams | undefined;
 
       if (validated.length >= 20) {
+        // Stored winProbability is post-Platt; suitable for training next iteration.
         const pairs = validated.map((v) => ({
           homeWinProb: (v.prediction.winProbability as { home: number }).home,
           actualWinner: (v.actualOutcome!.winner as "home" | "away"),
@@ -454,6 +458,8 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
     if (!syncOnly) {
       const validated = await getValidatedPredictions();
       if (validated.length >= 20) {
+        // Stored winProbability is post-Platt (predictMatchup applies recalibration before storage).
+        // This is the correct value for training the next iteration's Platt params.
         const pairs = validated.map((v) => ({
           homeWinProb: (v.prediction.winProbability as { home: number }).home,
           actualWinner: (v.actualOutcome!.winner as "home" | "away"),

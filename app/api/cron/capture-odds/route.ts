@@ -4,7 +4,7 @@
  * Runs every 2 hours to capture odds for all tracked sports.
  * Stores historical odds for CLV (Closing Line Value) analysis.
  * 
- * Schedule: 0 */2 * * * (every 2 hours)
+ * Schedule: "0 *​/2 * * *" (every 2 hours)
  */
 
 import { NextRequest, NextResponse } from "next/server";

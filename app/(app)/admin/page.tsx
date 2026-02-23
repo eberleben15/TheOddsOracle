@@ -8,7 +8,9 @@ import {
   ShieldCheckIcon,
   ChartBarIcon,
   ArrowRightIcon,
+  CurrencyDollarIcon,
 } from "@heroicons/react/24/outline";
+import { BankrollSimulationChart } from "./BankrollSimulationChart";
 
 export default async function AdminOverviewPage() {
   const userCount = await prisma.user.count();
@@ -100,7 +102,7 @@ export default async function AdminOverviewPage() {
           </Link>
         ))}
       </div>
-      <div className="mt-8">
+      <div className="mt-8 flex flex-wrap gap-6">
         <Link
           href="/admin/predictions"
           className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-dark)] hover:underline"
@@ -109,6 +111,19 @@ export default async function AdminOverviewPage() {
           Prediction performance dashboard
           <ArrowRightIcon className="h-4 w-4" />
         </Link>
+        <Link
+          href="/admin/bets"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-dark)] hover:underline"
+        >
+          <CurrencyDollarIcon className="h-4 w-4" />
+          Bet management & history
+          <ArrowRightIcon className="h-4 w-4" />
+        </Link>
+      </div>
+
+      {/* Bankroll Simulation Chart */}
+      <div className="mt-8">
+        <BankrollSimulationChart />
       </div>
     </div>
   );

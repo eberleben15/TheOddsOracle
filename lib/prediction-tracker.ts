@@ -57,6 +57,10 @@ export interface TrackedPrediction {
     recordedAt: number;
   };
   validated: boolean;
+  // Market lines for ATS/O-U calculations
+  closingSpread?: number | null;
+  closingTotal?: number | null;
+  predictedTotal?: number | null;
 }
 
 /**
@@ -223,11 +227,12 @@ export async function recordOutcome(
       }
 
       // Calculate CLV (Closing Line Value)
-      // Positive CLV = we predicted a line better than the closing line
-      // For spread: if we predicted home -5 and closing was home -7, CLV = -7 - (-5) = -2 (bad, line moved against us)
-      // For spread: if we predicted home -7 and closing was home -5, CLV = -5 - (-7) = +2 (good, we beat the close)
+      // Odds API uses negative spread for favorite (American convention). Our model uses positive = home favored.
+      // Normalize: predictedInOddsFormat = -predictedSpread (convert to Odds API convention).
+      // Positive CLV = we got a better line than the close. E.g. we predicted home -5, close home -7: we got -5 (better), CLV = (-5) - (-7) = +2.
       if (closingSpread !== null && prediction.predictedSpread !== null) {
-        clvSpread = closingSpread - prediction.predictedSpread;
+        const predictedInOddsFormat = -prediction.predictedSpread;
+        clvSpread = predictedInOddsFormat - closingSpread;
       }
 
       if (closingTotal !== null && prediction.predictedTotal !== null) {
@@ -333,19 +338,55 @@ function normalizeTeamForMatch(name: string): string {
 }
 
 /**
+ * Teams that share a first word and need disambiguation.
+ * Each entry maps a "base" name to identifiers for each variant. Names with different
+ * suffixes (e.g. "(OH)" vs none) are different teams and must not match.
+ */
+const TEAM_NAME_DISAMBIGUATION: Record<string, { ohio: string[]; other: string[] }> = {
+  miami: {
+    ohio: ["(oh)", "ohio", "redhawks"],
+    other: ["hurricanes", "florida"],
+  },
+};
+
+function resolveConflictVariant(name: string, variants: { ohio: string[]; other: string[] }): "ohio" | "other" | null {
+  for (const suffix of variants.ohio) {
+    if (name.includes(suffix)) return "ohio";
+  }
+  for (const suffix of variants.other) {
+    if (name.includes(suffix)) return "other";
+  }
+  return null; // Unqualified (e.g. "miami" alone) - ambiguous
+}
+
+/**
  * Check if two team names refer to the same team (handles Odds API vs ESPN naming).
+ * Uses disambiguation config for ambiguous names like Miami vs Miami (OH).
  */
 function teamsMatch(predName: string, resultName: string): boolean {
   const p = normalizeTeamForMatch(predName);
   const r = normalizeTeamForMatch(resultName);
   if (!p || !r) return false;
   if (p === r) return true;
-  // "Wisconsin Badgers" vs "Wisconsin" - first word matches
+
   const pFirst = p.split(" ")[0];
   const rFirst = r.split(" ")[0];
-  if (pFirst && rFirst && pFirst === rFirst) return true;
+
+  // Disambiguation: Miami vs Miami (OH) - require same variant when both qualified
+  const variants = pFirst && TEAM_NAME_DISAMBIGUATION[pFirst];
+  if (variants && rFirst === pFirst) {
+    const pVariant = resolveConflictVariant(p, variants);
+    const rVariant = resolveConflictVariant(r, variants);
+    if (pVariant != null && rVariant != null && pVariant !== rVariant) return false;
+    // If one is qualified as Ohio and the other is unqualified, don't match - "miami" alone likely means Florida
+    if (pVariant === "ohio" && rVariant === null) return false;
+    if (rVariant === "ohio" && pVariant === null) return false;
+  }
+
   // One contains the other (e.g. "Michigan State" in "Michigan State Spartans")
   if (p.includes(r) || r.includes(p)) return true;
+  // "Wisconsin Badgers" vs "Wisconsin" - first word matches (no conflict)
+  if (pFirst && rFirst && pFirst === rFirst) return true;
   // School name match: "North Carolina" vs "North Carolina Tar Heels"
   const pWords = p.split(" ");
   const rWords = r.split(" ");
@@ -597,6 +638,10 @@ function convertDbToTracked(dbPrediction: any): TrackedPrediction {
       recordedAt: dbPrediction.validatedAt?.getTime() || Date.now(),
     } : undefined,
     validated: dbPrediction.validated,
+    // Market lines for ATS/O-U calculations
+    closingSpread: dbPrediction.closingSpread ?? null,
+    closingTotal: dbPrediction.closingTotal ?? null,
+    predictedTotal: dbPrediction.predictedTotal ?? null,
   };
 }
 

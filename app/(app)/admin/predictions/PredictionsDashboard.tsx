@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Tabs,
   Tab,
@@ -14,9 +15,14 @@ import {
   SelectItem,
   Input,
   Divider,
-  Autocomplete,
-  AutocompleteItem,
   Checkbox,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+  Switch,
 } from "@nextui-org/react";
 import {
   ArrowPathIcon,
@@ -54,6 +60,46 @@ interface PerformanceStats {
     homeTeamBias?: number;
     awayTeamBias?: number;
     scoreBias?: number;
+  };
+  // Enhanced metrics
+  ats?: {
+    wins: number;
+    losses: number;
+    pushes: number;
+    winRate: number;
+    record: string;
+  };
+  overUnder?: {
+    overWins: number;
+    underWins: number;
+    pushes: number;
+    overWinRate: number;
+    totalAccuracy: number;
+    overPickAccuracy?: number;
+    underPickAccuracy?: number;
+    overPickCount?: number;
+    underPickCount?: number;
+  };
+  categories?: {
+    homePickWinRate: number;
+    homePickCount: number;
+    awayPickWinRate: number;
+    awayPickCount: number;
+    favoriteWinRate: number;
+    favoriteCount: number;
+    underdogWinRate: number;
+    underdogCount: number;
+    highConfidence: { winRate: number; count: number };
+    mediumConfidence: { winRate: number; count: number };
+    lowConfidence: { winRate: number; count: number };
+    closeGameWinRate: number;
+    closeGameCount: number;
+    blowoutWinRate: number;
+    blowoutCount: number;
+  };
+  calibration?: {
+    brierScore: number;
+    expectedCalibrationError: number;
   };
 }
 
@@ -127,13 +173,42 @@ export function PredictionsDashboard() {
   const [predictions, setPredictions] = useState<PredictionItem[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [filter, setFilter] = useState<"all" | "validated" | "pending">("all");
+  const [filter, setFilter] = useState<"all" | "validated" | "pending" | "live" | "final">("all");
+  const [listSearchQuery, setListSearchQuery] = useState("");
 
   // Regenerate state
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // Live scores state
+  const [liveScores, setLiveScores] = useState<Map<string, {
+    homeScore: number;
+    awayScore: number;
+    status: "pre" | "in" | "post";
+    statusDetail: string;
+    period: string;
+    clock: string;
+  }>>(new Map());
+
+  // Action control modal state
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [actionConfig, setActionConfig] = useState({
+    // Sync options
+    syncSports: [...SPORTS.filter(s => s.oddsKey).map(s => s.oddsKey!)] as string[],
+    // Capture odds options
+    captureSports: [...SPORTS.filter(s => s.oddsKey).map(s => s.oddsKey!)] as string[],
+    captureForceAll: false,
+    // Backfill options
+    backfillSports: [...SPORTS.filter(s => s.oddsKey).map(s => s.oddsKey!)] as string[],
+    backfillLimit: 100,
+    // Sync outcomes options  
+    syncOutcomesMinAge: 0, // sync immediately
+    // Train options
+    trainMinValidated: 20,
+    trainIncludeRecent: true,
+  });
 
   // Get current sport's oddsKey
   const currentSportConfig = SPORTS.find((s) => s.key === selectedSport);
@@ -162,13 +237,17 @@ export function PredictionsDashboard() {
     try {
       const sport = SPORTS.find((s) => s.key === selectedSport);
       const sportParam = sport?.oddsKey ? `&sport=${sport.oddsKey}` : "";
+      // Map client-side filters to API filters
+      // "live" and "final" are filtered client-side, so we fetch "pending" or "all"
+      const apiFilter = filter === "live" ? "pending" : filter === "final" ? "all" : filter;
       const res = await fetch(
-        `/api/admin/predictions/list?page=${page}&limit=20&filter=${filter}${sportParam}`
+        `/api/admin/predictions/list?page=${page}&limit=100&filter=${apiFilter}${sportParam}`
       );
       if (res.ok) {
         const data = await res.json();
         setPredictions(data.predictions);
-        setTotalPages(data.pagination.totalPages);
+        // For live/final filters, we'll filter client-side so pagination may not be accurate
+        setTotalPages(filter === "live" || filter === "final" ? 1 : data.pagination.totalPages);
       }
     } catch (err) {
       console.error("Failed to fetch predictions:", err);
@@ -176,6 +255,55 @@ export function PredictionsDashboard() {
       setLoading(null);
     }
   }, [page, filter, selectedSport]);
+
+  // Fetch live scores
+  const fetchLiveScores = useCallback(async () => {
+    try {
+      // Only fetch if we have pending (non-validated) predictions
+      const pendingPredictions = predictions.filter(p => !p.validated);
+      if (pendingPredictions.length === 0) return;
+
+      const res = await fetch("/api/admin/live-scores");
+      if (!res.ok) return;
+      
+      const data = await res.json();
+      const scores = data.scores as Array<{
+        homeTeam: string;
+        awayTeam: string;
+        homeScore: number;
+        awayScore: number;
+        status: "pre" | "in" | "post";
+        statusDetail: string;
+        period: string;
+        clock: string;
+      }>;
+
+      // Match scores to predictions by team names
+      const newLiveScores = new Map<string, typeof scores[0]>();
+      for (const pred of pendingPredictions) {
+        const normalizeTeam = (name: string) => name.toLowerCase().replace(/[^a-z]/g, "");
+        const predHome = normalizeTeam(pred.homeTeam);
+        const predAway = normalizeTeam(pred.awayTeam);
+
+        for (const score of scores) {
+          const scoreHome = normalizeTeam(score.homeTeam);
+          const scoreAway = normalizeTeam(score.awayTeam);
+
+          // Match if either team name matches (partial match for shortened names)
+          if (
+            (predHome.includes(scoreHome) || scoreHome.includes(predHome)) &&
+            (predAway.includes(scoreAway) || scoreAway.includes(predAway))
+          ) {
+            newLiveScores.set(pred.id, score);
+            break;
+          }
+        }
+      }
+      setLiveScores(newLiveScores);
+    } catch (err) {
+      console.error("Failed to fetch live scores:", err);
+    }
+  }, [predictions]);
 
   // Search predictions for autocomplete
   const searchPredictions = async (query: string) => {
@@ -201,49 +329,92 @@ export function PredictionsDashboard() {
     }
   };
 
-  // Run actions (filtered by sport when applicable)
-  const runAction = async (action: string, body?: unknown) => {
+  // Open action configuration modal
+  const openActionModal = (action: string) => {
+    // Pre-select current sport if one is selected
+    if (currentOddsKey) {
+      setActionConfig(prev => ({
+        ...prev,
+        syncSports: [currentOddsKey],
+        captureSports: [currentOddsKey],
+        backfillSports: [currentOddsKey],
+      }));
+    } else {
+      // Reset to all sports
+      const allSports = SPORTS.filter(s => s.oddsKey).map(s => s.oddsKey!);
+      setActionConfig(prev => ({
+        ...prev,
+        syncSports: allSports,
+        captureSports: allSports,
+        backfillSports: allSports,
+      }));
+    }
+    setActiveModal(action);
+  };
+
+  // Execute action with current config
+  const executeAction = async (action: string) => {
+    setActiveModal(null);
     setLoading(action);
     setMessage(null);
+    
     try {
-      // Build sport-aware body
-      const sportBody = currentOddsKey
-        ? { ...(body as object || {}), sports: [currentOddsKey] }
-        : body;
+      let requestBody: Record<string, unknown> | undefined;
+      let url: string;
+      
+      switch (action) {
+        case "sync":
+          url = "/api/admin/sync-games";
+          requestBody = { sports: actionConfig.syncSports };
+          break;
+        case "captureOdds":
+          url = "/api/admin/capture-odds";
+          requestBody = { 
+            sports: actionConfig.captureSports,
+            forceAll: actionConfig.captureForceAll,
+          };
+          break;
+        case "syncOutcomes":
+          url = "/api/admin/predictions/batch-sync?mode=sync";
+          requestBody = { minAgeHours: actionConfig.syncOutcomesMinAge };
+          break;
+        case "train":
+          url = "/api/admin/predictions/batch-sync?mode=train";
+          requestBody = { 
+            minValidated: actionConfig.trainMinValidated,
+            includeRecent: actionConfig.trainIncludeRecent,
+          };
+          break;
+        case "backfill":
+          url = "/api/admin/predictions/backfill";
+          requestBody = { 
+            sports: actionConfig.backfillSports,
+            limit: actionConfig.backfillLimit,
+          };
+          break;
+        default:
+          throw new Error("Unknown action");
+      }
 
-      const endpoints: Record<string, { url: string; method: string; useBody?: boolean }> = {
-        sync: { url: "/api/admin/sync-games", method: "POST", useBody: true },
-        captureOdds: { url: "/api/admin/capture-odds", method: "POST", useBody: true },
-        syncOutcomes: { url: "/api/admin/predictions/batch-sync?mode=sync", method: "POST" },
-        train: { url: "/api/admin/predictions/batch-sync?mode=train", method: "POST" },
-        backfill: { url: "/api/admin/predictions/backfill", method: "POST", useBody: true },
-        regenerate: { url: "/api/admin/predictions/regenerate", method: "POST", useBody: true },
-      };
-
-      const endpoint = endpoints[action];
-      if (!endpoint) throw new Error("Unknown action");
-
-      // Only include sport filter in body for actions that support it
-      const requestBody = endpoint.useBody ? sportBody : body;
-
-      const res = await fetch(endpoint.url, {
-        method: endpoint.method,
-        headers: requestBody ? { "Content-Type": "application/json" } : undefined,
-        body: requestBody ? JSON.stringify(requestBody) : undefined,
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
 
       const data = await res.json();
-
-      const sportLabel = currentSportConfig?.label || "All Sports";
+      const sportsLabel = action === "sync" ? actionConfig.syncSports.length 
+        : action === "captureOdds" ? actionConfig.captureSports.length
+        : action === "backfill" ? actionConfig.backfillSports.length
+        : 0;
 
       if (res.ok && data.success !== false) {
         const messages: Record<string, string> = {
-          sync: `[${sportLabel}] Synced ${data.result?.newGames ?? 0} games, ${data.result?.predictionsGenerated ?? 0} predictions`,
-          captureOdds: `[${sportLabel}] Captured ${data.totalSnapshots ?? 0} odds snapshots`,
+          sync: `Synced ${data.result?.newGames ?? 0} games, ${data.result?.predictionsGenerated ?? 0} predictions (${sportsLabel} sports)`,
+          captureOdds: `Captured ${data.totalSnapshots ?? 0} odds snapshots (${sportsLabel} sports)`,
           syncOutcomes: `Recorded ${data.outcomesRecorded ?? 0} outcomes`,
-          train: `Training ${data.trainingRan ? "completed" : "skipped (need 20+ validated)"}`,
-          backfill: `[${sportLabel}] Generated ${data.totalGenerated ?? 0} predictions`,
-          regenerate: `[${sportLabel}] Regenerated ${data.regenerated ?? 0} predictions`,
+          train: `Training ${data.trainingRan ? "completed" : "skipped (need " + actionConfig.trainMinValidated + "+ validated)"}`,
+          backfill: `Generated ${data.totalGenerated ?? 0} predictions (${sportsLabel} sports)`,
         };
         setMessage({ type: "success", text: messages[action] || "Success" });
         fetchStats();
@@ -256,6 +427,45 @@ export function PredictionsDashboard() {
     } finally {
       setLoading(null);
     }
+  };
+
+  // Legacy runAction for regenerate (still uses direct call)
+  const runAction = async (action: string, body?: unknown) => {
+    setLoading(action);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/predictions/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success !== false) {
+        setMessage({ type: "success", text: `Regenerated ${data.regenerated ?? 0} predictions` });
+        fetchStats();
+        fetchPredictions();
+      } else {
+        setMessage({ type: "error", text: data.error || "Action failed" });
+      }
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Action failed" });
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  // Toggle sport in action config
+  const toggleSportInConfig = (configKey: "syncSports" | "captureSports" | "backfillSports", sport: string) => {
+    setActionConfig(prev => {
+      const current = prev[configKey];
+      if (current.includes(sport)) {
+        return { ...prev, [configKey]: current.filter(s => s !== sport) };
+      } else {
+        return { ...prev, [configKey]: [...current, sport] };
+      }
+    });
   };
 
   // Regenerate specific games
@@ -272,6 +482,13 @@ export function PredictionsDashboard() {
   useEffect(() => {
     fetchPredictions();
   }, [fetchPredictions]);
+
+  // Poll for live scores every 30 seconds
+  useEffect(() => {
+    fetchLiveScores();
+    const interval = setInterval(fetchLiveScores, 30000);
+    return () => clearInterval(interval);
+  }, [fetchLiveScores]);
 
   // Debounced search
   useEffect(() => {
@@ -335,64 +552,173 @@ export function PredictionsDashboard() {
         ))}
       </Tabs>
 
-      {/* Model Performance */}
+      {/* Model Performance - Enhanced */}
       {performance && performance.gamesValidated > 0 && (
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-          <CardHeader>
-            <h3 className="text-lg font-semibold">
-              Model Performance (90 Days)
-              {selectedSport !== "all" && (
-                <Chip size="sm" variant="flat" className="ml-2">
-                  {currentSportConfig?.label}
-                </Chip>
-              )}
-            </h3>
-          </CardHeader>
-          <CardBody>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-              <div>
-                <div className="text-3xl font-bold text-blue-600">
-                  {performance.winnerAccuracy.toFixed(1)}%
-                </div>
-                <div className="text-sm text-gray-500">Winner Accuracy</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">
-                  {performance.spreadMAE.toFixed(1)}
-                </div>
-                <div className="text-sm text-gray-500">Spread MAE</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-green-600">
-                  {performance.spreadWithin3.toFixed(1)}%
-                </div>
-                <div className="text-sm text-gray-500">Within 3 pts</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">
-                  {performance.spreadWithin5.toFixed(1)}%
-                </div>
-                <div className="text-sm text-gray-500">Within 5 pts</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">
-                  {performance.gamesValidated}
-                </div>
-                <div className="text-sm text-gray-500">Games Validated</div>
-              </div>
+          <CardHeader className="flex flex-col gap-2">
+            <div className="flex justify-between items-center w-full">
+              <h3 className="text-lg font-semibold">
+                Model Performance (90 Days)
+                {selectedSport !== "all" && (
+                  <Chip size="sm" variant="flat" className="ml-2">
+                    {currentSportConfig?.label}
+                  </Chip>
+                )}
+              </h3>
+              <Chip size="sm" variant="flat" color="primary">
+                {performance.gamesValidated} games
+              </Chip>
             </div>
+          </CardHeader>
+          <CardBody className="space-y-6">
+            {/* Primary Metrics Row - ATS Record (Most Important for Betting) */}
+            {performance.ats && (
+              <div className="bg-white/60 dark:bg-gray-900/40 rounded-xl p-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <div className={`text-4xl font-bold ${
+                        performance.ats.winRate >= 55 ? "text-green-600" : 
+                        performance.ats.winRate >= 50 ? "text-blue-600" : "text-red-600"
+                      }`}>
+                        {performance.ats.winRate.toFixed(1)}%
+                      </div>
+                      <div className="text-sm font-medium text-gray-600">ATS Win Rate</div>
+                    </div>
+                    <div className="text-2xl font-semibold text-gray-700 dark:text-gray-300">
+                      {performance.ats.record}
+                    </div>
+                  </div>
+                  <div className="flex gap-6 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {performance.winnerAccuracy.toFixed(1)}%
+                      </div>
+                      <div className="text-xs text-gray-500">Winner Pick</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {performance.spreadMAE.toFixed(1)}
+                      </div>
+                      <div className="text-xs text-gray-500">Spread MAE</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {performance.spreadWithin3.toFixed(1)}%
+                      </div>
+                      <div className="text-xs text-gray-500">Within 3 pts</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Secondary Metrics Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Category: Home vs Away */}
+              {performance.categories && (
+                <>
+                  <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
+                    <div className="text-xs text-gray-500 mb-1">Home Picks</div>
+                    <div className={`text-xl font-bold ${
+                      performance.categories.homePickWinRate >= 55 ? "text-green-600" : 
+                      performance.categories.homePickWinRate >= 50 ? "text-gray-700" : "text-red-600"
+                    }`}>
+                      {performance.categories.homePickWinRate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-400">{performance.categories.homePickCount} picks</div>
+                  </div>
+                  <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
+                    <div className="text-xs text-gray-500 mb-1">Away Picks</div>
+                    <div className={`text-xl font-bold ${
+                      performance.categories.awayPickWinRate >= 55 ? "text-green-600" : 
+                      performance.categories.awayPickWinRate >= 50 ? "text-gray-700" : "text-red-600"
+                    }`}>
+                      {performance.categories.awayPickWinRate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-400">{performance.categories.awayPickCount} picks</div>
+                  </div>
+                </>
+              )}
+              
+              {/* Category: Favorites vs Underdogs */}
+              {performance.categories && (
+                <>
+                  <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
+                    <div className="text-xs text-gray-500 mb-1">Favorites (&gt;3pt)</div>
+                    <div className={`text-xl font-bold ${
+                      performance.categories.favoriteWinRate >= 55 ? "text-green-600" : 
+                      performance.categories.favoriteWinRate >= 50 ? "text-gray-700" : "text-red-600"
+                    }`}>
+                      {performance.categories.favoriteWinRate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-400">{performance.categories.favoriteCount} picks</div>
+                  </div>
+                  <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
+                    <div className="text-xs text-gray-500 mb-1">Close Games</div>
+                    <div className={`text-xl font-bold ${
+                      performance.categories.underdogWinRate >= 55 ? "text-green-600" : 
+                      performance.categories.underdogWinRate >= 50 ? "text-gray-700" : "text-red-600"
+                    }`}>
+                      {performance.categories.underdogWinRate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-400">{performance.categories.underdogCount} picks</div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Confidence Tiers */}
+            {performance.categories && (
+              <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-4">
+                <div className="text-sm font-medium text-gray-600 mb-3">Performance by Confidence</div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500 mb-1">High (75%+)</div>
+                    <div className={`text-lg font-bold ${
+                      performance.categories.highConfidence.winRate >= 60 ? "text-green-600" : 
+                      performance.categories.highConfidence.winRate >= 50 ? "text-gray-700" : "text-red-600"
+                    }`}>
+                      {performance.categories.highConfidence.winRate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-400">{performance.categories.highConfidence.count} games</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500 mb-1">Medium (60-75%)</div>
+                    <div className={`text-lg font-bold ${
+                      performance.categories.mediumConfidence.winRate >= 55 ? "text-green-600" : 
+                      performance.categories.mediumConfidence.winRate >= 50 ? "text-gray-700" : "text-red-600"
+                    }`}>
+                      {performance.categories.mediumConfidence.winRate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-400">{performance.categories.mediumConfidence.count} games</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500 mb-1">Low (&lt;60%)</div>
+                    <div className={`text-lg font-bold ${
+                      performance.categories.lowConfidence.winRate >= 50 ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {performance.categories.lowConfidence.winRate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-400">{performance.categories.lowConfidence.count} games</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Biases */}
             {performance.biases && (performance.biases.homeTeamBias || performance.biases.scoreBias) && (
-              <div className="mt-4 pt-4 border-t text-sm text-gray-600">
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600">
                 <span className="font-medium">Detected Biases: </span>
                 {performance.biases.homeTeamBias && (
-                  <span className="mr-4">
+                  <Chip size="sm" variant="flat" color={performance.biases.homeTeamBias > 0 ? "warning" : "primary"} className="mr-2">
                     Home {performance.biases.homeTeamBias > 0 ? "+" : ""}{performance.biases.homeTeamBias.toFixed(1)} pts
-                  </span>
+                  </Chip>
                 )}
                 {performance.biases.scoreBias && (
-                  <span>
+                  <Chip size="sm" variant="flat" color={performance.biases.scoreBias > 0 ? "warning" : "primary"}>
                     Total {performance.biases.scoreBias > 0 ? "+" : ""}{performance.biases.scoreBias.toFixed(1)} pts
-                  </span>
+                  </Chip>
                 )}
               </div>
             )}
@@ -444,7 +770,7 @@ export function PredictionsDashboard() {
           <h3 className="text-lg font-semibold">Pipeline Actions</h3>
           {selectedSport !== "all" && (
             <Chip color="primary" variant="flat" size="sm">
-              {currentSportConfig?.label}
+              {currentSportConfig?.label} selected
             </Chip>
           )}
         </CardHeader>
@@ -454,26 +780,26 @@ export function PredictionsDashboard() {
               color="primary"
               variant="flat"
               startContent={loading === "sync" ? <Spinner size="sm" /> : <PlayIcon className="w-4 h-4" />}
-              onPress={() => runAction("sync")}
+              onPress={() => openActionModal("sync")}
               isDisabled={loading !== null}
             >
-              Sync {selectedSport === "all" ? "All" : currentSportConfig?.label} Games
+              Sync Games
             </Button>
             <Button
               color="secondary"
               variant="flat"
               startContent={loading === "captureOdds" ? <Spinner size="sm" /> : <ChartBarIcon className="w-4 h-4" />}
-              onPress={() => runAction("captureOdds")}
+              onPress={() => openActionModal("captureOdds")}
               isDisabled={loading !== null}
             >
-              Capture {selectedSport === "all" ? "All" : currentSportConfig?.label} Odds
+              Capture Odds
             </Button>
             <Divider orientation="vertical" className="h-10" />
             <Button
               color="warning"
               variant="flat"
               startContent={loading === "syncOutcomes" ? <Spinner size="sm" /> : <ClockIcon className="w-4 h-4" />}
-              onPress={() => runAction("syncOutcomes")}
+              onPress={() => openActionModal("syncOutcomes")}
               isDisabled={loading !== null}
             >
               Sync Outcomes
@@ -482,7 +808,7 @@ export function PredictionsDashboard() {
               color="success"
               variant="flat"
               startContent={loading === "train" ? <Spinner size="sm" /> : <ArrowPathIcon className="w-4 h-4" />}
-              onPress={() => runAction("train")}
+              onPress={() => openActionModal("train")}
               isDisabled={loading !== null}
             >
               Train Model
@@ -492,10 +818,10 @@ export function PredictionsDashboard() {
               color="default"
               variant="flat"
               startContent={loading === "backfill" ? <Spinner size="sm" /> : <PlayIcon className="w-4 h-4" />}
-              onPress={() => runAction("backfill")}
+              onPress={() => openActionModal("backfill")}
               isDisabled={loading !== null}
             >
-              Backfill {selectedSport === "all" ? "All" : currentSportConfig?.label}
+              Backfill Missing
             </Button>
           </div>
         </CardBody>
@@ -586,55 +912,171 @@ export function PredictionsDashboard() {
 
       {/* Predictions List */}
       <Card>
-        <CardHeader className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold">
-            {selectedSport === "all" ? "All Predictions" : `${currentSportConfig?.label} Predictions`}
-            {stats && (
-              <Chip size="sm" variant="flat" className="ml-2">
-                {stats.total}
-              </Chip>
+        <CardHeader className="flex flex-col gap-3">
+          <div className="flex justify-between items-center w-full">
+            <h3 className="text-lg font-semibold">
+              {selectedSport === "all" ? "All Predictions" : `${currentSportConfig?.label} Predictions`}
+              {stats && (
+                <Chip size="sm" variant="flat" className="ml-2">
+                  {stats.total}
+                </Chip>
+              )}
+            </h3>
+            <div className="flex gap-2 items-center">
+              <Select
+                size="sm"
+                selectedKeys={[filter]}
+                onChange={(e) => setFilter(e.target.value as typeof filter)}
+                className="w-36"
+              >
+                <SelectItem key="all">All</SelectItem>
+                <SelectItem key="validated">Validated</SelectItem>
+                <SelectItem key="pending">Pending</SelectItem>
+                <SelectItem key="live">Live</SelectItem>
+                <SelectItem key="final">Final</SelectItem>
+              </Select>
+              <Button
+                size="sm"
+                variant="flat"
+                startContent={loading === "predictions" ? <Spinner size="sm" /> : <ArrowPathIcon className="w-4 h-4" />}
+                onPress={fetchPredictions}
+                isDisabled={loading !== null}
+              >
+                Refresh
+              </Button>
+            </div>
+          </div>
+          <div className="relative w-full">
+            <Input
+              size="sm"
+              placeholder="Search teams, games..."
+              value={listSearchQuery}
+              onChange={(e) => setListSearchQuery(e.target.value)}
+              startContent={<MagnifyingGlassIcon className="w-4 h-4 text-gray-400" />}
+              endContent={
+                listSearchQuery && (
+                  <button
+                    onClick={() => setListSearchQuery("")}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ×
+                  </button>
+                )
+              }
+              className="w-full"
+              isClearable={false}
+            />
+            {/* Autocomplete suggestions */}
+            {listSearchQuery.length >= 2 && (
+              (() => {
+                const query = listSearchQuery.toLowerCase();
+                const allTeams = new Set<string>();
+                predictions.forEach((p) => {
+                  if (p.homeTeam.toLowerCase().includes(query)) allTeams.add(p.homeTeam);
+                  if (p.awayTeam.toLowerCase().includes(query)) allTeams.add(p.awayTeam);
+                });
+                const matchingTeams = Array.from(allTeams).slice(0, 6);
+                
+                if (matchingTeams.length > 0) {
+                  return (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
+                      {matchingTeams.map((team) => (
+                        <button
+                          key={team}
+                          onClick={() => setListSearchQuery(team)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                        >
+                          <MagnifyingGlassIcon className="w-4 h-4 text-gray-400" />
+                          <span>
+                            {team.split(new RegExp(`(${listSearchQuery})`, 'i')).map((part, i) => 
+                              part.toLowerCase() === listSearchQuery.toLowerCase() 
+                                ? <strong key={i} className="text-primary">{part}</strong> 
+                                : part
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()
             )}
-          </h3>
-          <div className="flex gap-2 items-center">
-            <Select
-              size="sm"
-              selectedKeys={[filter]}
-              onChange={(e) => setFilter(e.target.value as typeof filter)}
-              className="w-32"
-            >
-              <SelectItem key="all">All</SelectItem>
-              <SelectItem key="validated">Validated</SelectItem>
-              <SelectItem key="pending">Pending</SelectItem>
-            </Select>
-            <Button
-              size="sm"
-              variant="flat"
-              startContent={loading === "predictions" ? <Spinner size="sm" /> : <ArrowPathIcon className="w-4 h-4" />}
-              onPress={fetchPredictions}
-              isDisabled={loading !== null}
-            >
-              Refresh
-            </Button>
           </div>
         </CardHeader>
         <CardBody>
-          {loading === "predictions" ? (
-            <div className="flex justify-center py-8">
-              <Spinner size="lg" />
-            </div>
-          ) : predictions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No predictions found
-            </div>
-          ) : (
-            <div className="divide-y">
-              {predictions.map((p) => {
-                const predictedWinner = p.predictedSpread < 0 ? "home" : p.predictedSpread > 0 ? "away" : "push";
-                const wasCorrect = p.validated && p.actualWinner === predictedWinner;
+          {(() => {
+            // Filter predictions once for both count and display
+            const filteredPredictions = predictions.filter((p) => {
+              // Filter by live/final status
+              if (filter === "live" || filter === "final") {
+                const liveScore = liveScores.get(p.id);
+                if (filter === "live" && liveScore?.status !== "in") return false;
+                if (filter === "final" && !(liveScore?.status === "post" || p.validated)) return false;
+              }
+              // Filter by search query
+              if (listSearchQuery.trim()) {
+                const query = listSearchQuery.toLowerCase();
+                const matchesHome = p.homeTeam.toLowerCase().includes(query);
+                const matchesAway = p.awayTeam.toLowerCase().includes(query);
+                const matchesGameId = p.gameId.toLowerCase().includes(query);
+                if (!matchesHome && !matchesAway && !matchesGameId) return false;
+              }
+              return true;
+            });
+
+            if (loading === "predictions") {
+              return (
+                <div className="flex justify-center py-8">
+                  <Spinner size="lg" />
+                </div>
+              );
+            }
+            
+            if (predictions.length === 0) {
+              return (
+                <div className="text-center py-8 text-gray-500">
+                  No predictions found
+                </div>
+              );
+            }
+            
+            if (filteredPredictions.length === 0) {
+              return (
+                <div className="text-center py-8 text-gray-500">
+                  No predictions match your search
+                  {listSearchQuery && (
+                    <button 
+                      onClick={() => setListSearchQuery("")}
+                      className="block mx-auto mt-2 text-primary hover:underline"
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <>
+                {(listSearchQuery || filter === "live" || filter === "final") && (
+                  <div className="mb-3 text-sm text-gray-500">
+                    Showing {filteredPredictions.length} of {predictions.length} predictions
+                  </div>
+                )}
+                <div className="divide-y">
+                  {filteredPredictions.map((p) => {
                 const spreadError = p.validated && p.actualHomeScore !== null && p.actualAwayScore !== null
                   ? Math.abs((p.actualAwayScore - p.actualHomeScore) - p.predictedSpread)
                   : null;
 
+                const scoreBasedWinner = (p.predictedScore?.home ?? 0) > (p.predictedScore?.away ?? 0) 
+                  ? "home" 
+                  : (p.predictedScore?.away ?? 0) > (p.predictedScore?.home ?? 0) 
+                    ? "away" 
+                    : "tie";
+                const predictedWinnerTeam = scoreBasedWinner === "home" ? p.homeTeam : p.awayTeam;
+                
                 return (
                   <div key={p.id} className="py-4 space-y-3">
                     {/* Header Row */}
@@ -650,35 +1092,137 @@ export function PredictionsDashboard() {
                         }}
                       />
                       <div className="flex-1">
-                        <div className="font-semibold text-base">
-                          {p.awayTeam} @ {p.homeTeam}
-                        </div>
+                        <Link 
+                          href={`/admin/predictions/${p.id}`}
+                          className="font-semibold text-base flex items-center gap-2 hover:underline"
+                        >
+                          <span className={scoreBasedWinner === "away" ? "text-green-600" : ""}>
+                            {p.awayTeam}
+                          </span>
+                          <span className="text-gray-400">@</span>
+                          <span className={scoreBasedWinner === "home" ? "text-green-600" : ""}>
+                            {p.homeTeam}
+                          </span>
+                          <Chip size="sm" color="primary" variant="flat" className="ml-2">
+                            Pick: {predictedWinnerTeam.split(" ").pop()}
+                          </Chip>
+                        </Link>
                         <div className="text-xs text-gray-500">
                           {new Date(p.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                           {" • "}
                           {getSportKey(p.sport).toUpperCase()}
                         </div>
                       </div>
-                      <Chip 
-                        size="sm" 
-                        color={p.validated ? (wasCorrect ? "success" : "danger") : "warning"} 
-                        variant="flat"
-                      >
-                        {p.validated ? (wasCorrect ? "Correct" : "Wrong") : "Pending"}
-                      </Chip>
+                      {(() => {
+                        const liveScore = liveScores.get(p.id);
+                        
+                        // Determine if prediction was correct based on available data
+                        const determineCorrectness = () => {
+                          // Use predicted scores to determine predicted winner (more reliable than spread)
+                          const predHome = p.predictedScore?.home ?? 0;
+                          const predAway = p.predictedScore?.away ?? 0;
+                          const predictedWinner = predHome > predAway ? "home" : predAway > predHome ? "away" : "push";
+                          
+                          // Use validated actual data if available
+                          if (p.validated && p.actualHomeScore !== null && p.actualAwayScore !== null) {
+                            const actualWinner = p.actualHomeScore > p.actualAwayScore ? "home" : 
+                                                 p.actualAwayScore > p.actualHomeScore ? "away" : "push";
+                            return actualWinner === predictedWinner;
+                          }
+                          
+                          // Use live score data for Final games
+                          if (liveScore?.status === "post") {
+                            const actualWinner = liveScore.homeScore > liveScore.awayScore ? "home" : 
+                                                 liveScore.awayScore > liveScore.homeScore ? "away" : "push";
+                            return actualWinner === predictedWinner;
+                          }
+                          
+                          return null;
+                        };
+                        
+                        const isCorrect = determineCorrectness();
+                        
+                        if (p.validated) {
+                          return (
+                            <Chip
+                              size="sm"
+                              color={isCorrect ? "success" : "danger"}
+                              variant="flat"
+                            >
+                              {isCorrect ? "Correct" : "Wrong"}
+                            </Chip>
+                          );
+                        } else if (liveScore?.status === "in") {
+                          return (
+                            <Chip
+                              size="sm"
+                              color="danger"
+                              variant="solid"
+                              startContent={
+                                <span className="relative flex h-2 w-2 mr-1">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                </span>
+                              }
+                            >
+                              LIVE
+                            </Chip>
+                          );
+                        } else if (liveScore?.status === "post") {
+                          // Show Correct/Wrong for Final games
+                          return (
+                            <div className="flex items-center gap-1">
+                              <Chip
+                                size="sm"
+                                color={isCorrect ? "success" : "danger"}
+                                variant="flat"
+                              >
+                                {isCorrect ? "Correct" : "Wrong"}
+                              </Chip>
+                              <Chip size="sm" color="primary" variant="flat">
+                                Final
+                              </Chip>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <Chip size="sm" color="warning" variant="flat">
+                              Pending
+                            </Chip>
+                          );
+                        }
+                      })()}
                     </div>
 
                     {/* Prediction Details Grid */}
                     <div className="ml-9 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      {/* Predicted Score */}
+                      {/* Predicted Score with Winner Highlight */}
                       <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
                         <div className="text-xs text-gray-500 mb-1">Predicted Score</div>
-                        <div className="font-semibold">
-                          {p.predictedScore?.away ?? "-"} - {p.predictedScore?.home ?? "-"}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Total: {p.predictedTotal?.toFixed(0) ?? "-"}
-                        </div>
+                        {(() => {
+                          const homeScore = p.predictedScore?.home ?? 0;
+                          const awayScore = p.predictedScore?.away ?? 0;
+                          const predictedWinner = homeScore > awayScore ? "home" : awayScore > homeScore ? "away" : "tie";
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">Away:</span>
+                                <span className={`font-semibold ${predictedWinner === "away" ? "text-green-600" : ""}`}>
+                                  {awayScore}{predictedWinner === "away" && " ✓"}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">Home:</span>
+                                <span className={`font-semibold ${predictedWinner === "home" ? "text-green-600" : ""}`}>
+                                  {homeScore}{predictedWinner === "home" && " ✓"}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-400 pt-1 border-t border-gray-200 dark:border-gray-600">
+                                Total: {p.predictedTotal?.toFixed(0) ?? (homeScore + awayScore)}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Spread & Win Prob */}
@@ -725,40 +1269,209 @@ export function PredictionsDashboard() {
                         })()}
                       </div>
 
-                      {/* Actual Result or Line Movement */}
-                      {p.validated ? (
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                          <div className="text-xs text-gray-500 mb-1">Actual Score</div>
-                          <div className="font-semibold text-blue-600">
-                            {p.actualAwayScore} - {p.actualHomeScore}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {spreadError !== null && `Error: ${spreadError.toFixed(1)} pts`}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                          <div className="text-xs text-gray-500 mb-1">Line Movement</div>
-                          <div className="font-semibold">
-                            {p.openingSpread !== null ? (
-                              <>
-                                {p.openingSpread > 0 ? "+" : ""}{p.openingSpread.toFixed(1)}
-                                {p.closingSpread !== null && p.closingSpread !== p.openingSpread && (
-                                  <span className="text-gray-400"> → {p.closingSpread > 0 ? "+" : ""}{p.closingSpread.toFixed(1)}</span>
+                      {/* Live Score, Actual Result, or Line Movement */}
+                      {(() => {
+                        const liveScore = liveScores.get(p.id);
+                        
+                        if (p.validated) {
+                          // Show actual score for validated games
+                          const actualHome = p.actualHomeScore ?? 0;
+                          const actualAway = p.actualAwayScore ?? 0;
+                          const predictedHome = p.predictedScore?.home ?? 0;
+                          const predictedAway = p.predictedScore?.away ?? 0;
+                          const actualWinner = actualHome > actualAway ? "home" : actualAway > actualHome ? "away" : "tie";
+                          const homeError = actualHome - predictedHome;
+                          const awayError = actualAway - predictedAway;
+                          return (
+                            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                              <div className="text-xs text-gray-500 mb-1">Actual Score</div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-gray-500">Away:</span>
+                                  <div className="flex items-center gap-1">
+                                    <span className={`font-semibold ${actualWinner === "away" ? "text-blue-600" : ""}`}>
+                                      {actualAway}{actualWinner === "away" && " ✓"}
+                                    </span>
+                                    <span className={`text-xs ${awayError === 0 ? "text-green-500" : Math.abs(awayError) <= 5 ? "text-yellow-500" : "text-red-500"}`}>
+                                      ({awayError >= 0 ? "+" : ""}{awayError})
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-gray-500">Home:</span>
+                                  <div className="flex items-center gap-1">
+                                    <span className={`font-semibold ${actualWinner === "home" ? "text-blue-600" : ""}`}>
+                                      {actualHome}{actualWinner === "home" && " ✓"}
+                                    </span>
+                                    <span className={`text-xs ${homeError === 0 ? "text-green-500" : Math.abs(homeError) <= 5 ? "text-yellow-500" : "text-red-500"}`}>
+                                      ({homeError >= 0 ? "+" : ""}{homeError})
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-400 pt-1 border-t border-gray-200 dark:border-gray-600">
+                                  {spreadError !== null && `Spread err: ${spreadError.toFixed(1)}`}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        } else if (liveScore && (liveScore.status === "in" || liveScore.status === "post")) {
+                          // Show live score for games in progress or just finished
+                          const liveWinner = liveScore.homeScore > liveScore.awayScore ? "home" : 
+                                            liveScore.awayScore > liveScore.homeScore ? "away" : "tie";
+                          const isLive = liveScore.status === "in";
+                          return (
+                            <div className={`rounded-lg p-2 ${isLive ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" : "bg-gray-50 dark:bg-gray-700"}`}>
+                              <div className="flex items-center gap-1 mb-1">
+                                {isLive && (
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                  </span>
                                 )}
-                              </>
-                            ) : "-"}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {p.lineMovement !== null && p.lineMovement !== 0 && (
-                              <span className={p.lineMovement > 0 ? "text-blue-500" : "text-purple-500"}>
-                                {p.lineMovement > 0 ? "+" : ""}{p.lineMovement.toFixed(1)} pts
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                                <span className={`text-xs ${isLive ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500"}`}>
+                                  {isLive ? "LIVE" : "Final"}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Away:</span>
+                                  <span className={`font-bold text-lg ${liveWinner === "away" ? "text-green-600" : ""}`}>
+                                    {liveScore.awayScore}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Home:</span>
+                                  <span className={`font-bold text-lg ${liveWinner === "home" ? "text-green-600" : ""}`}>
+                                    {liveScore.homeScore}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500 pt-1 border-t border-gray-200 dark:border-gray-600">
+                                  {liveScore.statusDetail || (liveScore.period && liveScore.clock ? `${liveScore.period} - ${liveScore.clock}` : "")}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          // Show line movement for pending games
+                          return (
+                            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                              <div className="text-xs text-gray-500 mb-1">Line Movement</div>
+                              <div className="font-semibold">
+                                {p.openingSpread !== null ? (
+                                  <>
+                                    {p.openingSpread > 0 ? "+" : ""}{p.openingSpread.toFixed(1)}
+                                    {p.closingSpread !== null && p.closingSpread !== p.openingSpread && (
+                                      <span className="text-gray-400"> → {p.closingSpread > 0 ? "+" : ""}{p.closingSpread.toFixed(1)}</span>
+                                    )}
+                                  </>
+                                ) : "-"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {p.lineMovement !== null && p.lineMovement !== 0 && (
+                                  <span className={p.lineMovement > 0 ? "text-blue-500" : "text-purple-500"}>
+                                    {p.lineMovement > 0 ? "+" : ""}{p.lineMovement.toFixed(1)} pts
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                      })()}
                     </div>
+
+                    {/* Betting Results Row (for validated or final games) */}
+                    {(() => {
+                      const liveScore = liveScores.get(p.id);
+                      const hasResult = p.validated || liveScore?.status === "post";
+                      
+                      if (!hasResult) return null;
+                      
+                      // Get actual scores
+                      const actualHome = p.validated ? (p.actualHomeScore ?? 0) : (liveScore?.homeScore ?? 0);
+                      const actualAway = p.validated ? (p.actualAwayScore ?? 0) : (liveScore?.awayScore ?? 0);
+                      const actualMargin = actualHome - actualAway;
+                      const actualTotal = actualHome + actualAway;
+                      
+                      // Predicted values
+                      const predHome = p.predictedScore?.home ?? 0;
+                      const predAway = p.predictedScore?.away ?? 0;
+                      const predMargin = predHome - predAway;
+                      const predictedWinner = predHome > predAway ? "home" : "away";
+                      const actualWinner = actualHome > actualAway ? "home" : actualHome < actualAway ? "away" : "push";
+                      const predTotal = p.predictedTotal ?? (predHome + predAway);
+                      
+                      // Winner pick result
+                      const winnerCorrect = predictedWinner === actualWinner;
+                      
+                      // ATS result: Did we cover the spread?
+                      // If we predicted home -5, home needs to win by MORE than 5 to cover
+                      const ourSpread = p.predictedSpread;
+                      const marketLine = p.closingSpread ?? ourSpread;
+                      let atsCovered: boolean | null = null;
+                      let atsText = "";
+                      
+                      if (predMargin > 0) {
+                        // We bet on home (they're favored)
+                        const homeNeeded = marketLine;
+                        atsCovered = actualMargin > homeNeeded;
+                        atsText = atsCovered 
+                          ? `Home covered (${actualMargin > 0 ? "+" : ""}${actualMargin.toFixed(0)} vs ${homeNeeded > 0 ? "-" : "+"}${Math.abs(homeNeeded).toFixed(1)})`
+                          : actualMargin === homeNeeded 
+                            ? "Push"
+                            : `Home didn't cover (${actualMargin > 0 ? "+" : ""}${actualMargin.toFixed(0)} vs ${homeNeeded > 0 ? "-" : "+"}${Math.abs(homeNeeded).toFixed(1)})`;
+                      } else {
+                        // We bet on away (they're underdog or we predicted them to win)
+                        const awayNeeded = -marketLine;
+                        const awayMargin = -actualMargin;
+                        atsCovered = awayMargin > awayNeeded;
+                        atsText = atsCovered 
+                          ? `Away covered (+${awayMargin.toFixed(0)} vs +${awayNeeded.toFixed(1)})`
+                          : awayMargin === awayNeeded 
+                            ? "Push"
+                            : `Away didn't cover (+${awayMargin.toFixed(0)} vs +${awayNeeded.toFixed(1)})`;
+                      }
+                      
+                      // O/U result
+                      const marketTotal = p.closingTotal ?? predTotal;
+                      const predictedOver = predTotal > marketTotal;
+                      const actualOver = actualTotal > marketTotal;
+                      const totalPush = actualTotal === marketTotal;
+                      let totalHit: boolean | null = totalPush ? null : (predictedOver === actualOver);
+                      const totalText = totalPush 
+                        ? "Push" 
+                        : totalHit 
+                          ? `${actualOver ? "Over" : "Under"} hit (${actualTotal} vs ${marketTotal.toFixed(0)})`
+                          : `${actualOver ? "Over" : "Under"} (${actualTotal} vs ${marketTotal.toFixed(0)})`;
+                      
+                      return (
+                        <div className="ml-9 flex flex-wrap items-center gap-2 text-sm">
+                          <Chip
+                            size="sm"
+                            color={winnerCorrect ? "success" : "danger"}
+                            variant="flat"
+                          >
+                            {winnerCorrect ? "✓ Winner" : "✗ Winner"}
+                          </Chip>
+                          <Chip
+                            size="sm"
+                            color={atsCovered === null ? "default" : atsCovered ? "success" : "danger"}
+                            variant="flat"
+                          >
+                            {atsCovered === null ? "—" : atsCovered ? "✓ ATS" : "✗ ATS"}
+                          </Chip>
+                          <Chip
+                            size="sm"
+                            color={totalHit === null ? "default" : totalHit ? "success" : "danger"}
+                            variant="flat"
+                          >
+                            {totalHit === null ? "— O/U" : totalHit ? "✓ O/U" : "✗ O/U"}
+                          </Chip>
+                          <span className="text-xs text-gray-400">
+                            {totalText}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {/* CLV Row (for validated predictions) */}
                     {p.validated && p.clvSpread !== null && (
@@ -784,8 +1497,10 @@ export function PredictionsDashboard() {
                   </div>
                 );
               })}
-            </div>
-          )}
+                </div>
+              </>
+            );
+          })()}
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -813,6 +1528,222 @@ export function PredictionsDashboard() {
           )}
         </CardBody>
       </Card>
+
+      {/* Action Configuration Modals */}
+      
+      {/* Sync Games Modal */}
+      <Modal isOpen={activeModal === "sync"} onClose={() => setActiveModal(null)}>
+        <ModalContent>
+          <ModalHeader>Sync Games</ModalHeader>
+          <ModalBody>
+            <p className="text-sm text-gray-600 mb-4">
+              Discover new games from the Odds API and generate predictions.
+            </p>
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Select Sports:</p>
+              <div className="flex flex-wrap gap-2">
+                {SPORTS.filter(s => s.oddsKey).map(sport => (
+                  <Chip
+                    key={sport.key}
+                    variant={actionConfig.syncSports.includes(sport.oddsKey!) ? "solid" : "bordered"}
+                    color={actionConfig.syncSports.includes(sport.oddsKey!) ? "primary" : "default"}
+                    className="cursor-pointer"
+                    onClick={() => toggleSportInConfig("syncSports", sport.oddsKey!)}
+                  >
+                    {sport.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setActiveModal(null)}>Cancel</Button>
+            <Button 
+              color="primary" 
+              onPress={() => executeAction("sync")}
+              isDisabled={actionConfig.syncSports.length === 0}
+            >
+              Sync {actionConfig.syncSports.length} Sport{actionConfig.syncSports.length !== 1 ? "s" : ""}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Capture Odds Modal */}
+      <Modal isOpen={activeModal === "captureOdds"} onClose={() => setActiveModal(null)}>
+        <ModalContent>
+          <ModalHeader>Capture Odds</ModalHeader>
+          <ModalBody>
+            <p className="text-sm text-gray-600 mb-4">
+              Capture current odds for line movement tracking and CLV analysis.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-2">Select Sports:</p>
+                <div className="flex flex-wrap gap-2">
+                  {SPORTS.filter(s => s.oddsKey).map(sport => (
+                    <Chip
+                      key={sport.key}
+                      variant={actionConfig.captureSports.includes(sport.oddsKey!) ? "solid" : "bordered"}
+                      color={actionConfig.captureSports.includes(sport.oddsKey!) ? "secondary" : "default"}
+                      className="cursor-pointer"
+                      onClick={() => toggleSportInConfig("captureSports", sport.oddsKey!)}
+                    >
+                      {sport.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Force capture all</p>
+                  <p className="text-xs text-gray-500">Capture even if recently captured</p>
+                </div>
+                <Switch 
+                  isSelected={actionConfig.captureForceAll}
+                  onValueChange={(v) => setActionConfig(prev => ({ ...prev, captureForceAll: v }))}
+                />
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setActiveModal(null)}>Cancel</Button>
+            <Button 
+              color="secondary" 
+              onPress={() => executeAction("captureOdds")}
+              isDisabled={actionConfig.captureSports.length === 0}
+            >
+              Capture Odds
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Sync Outcomes Modal */}
+      <Modal isOpen={activeModal === "syncOutcomes"} onClose={() => setActiveModal(null)}>
+        <ModalContent>
+          <ModalHeader>Sync Outcomes</ModalHeader>
+          <ModalBody>
+            <p className="text-sm text-gray-600">
+              Record final scores for completed games and calculate prediction accuracy.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setActiveModal(null)}>Cancel</Button>
+            <Button color="warning" onPress={() => executeAction("syncOutcomes")}>
+              Sync Outcomes
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Train Model Modal */}
+      <Modal isOpen={activeModal === "train"} onClose={() => setActiveModal(null)}>
+        <ModalContent>
+          <ModalHeader>Train Model</ModalHeader>
+          <ModalBody>
+            <p className="text-sm text-gray-600 mb-4">
+              Run Platt scaling recalibration using validated prediction outcomes.
+            </p>
+            <div className="space-y-4">
+              <Input
+                type="number"
+                label="Minimum validated predictions"
+                description="Training requires at least this many validated predictions"
+                value={actionConfig.trainMinValidated.toString()}
+                onChange={(e) => setActionConfig(prev => ({ 
+                  ...prev, 
+                  trainMinValidated: parseInt(e.target.value) || 20 
+                }))}
+                min={10}
+                max={100}
+              />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Include recent predictions</p>
+                  <p className="text-xs text-gray-500">Use predictions from last 7 days</p>
+                </div>
+                <Switch 
+                  isSelected={actionConfig.trainIncludeRecent}
+                  onValueChange={(v) => setActionConfig(prev => ({ ...prev, trainIncludeRecent: v }))}
+                />
+              </div>
+              {stats && (
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg text-sm">
+                  <p>Current validated predictions: <strong>{stats.validated}</strong></p>
+                  {stats.validated < actionConfig.trainMinValidated && (
+                    <p className="text-yellow-600 mt-1">
+                      Need {actionConfig.trainMinValidated - stats.validated} more to train
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setActiveModal(null)}>Cancel</Button>
+            <Button 
+              color="success" 
+              onPress={() => executeAction("train")}
+              isDisabled={(stats?.validated ?? 0) < actionConfig.trainMinValidated}
+            >
+              Train Model
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Backfill Modal */}
+      <Modal isOpen={activeModal === "backfill"} onClose={() => setActiveModal(null)}>
+        <ModalContent>
+          <ModalHeader>Backfill Missing Predictions</ModalHeader>
+          <ModalBody>
+            <p className="text-sm text-gray-600 mb-4">
+              Generate predictions for games that don't have one yet.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-2">Select Sports:</p>
+                <div className="flex flex-wrap gap-2">
+                  {SPORTS.filter(s => s.oddsKey).map(sport => (
+                    <Chip
+                      key={sport.key}
+                      variant={actionConfig.backfillSports.includes(sport.oddsKey!) ? "solid" : "bordered"}
+                      color={actionConfig.backfillSports.includes(sport.oddsKey!) ? "primary" : "default"}
+                      className="cursor-pointer"
+                      onClick={() => toggleSportInConfig("backfillSports", sport.oddsKey!)}
+                    >
+                      {sport.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+              <Input
+                type="number"
+                label="Limit"
+                description="Maximum number of predictions to generate"
+                value={actionConfig.backfillLimit.toString()}
+                onChange={(e) => setActionConfig(prev => ({ 
+                  ...prev, 
+                  backfillLimit: parseInt(e.target.value) || 100 
+                }))}
+                min={10}
+                max={500}
+              />
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setActiveModal(null)}>Cancel</Button>
+            <Button 
+              color="primary" 
+              onPress={() => executeAction("backfill")}
+              isDisabled={actionConfig.backfillSports.length === 0}
+            >
+              Backfill (max {actionConfig.backfillLimit})
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

@@ -105,7 +105,13 @@ function extractConsensusOdds(game: OddsGame): OddsSnapshot {
  * Capture odds for all upcoming games in a sport.
  * - Creates new snapshot if odds have changed since last capture
  * - Marks first capture as "opening" line
- * - Marks pre-game capture as "closing" line
+ * - Marks pre-game capture as "closing" line (when game starts within 30 min)
+ *
+ * IMPORTANT: Closing line capture depends on cron frequency. A game gets a closing
+ * line only if this function runs when minutesUntilGame <= 30. If the cron runs
+ * infrequently (e.g., hourly), many games may never get a closing line. For reliable
+ * CLV (Closing Line Value) analysis, run capture every 15-30 minutes on game days.
+ * See docs/ODDS_CAPTURE.md for full details.
  */
 export async function captureOddsForSport(sport: string): Promise<CaptureResult> {
   const result: CaptureResult = {

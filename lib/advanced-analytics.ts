@@ -863,6 +863,179 @@ function calculateAlternateSpread(
 }
 
 /**
+ * NHL-specific prediction model.
+ * Uses hockey-relevant factors: goals differential, save%, shooting%, momentum, home ice.
+ * Returns a complete MatchupPrediction with realistic NHL scores (2-4 goals per team).
+ */
+function predictNHLMatchup(
+  awayAnalytics: TeamAnalytics,
+  homeAnalytics: TeamAnalytics,
+  awayStats: TeamStats,
+  homeStats: TeamStats,
+  coefficients: CalibrationCoefficients = DEFAULT_COEFFICIENTS
+): MatchupPrediction {
+  const league = NHL_CONSTANTS;
+  const keyFactors: string[] = [];
+  
+  // NHL-specific factors for win probability:
+  // 1. Goals differential (40% weight) - offense vs defense matchup
+  // 2. Save percentage differential (25% weight) - goaltending quality
+  // 3. Shooting percentage differential (15% weight) - finishing ability
+  // 4. Momentum from recent games (10% weight)
+  // 5. Home ice advantage (10% weight) - ~0.15 goals historically
+  
+  // Goals differential (home offense vs away defense, and vice versa)
+  const homeGoalsFor = homeStats.pointsPerGame || league.leagueAvgPpg;
+  const awayGoalsFor = awayStats.pointsPerGame || league.leagueAvgPpg;
+  const homeGoalsAgainst = homeStats.pointsAllowedPerGame || league.leagueAvgPpg;
+  const awayGoalsAgainst = awayStats.pointsAllowedPerGame || league.leagueAvgPpg;
+  
+  // Net goals differential: (home offense - away defense) - (away offense - home defense)
+  const homeOffenseVsAwayDefense = homeGoalsFor - awayGoalsAgainst;
+  const awayOffenseVsHomeDefense = awayGoalsFor - homeGoalsAgainst;
+  const goalsDiffScore = (homeOffenseVsAwayDefense - awayOffenseVsHomeDefense) * 1.2;
+  
+  // Save percentage differential (stored as 0-1 decimal, e.g., 0.910)
+  // League average is ~0.905. A 1% difference (0.01) is significant in hockey.
+  const homeSavePct = homeStats.savePercentage ?? 0.905;
+  const awaySavePct = awayStats.savePercentage ?? 0.905;
+  const savePctDiff = (homeSavePct - awaySavePct) * 100; // Convert to percentage points
+  const savePctScore = savePctDiff * 0.8; // ~0.8 per 1% save pct difference
+  
+  // Shooting percentage differential (stored as %, e.g., 10.5)
+  // League average is ~10%. Better shooting = more goals from same shots.
+  const homeShootPct = homeStats.shootingPercentage ?? 10.0;
+  const awayShootPct = awayStats.shootingPercentage ?? 10.0;
+  const shootPctDiff = homeShootPct - awayShootPct;
+  const shootPctScore = shootPctDiff * 0.25; // ~0.25 per 1% shooting pct difference
+  
+  // Faceoff advantage (if available)
+  let faceoffScore = 0;
+  if (homeStats.faceoffWinPercentage != null && awayStats.faceoffWinPercentage != null) {
+    const faceoffDiff = homeStats.faceoffWinPercentage - awayStats.faceoffWinPercentage;
+    faceoffScore = faceoffDiff * 0.02; // Small but meaningful factor
+  }
+  
+  // Momentum from recent games
+  const momentumScore = ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 1.5;
+  
+  // Home ice advantage (~0.15 goals in NHL, worth ~2-3% win probability)
+  const homeIceScore = league.homeAdvantage * 2.5;
+  
+  // Combine all factors
+  const totalScore = goalsDiffScore + savePctScore + shootPctScore + faceoffScore + momentumScore + homeIceScore;
+  
+  // Build key factors list
+  if (Math.abs(goalsDiffScore) > 0.3) {
+    const better = goalsDiffScore > 0 ? homeStats.name : awayStats.name;
+    keyFactors.push(`${better} has better goals differential matchup`);
+  }
+  if (Math.abs(savePctDiff) > 0.5) {
+    const better = savePctDiff > 0 ? homeStats.name : awayStats.name;
+    keyFactors.push(`${better} has ${Math.abs(savePctDiff).toFixed(1)}% better save percentage`);
+  }
+  if (Math.abs(shootPctDiff) > 1) {
+    const better = shootPctDiff > 0 ? homeStats.name : awayStats.name;
+    keyFactors.push(`${better} shoots ${Math.abs(shootPctDiff).toFixed(1)}% better`);
+  }
+  if (Math.abs(momentumScore) > 0.3) {
+    const better = momentumScore > 0 ? homeStats.name : awayStats.name;
+    keyFactors.push(`${better} has momentum from recent games`);
+  }
+  keyFactors.push(`Home ice advantage: +${(league.homeAdvantage).toFixed(2)} goals for ${homeStats.name}`);
+  
+  // Convert totalScore to win probability using logistic function
+  // Scale factor of 6 gives reasonable spread: totalScore of ±3 → ~70%/30% split
+  let homeWinProb = 1 / (1 + Math.exp(-totalScore / 6));
+  homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
+  const homeWinProbRaw = homeWinProb;
+  
+  // Apply Platt scaling recalibration if available
+  const recalParams = getRecalibrationParams();
+  const recalibrationApplied = recalParams != null && (recalParams.A !== 1 || recalParams.B !== 0);
+  if (recalibrationApplied && recalParams != null) {
+    homeWinProb = applyPlattScaling(homeWinProb, recalParams);
+    homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
+  }
+  const awayWinProb = 1 - homeWinProb;
+  
+  // Predict scores using hockey-specific model
+  // Use team's actual goals scored/allowed, adjusted for opponent quality
+  const homeDefenseQuality = awayGoalsAgainst / league.leagueAvgPpg; // >1 = worse defense
+  const awayDefenseQuality = homeGoalsAgainst / league.leagueAvgPpg;
+  
+  let homePredictedGoals = homeGoalsFor * homeDefenseQuality + league.homeAdvantage;
+  let awayPredictedGoals = awayGoalsFor * awayDefenseQuality;
+  
+  // Apply win probability alignment - ensure predicted winner matches probability
+  const predictedTotal = homePredictedGoals + awayPredictedGoals;
+  const impliedSpread = (() => {
+    const p = Math.max(0.05, Math.min(0.95, homeWinProb));
+    const logit = Math.log(p / (1 - p));
+    // In NHL, ~0.5 goals per logit unit: 60% → ~0.25 goal spread, 70% → ~0.5 goal spread
+    const k = 0.6;
+    return Math.max(-3, Math.min(3, k * logit));
+  })();
+  
+  homePredictedGoals = (predictedTotal + impliedSpread) / 2;
+  awayPredictedGoals = (predictedTotal - impliedSpread) / 2;
+  
+  // Clamp to realistic NHL score range
+  homePredictedGoals = Math.max(league.scoreMin, Math.min(league.scoreMax, homePredictedGoals));
+  awayPredictedGoals = Math.max(league.scoreMin, Math.min(league.scoreMax, awayPredictedGoals));
+  
+  // Round to integers, ensure no ties (add 1 to favorite)
+  let homeFinal = Math.round(homePredictedGoals);
+  let awayFinal = Math.round(awayPredictedGoals);
+  if (homeFinal === awayFinal) {
+    if (homeWinProb >= 0.5) homeFinal += 1;
+    else awayFinal += 1;
+  }
+  
+  const finalSpread = homeFinal - awayFinal;
+  
+  // Calculate confidence based on data quality and prediction certainty
+  const hasHockeyStats = homeStats.savePercentage != null || homeStats.shootingPercentage != null;
+  const dataQuality = hasHockeyStats ? 80 : 65;
+  const avgConsistency = (awayAnalytics.consistency + homeAnalytics.consistency) / 2;
+  const certaintyBonus = Math.abs(homeWinProb - 0.5) * 30;
+  const confidence = Math.min(90, Math.max(55, (dataQuality + avgConsistency + certaintyBonus) / 3));
+  
+  // Calculate alternate spread suggestion
+  const alternateSpread = calculateAlternateSpread(
+    finalSpread,
+    homeWinProb,
+    confidence,
+    homeStats.name,
+    awayStats.name,
+    'nhl'
+  );
+  
+  return {
+    winProbability: {
+      away: awayWinProb * 100,
+      home: homeWinProb * 100,
+    },
+    predictedScore: {
+      away: awayFinal,
+      home: homeFinal,
+    },
+    predictedSpread: finalSpread,
+    alternateSpread,
+    confidence,
+    keyFactors,
+    trace: {
+      modelPath: 'fallback', // NHL uses its own model, but trace expects this type
+      totalScore,
+      homeAdvantage: homeIceScore,
+      homeWinProbRaw,
+      recalibrationApplied,
+    },
+    valueBets: [],
+  };
+}
+
+/**
  * Predict matchup outcome (unified model).
  *
  * - Win probability: Four Factors (eFG%, TOV%, ORB%, FTR) or net rating + momentum + home.
@@ -878,6 +1051,11 @@ export function predictMatchup(
   sport?: Sport,
   coefficients: CalibrationCoefficients = DEFAULT_COEFFICIENTS
 ): MatchupPrediction {
+  // Route NHL games to hockey-specific prediction model
+  if (sport === 'nhl') {
+    return predictNHLMatchup(awayAnalytics, homeAnalytics, awayStats, homeStats, coefficients);
+  }
+  
   const league = getLeagueConstants(sport);
 
   // Efficiency-based score (SOS-adjusted, schedule-aware) — always compute for disagreement check
@@ -1218,10 +1396,54 @@ export function predictMatchup(
   // Predicted spread (now aligned with win probability by construction)
   const predictedSpread = homePredicted - awayPredicted;
 
-  const dataQuality = hasFourFactors ? 85 : 70;
+  // === Enhanced Confidence Calculation ===
+  // Confidence reflects how reliable this prediction is, factoring in multiple dimensions
+  
+  // 1. Data Quality Score (0-30 points)
+  //    - Four Factors available: +15 pts
+  //    - Efficiency data available: +10 pts
+  //    - Recent games data quality: +5 pts
+  const fourFactorsBonus = hasFourFactors ? 15 : 0;
+  const efficiencyBonus = (homeStats.offensiveEfficiency && awayStats.offensiveEfficiency) ? 10 : 
+                          (homeStats.pointsPerGame && awayStats.pointsPerGame) ? 5 : 0;
+  const recentGamesBonus = Math.min(5, 
+    ((homeStats.recentGames?.length ?? 0) >= 5 ? 2.5 : 0) +
+    ((awayStats.recentGames?.length ?? 0) >= 5 ? 2.5 : 0)
+  );
+  const dataQualityScore = fourFactorsBonus + efficiencyBonus + recentGamesBonus;
+  
+  // 2. Team Consistency Score (0-25 points)
+  //    Teams with consistent performance are more predictable
   const avgConsistency = (awayAnalytics.consistency + homeAnalytics.consistency) / 2;
-  const certaintyBonus = Math.abs(homeWinProb - 0.5) * 20;
-  const confidence = Math.min(95, Math.max(60, (dataQuality + avgConsistency + certaintyBonus) / 3));
+  const consistencyScore = (avgConsistency / 100) * 25;
+  
+  // 3. Prediction Clarity Score (0-25 points)
+  //    Clear mismatches are more predictable than coin flips
+  const winProbDiff = Math.abs(homeWinProb - 0.5); // 0 to 0.48
+  const clarityScore = Math.min(25, winProbDiff * 50); // 0-24 pts
+  
+  // 4. Model Agreement Score (0-10 points)
+  //    When multiple models agree, confidence is higher
+  const fourFactorsFavorsHome = totalScore > 0;
+  const efficiencyFavorsHome = efficiencyScore > 0;
+  const scoreFavorsHome = homePredicted > awayPredicted;
+  const agreementCount = [fourFactorsFavorsHome, efficiencyFavorsHome, scoreFavorsHome]
+    .filter(Boolean).length;
+  const modelAgreementScore = agreementCount === 3 ? 10 : agreementCount === 2 ? 5 : 0;
+  
+  // 5. Stability Penalty (-10 to 0 points)
+  //    Penalize when teams are on opposite ends of form (one hot, one cold)
+  const momentumDiff = Math.abs(homeAnalytics.momentum - awayAnalytics.momentum);
+  const stabilityPenalty = momentumDiff > 100 ? -5 : momentumDiff > 150 ? -10 : 0;
+  
+  // Calculate raw confidence (0-90 scale before normalization)
+  const rawConfidence = dataQualityScore + consistencyScore + clarityScore + 
+                        modelAgreementScore + stabilityPenalty;
+  
+  // Normalize to 50-95 range with better distribution
+  // rawConfidence range: ~5 (worst case) to ~90 (best case)
+  // Map this to 50-95
+  const confidence = Math.min(95, Math.max(50, 50 + (rawConfidence / 90) * 45));
 
   // Round; no ties (favored team gets +1 if needed)
   let awayFinal = Math.round(awayPredicted);

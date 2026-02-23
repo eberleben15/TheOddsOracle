@@ -11,6 +11,7 @@ import {
   ShieldCheckIcon,
   ChartBarIcon,
   ClockIcon,
+  CurrencyDollarIcon,
 } from "@heroicons/react/24/outline";
 
 const nav = [
@@ -22,6 +23,7 @@ const nav = [
   { name: "Billing", href: "/admin/billing", icon: CreditCardIcon },
   { name: "Permissions", href: "/admin/permissions", icon: ShieldCheckIcon },
   { name: "Predictions", href: "/admin/predictions", icon: ChartBarIcon },
+  { name: "Bets", href: "/admin/bets", icon: CurrencyDollarIcon },
 ];
 
 export function AdminNav() {

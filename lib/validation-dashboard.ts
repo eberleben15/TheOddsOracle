@@ -71,23 +71,7 @@ export async function generatePerformanceReport(days: number = 90, sport?: strin
   }
   
   // Convert to validations
-  const validations = recentPredictions.map(tracked => {
-    if (!tracked.actualOutcome) {
-      throw new Error("Prediction marked as validated but missing actual outcome");
-    }
-    
-    return validateGamePrediction(
-      tracked.prediction,
-      {
-        homeScore: tracked.actualOutcome.homeScore,
-        awayScore: tracked.actualOutcome.awayScore,
-        homeTeam: tracked.homeTeam,
-        awayTeam: tracked.awayTeam,
-        gameId: parseInt(tracked.gameId),
-        date: tracked.date,
-      }
-    );
-  });
+  const validations = recentPredictions.map(createValidationFromTracked);
   
   // Overall metrics
   const overall = calculateValidationMetrics(validations);
@@ -106,17 +90,7 @@ export async function generatePerformanceReport(days: number = 90, sport?: strin
     );
     
     if (weekPredictions.length > 0) {
-      const weekValidations = weekPredictions.map(tracked => {
-        if (!tracked.actualOutcome) throw new Error("Missing outcome");
-        return validateGamePrediction(tracked.prediction, {
-          homeScore: tracked.actualOutcome.homeScore,
-          awayScore: tracked.actualOutcome.awayScore,
-          homeTeam: tracked.homeTeam,
-          awayTeam: tracked.awayTeam,
-          gameId: parseInt(tracked.gameId),
-          date: tracked.date,
-        });
-      });
+      const weekValidations = weekPredictions.map(createValidationFromTracked);
       
       trends.push({
         period: `Week ${weeks - i}`,
@@ -129,17 +103,7 @@ export async function generatePerformanceReport(days: number = 90, sport?: strin
   // Recent (last 7 days)
   const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
   const recentPredictionsFiltered = validated.filter(p => p.predictedAt >= sevenDaysAgo);
-  const recentValidations = recentPredictionsFiltered.map(tracked => {
-    if (!tracked.actualOutcome) throw new Error("Missing outcome");
-    return validateGamePrediction(tracked.prediction, {
-      homeScore: tracked.actualOutcome.homeScore,
-      awayScore: tracked.actualOutcome.awayScore,
-      homeTeam: tracked.homeTeam,
-      awayTeam: tracked.awayTeam,
-      gameId: parseInt(tracked.gameId),
-      date: tracked.date,
-    });
-  });
+  const recentValidations = recentPredictionsFiltered.map(createValidationFromTracked);
   
   // Monthly trends
   const monthly: PerformanceTrend[] = [];
@@ -157,17 +121,7 @@ export async function generatePerformanceReport(days: number = 90, sport?: strin
     });
     
     if (monthPredictions.length > 0) {
-      const monthValidations = monthPredictions.map(tracked => {
-        if (!tracked.actualOutcome) throw new Error("Missing outcome");
-        return validateGamePrediction(tracked.prediction, {
-          homeScore: tracked.actualOutcome.homeScore,
-          awayScore: tracked.actualOutcome.awayScore,
-          homeTeam: tracked.homeTeam,
-          awayTeam: tracked.awayTeam,
-          gameId: parseInt(tracked.gameId),
-          date: tracked.date,
-        });
-      });
+      const monthValidations = monthPredictions.map(createValidationFromTracked);
       
       monthly.push({
         period: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
@@ -274,6 +228,35 @@ function didFavorableBetWin(
 }
 
 /**
+ * Helper to create validation with market lines for a tracked prediction
+ */
+function createValidationFromTracked(tracked: TrackedPrediction): PredictionValidation {
+  if (!tracked.actualOutcome) {
+    throw new Error("Prediction marked as validated but missing actual outcome");
+  }
+  
+  const predictedTotal = tracked.predictedTotal ?? 
+    (tracked.prediction.predictedScore.home + tracked.prediction.predictedScore.away);
+  
+  return validateGamePrediction(
+    {
+      ...tracked.prediction,
+      predictedTotal,
+    },
+    {
+      homeScore: tracked.actualOutcome.homeScore,
+      awayScore: tracked.actualOutcome.awayScore,
+      homeTeam: tracked.homeTeam,
+      awayTeam: tracked.awayTeam,
+      gameId: parseInt(tracked.gameId),
+      date: tracked.date,
+      marketSpread: tracked.closingSpread ?? undefined,
+      marketTotal: tracked.closingTotal ?? undefined,
+    }
+  );
+}
+
+/**
  * Compute validation metrics per sport
  */
 function computePerSportMetrics(predictions: TrackedPrediction[]): Record<string, ValidationMetrics> {
@@ -282,16 +265,7 @@ function computePerSportMetrics(predictions: TrackedPrediction[]): Record<string
     if (!p.actualOutcome) continue;
     const sport = p.sport || "unknown";
     if (!bySport[sport]) bySport[sport] = [];
-    bySport[sport].push(
-      validateGamePrediction(p.prediction, {
-        homeScore: p.actualOutcome.homeScore,
-        awayScore: p.actualOutcome.awayScore,
-        homeTeam: p.homeTeam,
-        awayTeam: p.awayTeam,
-        gameId: parseInt(p.gameId),
-        date: p.date,
-      })
-    );
+    bySport[sport].push(createValidationFromTracked(p));
   }
   const result: Record<string, ValidationMetrics> = {};
   for (const [sport, validations] of Object.entries(bySport)) {

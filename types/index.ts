@@ -77,6 +77,16 @@ export interface TeamStats {
   defensiveEfficiency?: number;            // Opp points per 100 possessions
   pace?: number;                           // Possessions per game
   assistTurnoverRatio?: number;            // AST/TO
+  
+  // Hockey-specific stats (NHL)
+  shotsPerGame?: number;                   // Average shots per game
+  shotsAgainstPerGame?: number;            // Average shots against per game
+  shootingPercentage?: number;             // Goals / Shots (percentage)
+  savePercentage?: number;                 // Saves / Shots Against (0-1 decimal)
+  powerPlayPercentage?: number;            // PP goals / PP opportunities
+  penaltyKillPercentage?: number;          // 1 - (PP goals against / times shorthanded)
+  faceoffWinPercentage?: number;           // Faceoffs won / total faceoffs
+  penaltyMinutesPerGame?: number;          // Average penalty minutes per game
 }
 
 export interface GameResult {

@@ -102,6 +102,14 @@ export async function GET(request: NextRequest) {
         spreadWithin5: performanceReport.overall.accuracy.spreadWithin5,
         gamesValidated: performanceReport.overall.gameCount,
         biases: performanceReport.biases,
+        // Enhanced metrics
+        ats: performanceReport.overall.ats,
+        overUnder: performanceReport.overall.overUnder,
+        categories: performanceReport.overall.categories,
+        calibration: performanceReport.overall.calibration ? {
+          brierScore: performanceReport.overall.calibration.brierScore,
+          expectedCalibrationError: performanceReport.overall.calibration.expectedCalibrationError,
+        } : undefined,
       },
     });
   } catch (error) {
