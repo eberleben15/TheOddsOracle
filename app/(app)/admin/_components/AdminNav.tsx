@@ -12,10 +12,12 @@ import {
   ChartBarIcon,
   ClockIcon,
   CurrencyDollarIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 
 const nav = [
   { name: "Overview", href: "/admin", icon: HomeIcon },
+  { name: "Model", href: "/admin/model-performance", icon: SparklesIcon },
   { name: "Users", href: "/admin/users", icon: UsersIcon },
   { name: "API keys & env", href: "/admin/api-keys", icon: KeyIcon },
   { name: "Cron jobs", href: "/admin/cron", icon: ClockIcon },
