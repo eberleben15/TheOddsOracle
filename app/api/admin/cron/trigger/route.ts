@@ -2,14 +2,14 @@
  * Admin API: Manually trigger a cron job
  *
  * POST /api/admin/cron/trigger
- * Body: { job: "generate-predictions" | "record-outcomes" | "refresh-team-stats" }
+ * Body: { job: "generate-predictions" | "record-outcomes" | "refresh-team-stats" | "settle-bets" }
  * Admin-only. Proxies to the cron endpoint with CRON_SECRET.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-utils";
 
-const ALLOWED_JOBS = ["generate-predictions", "record-outcomes", "refresh-team-stats"] as const;
+const ALLOWED_JOBS = ["generate-predictions", "record-outcomes", "refresh-team-stats", "settle-bets"] as const;
 
 export async function POST(request: NextRequest) {
   const admin = await isAdmin();

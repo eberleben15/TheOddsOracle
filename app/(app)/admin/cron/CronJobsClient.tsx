@@ -65,7 +65,7 @@ export function CronJobsClient({ initialJobs }: { initialJobs: Job[] }) {
         </Button>
         <span className="text-sm text-gray-500 mx-1">|</span>
         <span className="text-sm text-gray-600 dark:text-gray-400">Run manually:</span>
-        {(["refresh-team-stats", "generate-predictions", "record-outcomes"] as const).map((j) => (
+        {(["refresh-team-stats", "generate-predictions", "record-outcomes", "settle-bets"] as const).map((j) => (
           <Button
             key={j}
             size="sm"
@@ -86,6 +86,7 @@ export function CronJobsClient({ initialJobs }: { initialJobs: Job[] }) {
           <option value="generate-predictions">generate-predictions</option>
           <option value="record-outcomes">record-outcomes</option>
           <option value="refresh-team-stats">refresh-team-stats</option>
+          <option value="settle-bets">settle-bets</option>
         </select>
       </div>
       <div className="overflow-x-auto border rounded-lg">

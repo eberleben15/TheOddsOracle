@@ -15,6 +15,8 @@ export interface GamesSectionProps {
   teamLogos?: Record<string, string>;
   /** If true, show a compact "Today's games" style header. If false, show full sport page header. */
   compact?: boolean;
+  /** Optional action (e.g. "View all" link) rendered to the right of the section heading. */
+  rightHeaderAction?: React.ReactNode;
 }
 
 export function GamesSection({
@@ -23,24 +25,28 @@ export function GamesSection({
   sport,
   teamLogos,
   compact = false,
+  rightHeaderAction,
 }: GamesSectionProps) {
   const [filteredUpcomingGames, setFilteredUpcomingGames] = useState<OddsGame[]>(upcomingGames);
   const config = getSportConfig(sport);
 
   return (
     <section className="mb-8">
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-xl font-semibold text-text-dark">
-          {compact ? "Today's games" : config.displayName}
-        </h2>
-        {compact && <span className="text-sm text-gray-500">— {config.displayName}</span>}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold text-[var(--text-dark)]">
+            {compact ? "Today's games" : config.displayName}
+          </h2>
+          {compact && <span className="text-sm text-[var(--text-body)]">— {config.displayName}</span>}
+        </div>
+        {rightHeaderAction}
       </div>
 
       {liveGames.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-gray-600" aria-hidden />
-            <span className="text-gray-600 text-sm font-medium">
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--gray-600)]" aria-hidden />
+            <span className="text-[var(--text-body)] text-sm font-medium">
               {liveGames.length} live
             </span>
           </div>

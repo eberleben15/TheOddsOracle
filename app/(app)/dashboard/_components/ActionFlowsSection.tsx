@@ -65,17 +65,17 @@ export function ActionFlowsSection() {
             key={idx}
             href={action.href}
             className={`
-              flex items-start gap-4 p-4 rounded-xl border transition-all
-              hover:shadow-md hover:border-gray-300
+              flex items-start gap-4 p-4 rounded-xl border border-[var(--border-color)] transition-all
+              hover:shadow-md hover:border-[var(--gray-300)]
               ${action.color}
             `}
           >
-            <div className="h-10 w-10 rounded-lg bg-white/80 flex items-center justify-center shrink-0 border border-white/50">
+            <div className="h-10 w-10 rounded-lg bg-white/80 dark:bg-black/10 flex items-center justify-center shrink-0 border border-white/50 dark:border-black/10">
               <action.Icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-semibold text-text-dark">{action.title}</h3>
-              <p className="text-xs text-text-body mt-0.5">{action.description}</p>
+              <h3 className="font-semibold text-[var(--text-dark)]">{action.title}</h3>
+              <p className="text-xs text-[var(--text-body)] mt-0.5">{action.description}</p>
             </div>
           </Link>
         ))}

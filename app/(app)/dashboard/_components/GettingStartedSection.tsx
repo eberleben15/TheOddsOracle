@@ -9,7 +9,14 @@ import {
   Cog6ToothIcon,
   BookOpenIcon,
   DocumentTextIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
+
+const startHereSteps = [
+  { step: 1, title: "Set your bankroll", href: "/settings", description: "Enter risk capital and Kelly fraction" },
+  { step: 2, title: "Connect Kalshi or Polymarket (optional)", href: "/settings", description: "Sync prediction market positions" },
+  { step: 3, title: "Open Sports", href: "/sports/cbb", description: "Live games and matchup analytics" },
+];
 
 const steps = [
   {
@@ -65,21 +72,48 @@ export function GettingStartedSection() {
           Getting started & how-tos
         </h2>
       </div>
+
+      {/* Start here checklist */}
+      <div className="mb-6 p-4 rounded-xl border-2 border-primary/20 bg-primary/5">
+        <p className="text-sm font-medium text-[var(--text-dark)] mb-3">Start here</p>
+        <ol className="space-y-2">
+          {startHereSteps.map(({ step, title, href, description }) => (
+            <li key={step}>
+              <Link
+                href={href}
+                className="flex items-center gap-3 p-3 rounded-lg bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-primary/40 hover:shadow-sm transition-all group"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary font-semibold text-sm">
+                  {step}
+                </span>
+                <div className="min-w-0 flex-1 text-left">
+                  <span className="font-medium text-[var(--text-dark)] group-hover:text-primary">
+                    {title}
+                  </span>
+                  <p className="text-xs text-[var(--text-body)] mt-0.5">{description}</p>
+                </div>
+                <ChevronRightIcon className="h-5 w-5 text-gray-400 shrink-0" />
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </div>
+
       <p className="text-sm text-[var(--text-body)] mb-4 max-w-xl">
-        Your home base: connect accounts, set bankroll, then use Portfolio Risk and Sports to track positions and find edges. Use the cards below for step-by-step guidance.
+        More guidance: connect accounts, portfolio risk, and settings below.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {steps.map((step, idx) => (
           <Link
             key={idx}
             href={step.href}
-            className="flex items-start gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-white hover:border-gray-300 hover:shadow-sm transition-all group"
+            className="flex items-start gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--gray-300)] hover:shadow-sm transition-all group"
           >
-            <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 group-hover:bg-gray-200 transition-colors">
-              <step.Icon className="h-4 w-4 text-gray-600" />
+            <div className="h-9 w-9 rounded-lg bg-[var(--gray-100)] flex items-center justify-center shrink-0 group-hover:bg-[var(--gray-200)] transition-colors">
+              <step.Icon className="h-4 w-4 text-[var(--text-body)]" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-medium text-[var(--text-dark)] group-hover:text-gray-900">
+              <h3 className="font-medium text-[var(--text-dark)] group-hover:text-[var(--text-dark)]">
                 {step.title}
               </h3>
               <p className="text-xs text-[var(--text-body)] mt-0.5">

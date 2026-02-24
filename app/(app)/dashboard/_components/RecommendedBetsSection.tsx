@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RecommendedBets } from "@/components/RecommendedBets";
 import type { RecommendedBet } from "@/types";
@@ -8,7 +8,7 @@ import { PremiumGate } from "@/components/PremiumGate";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 
 export function RecommendedBetsSection() {
-  const searchParams = use(useSearchParams());
+  const searchParams = useSearchParams();
   const sport = searchParams?.get("sport") || "cbb";
   const [bets, setBets] = useState<RecommendedBet[]>([]);
   const [loading, setLoading] = useState(true);

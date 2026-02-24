@@ -27,13 +27,13 @@ export function EmptyState({
   const getIcon = () => {
     switch (type) {
       case "no_games":
-        return <CalendarIcon className="h-12 w-12 text-gray-400" />;
+        return <CalendarIcon className="h-12 w-12 text-[var(--text-body)]" />;
       case "no_results":
-        return <MagnifyingGlassIcon className="h-12 w-12 text-gray-400" />;
+        return <MagnifyingGlassIcon className="h-12 w-12 text-[var(--text-body)]" />;
       case "no_predictions":
-        return <ChartBarIcon className="h-12 w-12 text-gray-400" />;
+        return <ChartBarIcon className="h-12 w-12 text-[var(--text-body)]" />;
       default:
-        return <InboxIcon className="h-12 w-12 text-gray-400" />;
+        return <InboxIcon className="h-12 w-12 text-[var(--text-body)]" />;
     }
   };
 
@@ -64,22 +64,22 @@ export function EmptyState({
   };
 
   return (
-    <Card className="bg-gray-50 border border-gray-200">
+    <Card className="bg-[var(--gray-50)] dark:bg-[var(--card-bg)] border border-[var(--border-color)]">
       <CardBody className="p-12">
         <div className="flex flex-col items-center justify-center text-center">
           <div className="mb-4">
             {getIcon()}
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-lg font-semibold text-[var(--text-dark)] mb-2">
             {title || getDefaultTitle()}
           </h3>
-          <p className="text-gray-600 max-w-md mb-6">
+          <p className="text-[var(--text-body)] max-w-md mb-6">
             {message || getDefaultMessage()}
           </p>
           {action && (
             <button
               onClick={action.onClick}
-              className="px-6 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="px-6 py-3 min-h-[44px] bg-primary text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
             >
               {action.label}
             </button>

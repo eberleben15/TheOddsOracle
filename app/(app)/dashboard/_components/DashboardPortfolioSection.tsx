@@ -82,8 +82,21 @@ export function DashboardPortfolioSection() {
   if (loading) {
     return (
       <section className="mb-10">
-        <div className="rounded-xl border border-[var(--border-color)] bg-white p-8 text-center text-[var(--text-body)] text-sm">
-          Loading portfolio…
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-[var(--text-dark)]">Portfolio</h2>
+        </div>
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] overflow-hidden">
+          <div className="p-4 sm:p-5 animate-pulse">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i}>
+                  <div className="h-3 w-20 bg-[var(--gray-200)] rounded mb-2" />
+                  <div className="h-7 w-16 bg-[var(--gray-200)] rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="h-4 w-48 bg-[var(--gray-200)] rounded" />
+          </div>
         </div>
       </section>
     );
@@ -103,18 +116,18 @@ export function DashboardPortfolioSection() {
         </Link>
       </div>
 
-      <div className="rounded-xl border border-[var(--border-color)] bg-white overflow-hidden">
+      <div className="rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] overflow-hidden">
         <div className="p-4 sm:p-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Positions</p>
+              <p className="text-xs text-[var(--text-body)] uppercase tracking-wider">Positions</p>
               <p className="text-xl font-semibold text-[var(--text-dark)] tabular-nums">
                 {positions.length}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">{connectionLabel}</p>
+              <p className="text-xs text-[var(--text-body)] mt-0.5">{connectionLabel}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Notional</p>
+              <p className="text-xs text-[var(--text-body)] uppercase tracking-wider">Notional</p>
               <p className="text-xl font-semibold text-[var(--text-dark)] tabular-nums">
                 ${totalNotional.toFixed(0)}
               </p>
@@ -122,13 +135,13 @@ export function DashboardPortfolioSection() {
             {report && (
               <>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Concentration</p>
+                  <p className="text-xs text-[var(--text-body)] uppercase tracking-wider">Concentration</p>
                   <p className="text-xl font-semibold text-[var(--text-dark)] tabular-nums">
                     {(report.concentrationRisk * 100).toFixed(0)}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Volatility (1σ)</p>
+                  <p className="text-xs text-[var(--text-body)] uppercase tracking-wider">Volatility (1σ)</p>
                   <p className="text-xl font-semibold text-[var(--text-dark)] tabular-nums">
                     {report.varianceCurve ? `±$${report.varianceCurve.volatilityUsd.toFixed(0)}` : "—"}
                   </p>
@@ -144,23 +157,23 @@ export function DashboardPortfolioSection() {
           )}
 
           {positions.length > 0 && analyzing && (
-            <p className="text-sm text-gray-500 mb-4">Analyzing…</p>
+            <p className="text-sm text-[var(--text-body)] mb-4">Analyzing…</p>
           )}
 
           {report && positions.length > 0 && !analyzing && (
-            <div className="space-y-4 pt-4 border-t border-gray-100">
+            <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
               {report.factorExposures.length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Factor exposure (top 5)</p>
+                  <p className="text-xs text-[var(--text-body)] uppercase tracking-wider mb-2">Factor exposure (top 5)</p>
                   <div className="space-y-2">
                     {report.factorExposures.slice(0, 5).map((e) => (
                       <div key={e.factorId} className="flex items-center gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between text-sm mb-0.5">
                             <span className="font-medium text-[var(--text-dark)]">{e.factorName}</span>
-                            <span className="text-gray-500 tabular-nums">{(e.fraction * 100).toFixed(0)}%</span>
+                            <span className="text-[var(--text-body)] tabular-nums">{(e.fraction * 100).toFixed(0)}%</span>
                           </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-[var(--gray-100)] rounded-full overflow-hidden">
                             <div
                               className="h-full bg-emerald-500 rounded-full"
                               style={{ width: `${Math.min(100, e.fraction * 100)}%` }}
@@ -173,9 +186,9 @@ export function DashboardPortfolioSection() {
                 </div>
               )}
               {report.warnings.length > 0 && (
-                <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
-                  <p className="text-xs font-medium text-amber-800 mb-1">Warnings</p>
-                  <ul className="text-sm text-amber-900 space-y-0.5">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Warnings</p>
+                  <ul className="text-sm text-amber-900 dark:text-amber-100 space-y-0.5">
                     {report.warnings.slice(0, 3).map((w, i) => (
                       <li key={i}>{w}</li>
                     ))}
@@ -186,8 +199,8 @@ export function DashboardPortfolioSection() {
           )}
 
           {bankroll && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Bankroll</p>
+            <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+              <p className="text-xs text-[var(--text-body)] uppercase tracking-wider">Bankroll</p>
               <p className="text-sm text-[var(--text-body)] mt-0.5">
                 ${bankroll.bankrollUsd.toFixed(0)} risk capital · {bankroll.riskMessage}
               </p>

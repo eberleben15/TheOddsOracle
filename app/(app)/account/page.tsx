@@ -82,14 +82,12 @@ export default function AccountPage() {
         <CardBody className="space-y-4">
           <Input label="Name" value={name} readOnly />
           <Input label="Email" value={email} readOnly />
-          <div className="flex gap-3">
-            <Button variant="flat" color="primary" as={Link} href="/settings">
-              Edit Profile (coming soon)
-            </Button>
-            <Button variant="flat" color="secondary" as={Link} href="/settings/password">
-              Change Password (coming soon)
-            </Button>
-          </div>
+          <p className="text-sm text-text-body">
+            Password and sign-in are managed by your provider. Use Settings for bankroll and preferences.
+          </p>
+          <Button variant="flat" color="primary" as={Link} href="/settings">
+            Open Settings
+          </Button>
         </CardBody>
       </Card>
 
@@ -106,16 +104,18 @@ export default function AccountPage() {
               <p className="text-sm text-text-body">Current Plan</p>
               <p className="text-xl font-semibold text-text-dark">{subStatus}</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button as={Link} href="/pricing" variant="flat" color="primary">
                 Change Plan
               </Button>
-              <Button as={Link} href="/account/billing" variant="flat" color="secondary">
-                Manage Billing (coming soon)
-              </Button>
-              <Button variant="flat" color="danger">
-                Cancel (coming soon)
-              </Button>
+              <a
+                href="mailto:support@theoddsoracle.com?subject=Subscription%20or%20billing"
+                className="inline-flex"
+              >
+                <Button variant="flat" color="secondary">
+                  Billing or cancel — Contact support
+                </Button>
+              </a>
             </div>
           </div>
           <div className="text-sm text-text-body">
