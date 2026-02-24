@@ -222,6 +222,100 @@ export function StatsDisplay({
           </CardBody>
         </Card>
 
+        {/* MLB: Batting & Pitching (when ESPN provides era/ops/avg) */}
+        {isMLB && (awayTeamStats.era != null || homeTeamStats.era != null || awayTeamStats.ops != null || homeTeamStats.ops != null || awayTeamStats.battingAverage != null || homeTeamStats.battingAverage != null) && (
+          <Card className="bg-white border border-border-gray">
+            <CardHeader className="border-b border-border-gray">
+              <h3 className="text-lg font-semibold text-text-dark">Batting & Pitching</h3>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-3 text-sm">
+                {(awayTeamStats.era != null || homeTeamStats.era != null) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">ERA</span>
+                    <div className="flex gap-4">
+                      <span style={{ color: awayTeamData.primaryColor }}>
+                        {awayTeamStats.era != null ? awayTeamStats.era.toFixed(2) : "—"}
+                      </span>
+                      <span style={{ color: homeTeamData.primaryColor }}>
+                        {homeTeamStats.era != null ? homeTeamStats.era.toFixed(2) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {(awayTeamStats.ops != null || homeTeamStats.ops != null) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">OPS</span>
+                    <div className="flex gap-4">
+                      <span style={{ color: awayTeamData.primaryColor }}>
+                        {awayTeamStats.ops != null ? awayTeamStats.ops.toFixed(3) : "—"}
+                      </span>
+                      <span style={{ color: homeTeamData.primaryColor }}>
+                        {homeTeamStats.ops != null ? homeTeamStats.ops.toFixed(3) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {(awayTeamStats.battingAverage != null || homeTeamStats.battingAverage != null) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">AVG</span>
+                    <div className="flex gap-4">
+                      <span style={{ color: awayTeamData.primaryColor }}>
+                        {awayTeamStats.battingAverage != null
+                          ? (awayTeamStats.battingAverage <= 1 ? awayTeamStats.battingAverage : awayTeamStats.battingAverage / 1000).toFixed(3)
+                          : "—"}
+                      </span>
+                      <span style={{ color: homeTeamData.primaryColor }}>
+                        {homeTeamStats.battingAverage != null
+                          ? (homeTeamStats.battingAverage <= 1 ? homeTeamStats.battingAverage : homeTeamStats.battingAverage / 1000).toFixed(3)
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {((awayTeamStats.onBasePercentage != null || homeTeamStats.onBasePercentage != null) || (awayTeamStats.sluggingPercentage != null || homeTeamStats.sluggingPercentage != null)) && (
+                  <>
+                    {(awayTeamStats.onBasePercentage != null || homeTeamStats.onBasePercentage != null) && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">OBP</span>
+                        <div className="flex gap-4">
+                          <span style={{ color: awayTeamData.primaryColor }}>
+                            {awayTeamStats.onBasePercentage != null
+                              ? (awayTeamStats.onBasePercentage <= 1 ? awayTeamStats.onBasePercentage : awayTeamStats.onBasePercentage / 1000).toFixed(3)
+                              : "—"}
+                          </span>
+                          <span style={{ color: homeTeamData.primaryColor }}>
+                            {homeTeamStats.onBasePercentage != null
+                              ? (homeTeamStats.onBasePercentage <= 1 ? homeTeamStats.onBasePercentage : homeTeamStats.onBasePercentage / 1000).toFixed(3)
+                              : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {(awayTeamStats.sluggingPercentage != null || homeTeamStats.sluggingPercentage != null) && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">SLG</span>
+                        <div className="flex gap-4">
+                          <span style={{ color: awayTeamData.primaryColor }}>
+                            {awayTeamStats.sluggingPercentage != null
+                              ? (awayTeamStats.sluggingPercentage <= 1 ? awayTeamStats.sluggingPercentage : awayTeamStats.sluggingPercentage / 1000).toFixed(3)
+                              : "—"}
+                          </span>
+                          <span style={{ color: homeTeamData.primaryColor }}>
+                            {homeTeamStats.sluggingPercentage != null
+                              ? (homeTeamStats.sluggingPercentage <= 1 ? homeTeamStats.sluggingPercentage : homeTeamStats.sluggingPercentage / 1000).toFixed(3)
+                              : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        )}
+
         {/* Advanced Stats - NEW in Phase 1 */}
         <Card className="bg-white border border-border-gray">
           <CardHeader className="border-b border-border-gray">

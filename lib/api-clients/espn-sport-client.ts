@@ -454,15 +454,51 @@ export class ESPNSportClient {
     // For now, leave undefined unless we get better data
   }
 
+  /** Try multiple possible keys from ESPN (naming can vary). */
+  private getBaseballStat(statMap: Map<string, number>, ...keys: string[]): number | undefined {
+    for (const key of keys) {
+      const v = statMap.get(key);
+      if (v != null && !Number.isNaN(v)) return v;
+    }
+    return undefined;
+  }
+
   private applyBaseballStats(base: TeamStats, statMap: Map<string, number>): void {
-    // ESPN MLB stats - use runs per game as "points"
-    const runsPerGame = statMap.get("runsPerGame") ?? statMap.get("avgRuns") ?? statMap.get("runs");
-    const runsAgainstPerGame = statMap.get("runsAgainstPerGame") ?? statMap.get("avgRunsAgainst");
+    // Runs per game (primary scoring stat)
+    const runsPerGame = this.getBaseballStat(statMap, "runsPerGame", "avgRuns", "runs");
+    const runsAgainstPerGame = this.getBaseballStat(statMap, "runsAgainstPerGame", "avgRunsAgainst", "runsAllowed");
     if (runsPerGame != null && base.pointsPerGame === 0) {
       base.pointsPerGame = Math.round(runsPerGame * 100) / 100;
     }
     if (runsAgainstPerGame != null && base.pointsAllowedPerGame === 0) {
       base.pointsAllowedPerGame = Math.round(runsAgainstPerGame * 100) / 100;
+    }
+    // Explicit MLB fields for display and future model use
+    if (runsPerGame != null) base.runsPerGame = Math.round(runsPerGame * 100) / 100;
+    if (runsAgainstPerGame != null) base.runsAllowedPerGame = Math.round(runsAgainstPerGame * 100) / 100;
+
+    // ERA: team earned run average (ESPN may use "era", "teamEra", "earnedRunAvg")
+    const era = this.getBaseballStat(statMap, "era", "teamEra", "earnedRunAvg");
+    if (era != null) base.era = Math.round(era * 100) / 100;
+
+    // OPS: on-base + slugging (ESPN may use "ops", "teamOps")
+    const ops = this.getBaseballStat(statMap, "ops", "teamOps");
+    if (ops != null) base.ops = Math.round(ops * 1000) / 1000;
+
+    // Batting average (may be 0-1 or 0-1000 scale)
+    const avg = this.getBaseballStat(statMap, "battingAvg", "avg", "battingAverage", "teamAvg");
+    if (avg != null) {
+      base.battingAverage = avg <= 1 ? Math.round(avg * 1000) / 1000 : Math.round(avg) / 1000;
+    }
+
+    // OBP and SLG (optional; some feeds provide these)
+    const obp = this.getBaseballStat(statMap, "onBasePct", "obp", "onBasePercentage");
+    if (obp != null) {
+      base.onBasePercentage = obp <= 1 ? Math.round(obp * 1000) / 1000 : Math.round(obp) / 1000;
+    }
+    const slg = this.getBaseballStat(statMap, "slugPct", "slg", "sluggingPercentage");
+    if (slg != null) {
+      base.sluggingPercentage = slg <= 1 ? Math.round(slg * 1000) / 1000 : Math.round(slg) / 1000;
     }
   }
 

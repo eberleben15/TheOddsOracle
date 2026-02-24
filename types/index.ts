@@ -83,10 +83,19 @@ export interface TeamStats {
   shotsAgainstPerGame?: number;            // Average shots against per game
   shootingPercentage?: number;             // Goals / Shots (percentage)
   savePercentage?: number;                 // Saves / Shots Against (0-1 decimal)
-  powerPlayPercentage?: number;            // PP goals / PP opportunities
+  powerPlayPercentage?: number;           // PP goals / PP opportunities
   penaltyKillPercentage?: number;          // 1 - (PP goals against / times shorthanded)
   faceoffWinPercentage?: number;           // Faceoffs won / total faceoffs
   penaltyMinutesPerGame?: number;          // Average penalty minutes per game
+
+  // Baseball-specific stats (MLB, from ESPN or other sources)
+  runsPerGame?: number;                    // Explicit R/G (also in pointsPerGame)
+  runsAllowedPerGame?: number;             // Explicit RA/G (also in pointsAllowedPerGame)
+  era?: number;                            // Team ERA
+  ops?: number;                            // Team OPS (on-base + slugging)
+  battingAverage?: number;                  // Team batting average (0–1 or 0–1000 scale)
+  onBasePercentage?: number;               // OBP (0–1 or 0–1000)
+  sluggingPercentage?: number;             // SLG (0–1 or 0–1000)
 }
 
 export interface GameResult {
