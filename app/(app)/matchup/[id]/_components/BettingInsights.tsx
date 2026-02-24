@@ -43,12 +43,16 @@ export function BettingInsights({
 }: BettingInsightsProps) {
   const awayTeamData = getTeamData(awayTeamName);
   const homeTeamData = getTeamData(homeTeamName);
+  const sport = game ? getSportFromGame(game) : undefined;
+  const isMLB = sport === "mlb";
+  const pointsPerGameLabel = isMLB ? "Runs Per Game" : "Points Per Game";
+  const pointsAllowedLabel = isMLB ? "Runs Allowed Per Game" : "Points Allowed Per Game";
+  const netRatingLabel = isMLB ? "Run Differential" : "Net Rating";
 
   // Calculate prediction if we have game but no prediction provided
   let calculatedPrediction = prediction;
   if (game && !prediction) {
     try {
-      const sport = getSportFromGame(game);
       const awayAnalytics = calculateTeamAnalytics(awayTeamStats, awayTeamStats.recentGames || [], false, sport);
       const homeAnalytics = calculateTeamAnalytics(homeTeamStats, homeTeamStats.recentGames || [], true, sport);
       calculatedPrediction = predictMatchup(awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats, sport);
@@ -285,7 +289,7 @@ export function BettingInsights({
         <CardBody>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Points Per Game</span>
+              <span className="text-gray-600">{pointsPerGameLabel}</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
                   {safeNumber(awayTeamStats?.pointsPerGame, 1)}
@@ -296,7 +300,7 @@ export function BettingInsights({
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Points Allowed Per Game</span>
+              <span className="text-gray-600">{pointsAllowedLabel}</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
                   {safeNumber(awayTeamStats?.pointsAllowedPerGame, 1)}
@@ -307,7 +311,7 @@ export function BettingInsights({
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Net Rating</span>
+              <span className="text-gray-600">{netRatingLabel}</span>
               <div className="flex gap-4">
                 <span style={{ color: awayTeamData.primaryColor }}>
                   {safeNumber(

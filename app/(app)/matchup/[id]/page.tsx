@@ -44,9 +44,9 @@ export default async function MatchupPage({ params, searchParams }: MatchupPageP
   const sport: Sport = getSportFromGame(game);
   console.log(`[MATCHUP] Detected sport: ${sport} from game sport_key: ${game.sport_key}`);
 
-  // CBB, NBA, NHL use ESPN (free). NFL/MLB would need a key when enabled.
+  // CBB, NBA, NHL, MLB use ESPN (free). NFL would need SportsData key when enabled.
   const hasAPIKey = !!process.env.SPORTSDATA_API_KEY;
-  const canLoadStats = sport === "cbb" || sport === "nba" || sport === "nhl" || hasAPIKey;
+  const canLoadStats = sport === "cbb" || sport === "nba" || sport === "nhl" || sport === "mlb" || hasAPIKey;
 
   let homeTeamStats: TeamStats | null = null;
   let awayTeamStats: TeamStats | null = null;
@@ -183,6 +183,7 @@ export default async function MatchupPage({ params, searchParams }: MatchupPageP
               awayTeamStats={awayTeamStats}
               recentGames={recentGames}
               headToHead={headToHead || undefined}
+              sport={sport}
             />
           </>
         )}

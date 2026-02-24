@@ -2,7 +2,7 @@
 
 ## Overview
 
-The application now supports multiple sports: **NBA, NFL, NHL, MLB, and CBB (College Basketball)**. All sports use SportsData.io as the data source.
+The application now supports multiple sports: **NBA, NFL, NHL, MLB, and CBB (College Basketball)**. CBB, NBA, NHL, and MLB use **ESPN** (free) for team stats and recent games. NFL uses SportsData.io when `SPORTSDATA_API_KEY` is set.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ The application now supports multiple sports: **NBA, NFL, NHL, MLB, and CBB (Col
 - `lib/sports/nba-api.ts` - NBA implementation
 - `lib/sports/nfl-api.ts` - NFL implementation
 - `lib/sports/nhl-api.ts` - NHL implementation
-- `lib/sports/mlb-api.ts` - MLB implementation
+- `lib/sports/mlb-api.ts` - MLB implementation (ESPN only)
 - `lib/sports/cbb-api-wrapper.ts` - Wraps existing CBB implementation
 
 ### Unified API (`lib/sports/unified-sports-api.ts`)
@@ -96,9 +96,11 @@ Matchup pages automatically detect the sport from the game's `sport_key` and use
 - Stats: GoalsPerGame, GoalsAgainstPerGame
 
 ### MLB
+- **Data source:** ESPN only (no SportsData). Implemented in `lib/sports/mlb-api.ts` and `lib/api-clients/espn-sport-client.ts`.
 - Season: March - October (starting year)
 - Scoring: Runs per game (3-7 range)
-- Stats: RunsPerGame, RunsAgainstPerGame
+- Stats: Runs per game (R/G), Runs allowed per game (RA/G), mapped to the shared TeamStats `pointsPerGame` / `pointsAllowedPerGame`.
+- Prediction: Run-based model (`predictMLBMatchup` in `lib/advanced-analytics.ts`) using run differential, momentum, and home field advantage. No Four Factors (basketball-only).
 
 ### CBB (College Basketball)
 - Season: November - April (ending year)
@@ -108,7 +110,9 @@ Matchup pages automatically detect the sport from the game's `sport_key` and use
 
 ## API Endpoints
 
-All sports use the same SportsData.io API structure:
+**ESPN (CBB, NBA, NHL, MLB):** Team stats and recent games come from ESPN’s public site API (e.g. `https://site.web.api.espn.com/apis/site/v2/sports/baseball/mlb` for MLB). No API key required.
+
+**SportsData.io (NFL, optional for others):** When `SPORTSDATA_API_KEY` is set, the app can use SportsData.io:
 - Base URL: `https://api.sportsdata.io/v3/{sport}`
 - Teams: `/Teams`
 - Team Stats: `/stats/json/TeamSeasonStats/{season}`
@@ -126,7 +130,7 @@ Each sport maps to a The Odds API sport key:
 ## Future Enhancements
 
 1. **Head-to-Head History**: Currently only CBB has H2H. Add for other sports if needed.
-2. **Sport-Specific Analytics**: Each sport may need different prediction models.
+2. **Sport-Specific Analytics**: NHL and MLB have dedicated prediction models (`predictNHLMatchup`, `predictMLBMatchup`). Others use the shared model (Four Factors when available, else efficiency fallback).
 3. **Season Handling**: Some sports have playoffs/regular season distinctions.
 4. **Injury Data**: Add player-level data for better predictions.
 5. **Advanced Stats**: Sport-specific advanced metrics (e.g., QB rating for NFL).

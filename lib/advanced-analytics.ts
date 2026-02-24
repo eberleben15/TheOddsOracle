@@ -319,7 +319,14 @@ export function calculateTeamAnalytics(
   // Blend using calibrated coefficients (default: 70% tier-adjusted, 30% weighted)
   const FINAL_OFF_EFF = weightedOffEff * coefficients.weightedEffWeight + tierAdjustedData.tierAdjustedOffEff * coefficients.tierAdjustedWeight;
   const FINAL_DEF_EFF = weightedDefEff * coefficients.weightedEffWeight + tierAdjustedData.tierAdjustedDefEff * coefficients.tierAdjustedWeight;
-  
+
+  // MLB: basketball-only metrics are meaningless; use neutral values so they don't drive key factors
+  const finalShootingEfficiency = sport === 'mlb' ? 100 : shootingEfficiency;
+  const finalThreePointThreat = sport === 'mlb' ? 100 : threePointThreat;
+  const finalFreeThrowReliability = sport === 'mlb' ? 100 : freeThrowReliability;
+  const finalReboundingAdvantage = sport === 'mlb' ? 100 : reboundingAdvantage;
+  const finalAssistTurnoverRatio = sport === 'mlb' ? 1.5 : assistToTurnoverRatio;
+
   return {
     offensiveRating,
     defensiveRating,
@@ -335,11 +342,11 @@ export function calculateTeamAnalytics(
     winStreak,
     recentForm,
     last5Record,
-    shootingEfficiency,
-    threePointThreat,
-    freeThrowReliability,
-    reboundingAdvantage,
-    assistToTurnoverRatio,
+    shootingEfficiency: finalShootingEfficiency,
+    threePointThreat: finalThreePointThreat,
+    freeThrowReliability: finalFreeThrowReliability,
+    reboundingAdvantage: finalReboundingAdvantage,
+    assistTurnoverRatio: finalAssistTurnoverRatio,
     consistency,
     homeAdvantage,
   };
@@ -1037,6 +1044,125 @@ function predictNHLMatchup(
 }
 
 /**
+ * MLB-specific prediction model.
+ * Uses run-based factors: run differential, momentum, home field advantage.
+ * Returns a complete MatchupPrediction with realistic MLB scores (roughly 3–6 runs per team).
+ */
+function predictMLBMatchup(
+  awayAnalytics: TeamAnalytics,
+  homeAnalytics: TeamAnalytics,
+  awayStats: TeamStats,
+  homeStats: TeamStats,
+  coefficients: CalibrationCoefficients = DEFAULT_COEFFICIENTS
+): MatchupPrediction {
+  const league = MLB_CONSTANTS;
+  const keyFactors: string[] = [];
+
+  // Run differential (home offense vs away defense, and vice versa)
+  const homeRunsFor = homeStats.pointsPerGame ?? league.leagueAvgPpg;
+  const awayRunsFor = awayStats.pointsPerGame ?? league.leagueAvgPpg;
+  const homeRunsAgainst = homeStats.pointsAllowedPerGame ?? league.leagueAvgPpg;
+  const awayRunsAgainst = awayStats.pointsAllowedPerGame ?? league.leagueAvgPpg;
+
+  const homeOffenseVsAwayDefense = homeRunsFor - awayRunsAgainst;
+  const awayOffenseVsHomeDefense = awayRunsFor - homeRunsAgainst;
+  const runsDiffScore = (homeOffenseVsAwayDefense - awayOffenseVsHomeDefense) * 1.0;
+
+  // Momentum from recent games
+  const momentumScore = ((homeAnalytics.momentum - awayAnalytics.momentum) / 200) * 1.5;
+
+  // Home field advantage (~0.25 runs in MLB)
+  const homeAdvantageScore = league.homeAdvantage * 2.5;
+
+  const totalScore = runsDiffScore + momentumScore + homeAdvantageScore;
+
+  if (Math.abs(runsDiffScore) > 0.3) {
+    const better = runsDiffScore > 0 ? homeStats.name : awayStats.name;
+    keyFactors.push(`${better} has better run differential matchup`);
+  }
+  if (Math.abs(momentumScore) > 0.3) {
+    const better = momentumScore > 0 ? homeStats.name : awayStats.name;
+    keyFactors.push(`${better} has momentum from recent games`);
+  }
+  keyFactors.push(`Home field advantage: +${league.homeAdvantage.toFixed(2)} runs for ${homeStats.name}`);
+
+  let homeWinProb = 1 / (1 + Math.exp(-totalScore / 6));
+  homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
+  const homeWinProbRaw = homeWinProb;
+
+  const recalParams = getRecalibrationParams();
+  const recalibrationApplied = recalParams != null && (recalParams.A !== 1 || recalParams.B !== 0);
+  if (recalibrationApplied && recalParams != null) {
+    homeWinProb = applyPlattScaling(homeWinProb, recalParams);
+    homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
+  }
+  const awayWinProb = 1 - homeWinProb;
+
+  // Expected runs: team's runs for adjusted by opponent's runs allowed (quality)
+  const homeDefenseQuality = awayRunsAgainst / league.leagueAvgPpg;
+  const awayDefenseQuality = homeRunsAgainst / league.leagueAvgPpg;
+  let homePredictedRuns = homeRunsFor * awayDefenseQuality + league.homeAdvantage;
+  let awayPredictedRuns = awayRunsFor * homeDefenseQuality;
+
+  const predictedTotal = homePredictedRuns + awayPredictedRuns;
+  const impliedSpread = (() => {
+    const p = Math.max(0.05, Math.min(0.95, homeWinProb));
+    const logit = Math.log(p / (1 - p));
+    const k = 0.5;
+    return Math.max(-6, Math.min(6, k * logit));
+  })();
+  homePredictedRuns = (predictedTotal + impliedSpread) / 2;
+  awayPredictedRuns = (predictedTotal - impliedSpread) / 2;
+  homePredictedRuns = Math.max(league.scoreMin, Math.min(league.scoreMax, homePredictedRuns));
+  awayPredictedRuns = Math.max(league.scoreMin, Math.min(league.scoreMax, awayPredictedRuns));
+
+  let homeFinal = Math.round(homePredictedRuns);
+  let awayFinal = Math.round(awayPredictedRuns);
+  if (homeFinal === awayFinal) {
+    if (homeWinProb >= 0.5) homeFinal += 1;
+    else awayFinal += 1;
+  }
+  const finalSpread = homeFinal - awayFinal;
+
+  const dataQuality = (homeStats.pointsPerGame != null && awayStats.pointsPerGame != null) ? 75 : 60;
+  const avgConsistency = (awayAnalytics.consistency + homeAnalytics.consistency) / 2;
+  const certaintyBonus = Math.abs(homeWinProb - 0.5) * 25;
+  const confidence = Math.min(90, Math.max(55, (dataQuality + avgConsistency + certaintyBonus) / 3));
+
+  const alternateSpread = calculateAlternateSpread(
+    finalSpread,
+    homeWinProb,
+    confidence,
+    homeStats.name,
+    awayStats.name,
+    'mlb'
+  );
+
+  return {
+    winProbability: {
+      away: awayWinProb * 100,
+      home: homeWinProb * 100,
+    },
+    predictedScore: {
+      away: awayFinal,
+      home: homeFinal,
+    },
+    predictedSpread: finalSpread,
+    alternateSpread,
+    confidence,
+    keyFactors,
+    trace: {
+      modelPath: 'fallback',
+      totalScore,
+      homeAdvantage: homeAdvantageScore,
+      homeWinProbRaw,
+      recalibrationApplied,
+    },
+    valueBets: [],
+  };
+}
+
+/**
  * Predict matchup outcome (unified model).
  *
  * - Win probability: Four Factors (eFG%, TOV%, ORB%, FTR) or net rating + momentum + home.
@@ -1056,7 +1182,11 @@ export function predictMatchup(
   if (sport === 'nhl') {
     return predictNHLMatchup(awayAnalytics, homeAnalytics, awayStats, homeStats, coefficients);
   }
-  
+  // Route MLB games to baseball-specific prediction model
+  if (sport === 'mlb') {
+    return predictMLBMatchup(awayAnalytics, homeAnalytics, awayStats, homeStats, coefficients);
+  }
+
   const league = getLeagueConstants(sport);
 
   // Efficiency-based score (SOS-adjusted, schedule-aware) — always compute for disagreement check

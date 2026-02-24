@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/utils";
 import { getTeamData } from "@/lib/team-data";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LastUpdated } from "@/components/LastUpdated";
+import type { Sport } from "@/lib/sports/sport-config";
 
 interface StatsDisplayProps {
   homeTeamStats: TeamStats;
@@ -15,6 +16,7 @@ interface StatsDisplayProps {
     away: GameResult[];
   };
   headToHead?: HeadToHead;
+  sport?: Sport;
 }
 
 export function StatsDisplay({
@@ -22,9 +24,19 @@ export function StatsDisplay({
   awayTeamStats,
   recentGames,
   headToHead,
+  sport,
 }: StatsDisplayProps) {
   const awayTeamData = getTeamData(awayTeamStats.name);
   const homeTeamData = getTeamData(homeTeamStats.name);
+  const isMLB = sport === "mlb";
+  const offenseLabel = isMLB ? "Runs Scored (Offense)" : "Points Scored (Offense)";
+  const defenseLabel = isMLB ? "Runs Allowed (Defense)" : "Points Allowed (Defense)";
+  const unitLabel = isMLB ? "R/G" : "PPG";
+  const allowedUnitLabel = isMLB ? "RA/G" : "PAPG";
+  const netRatingLabel = isMLB ? "Run Differential" : "Net Rating";
+  const offEffSubtext = isMLB ? "Offensive efficiency" : "Points per 100 possessions";
+  const defEffSubtext = isMLB ? "Defensive efficiency" : "Opp points per 100 poss";
+  const defEffHint = isMLB ? "Lower is better (fewer runs allowed)" : "Lower is better (fewer points allowed)";
 
   // Helper function to safely display numbers
   const safeNumber = (value: number | undefined, decimals: number = 1): string => {
@@ -123,7 +135,7 @@ export function StatsDisplay({
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">Points Scored (Offense)</span>
+                  <span className="text-sm font-medium text-gray-700">{offenseLabel}</span>
                 </div>
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center gap-2">
@@ -131,7 +143,7 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{awayTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: awayTeamData.primaryColor }}>
-                    {safeNumber(awayTeamStats?.pointsPerGame, 1)} PPG
+                    {safeNumber(awayTeamStats?.pointsPerGame, 1)} {unitLabel}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -140,13 +152,13 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{homeTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: homeTeamData.primaryColor }}>
-                    {safeNumber(homeTeamStats?.pointsPerGame, 1)} PPG
+                    {safeNumber(homeTeamStats?.pointsPerGame, 1)} {unitLabel}
                   </span>
                 </div>
               </div>
               <div className="pt-3 border-t">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">Points Allowed (Defense)</span>
+                  <span className="text-sm font-medium text-gray-700">{defenseLabel}</span>
                 </div>
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center gap-2">
@@ -154,7 +166,7 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{awayTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: awayTeamData.primaryColor }}>
-                    {safeNumber(awayTeamStats?.pointsAllowedPerGame, 1)} PAPG
+                    {safeNumber(awayTeamStats?.pointsAllowedPerGame, 1)} {allowedUnitLabel}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -163,13 +175,13 @@ export function StatsDisplay({
                     <span className="text-sm font-medium">{homeTeamStats.name.split(" ")[0]}</span>
                   </div>
                   <span className="font-bold" style={{ color: homeTeamData.primaryColor }}>
-                    {safeNumber(homeTeamStats?.pointsAllowedPerGame, 1)} PAPG
+                    {safeNumber(homeTeamStats?.pointsAllowedPerGame, 1)} {allowedUnitLabel}
                   </span>
                 </div>
               </div>
               <div className="pt-3 border-t">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">Net Rating</span>
+                  <span className="text-sm font-medium text-gray-700">{netRatingLabel}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
@@ -529,7 +541,7 @@ export function StatsDisplay({
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-semibold text-text-dark">Offensive Rating</span>
-                      <span className="text-xs text-text-body">Points per 100 possessions</span>
+                      <span className="text-xs text-text-body">{offEffSubtext}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-center flex-1">
@@ -556,7 +568,7 @@ export function StatsDisplay({
                   <div className="pt-4 border-t border-border-gray">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-semibold text-text-dark">Defensive Rating</span>
-                      <span className="text-xs text-text-body">Opp points per 100 poss</span>
+                      <span className="text-xs text-text-body">{defEffSubtext}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-center flex-1">
@@ -576,7 +588,7 @@ export function StatsDisplay({
                       </div>
                     </div>
                     <p className="text-xs text-text-body text-center mt-2">
-                      Lower is better (fewer points allowed)
+                      {defEffHint}
                     </p>
                   </div>
                 )}
