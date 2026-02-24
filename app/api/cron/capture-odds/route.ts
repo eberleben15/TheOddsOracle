@@ -56,13 +56,15 @@ export async function GET(request: NextRequest) {
     await prisma.jobExecution.create({
       data: {
         jobName: "capture-odds",
-        status: captureResult.totalErrors === 0 ? "success" : "partial",
+        status: captureResult.totalErrors === 0 ? "success" : "failed",
         completedAt: new Date(),
-        metadata: {
-          ...captureResult,
-          closingLinesMarked,
-          cleanedUp,
-        },
+        metadata: JSON.parse(
+          JSON.stringify({
+            ...captureResult,
+            closingLinesMarked,
+            cleanedUp,
+          })
+        ),
       },
     });
 

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     await logJobExecution({
       jobName: "generate-predictions",
-      status: result.success ? "success" : "partial",
+      status: result.success ? "success" : "failed",
       startedAt: new Date(startTime),
       completedAt: new Date(),
       metadata: {

@@ -44,8 +44,10 @@ export async function logPredictionHistory(options: LogHistoryOptions): Promise<
         predictionId: options.predictionId,
         gameId: options.gameId,
         changeType: options.changeType,
-        previousValues: options.previousValues ?? undefined,
-        newValues: options.newValues,
+        previousValues: options.previousValues != null
+          ? (JSON.parse(JSON.stringify(options.previousValues)) as object)
+          : undefined,
+        newValues: JSON.parse(JSON.stringify(options.newValues)) as object,
         reason: options.reason ?? null,
         triggeredBy: options.triggeredBy ?? null,
       },

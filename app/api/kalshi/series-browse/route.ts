@@ -3,7 +3,6 @@ import { getKalshiClient } from "@/lib/api-clients/kalshi-client";
 import type { KalshiSeries } from "@/types/kalshi";
 import { CATEGORY_ORDER } from "@/lib/kalshi-categories";
 
-const CACHE_TTL = 300; // 5 minutes
 const MAX_SERIES_PER_CATEGORY = 20;
 
 /** Build browse list from per-category data — avoids global vs per-category mismatch. */
@@ -32,14 +31,14 @@ async function fetchFilteredSeries(): Promise<KalshiSeries[]> {
 }
 
 export const dynamic = "force-dynamic";
-export const revalidate = CACHE_TTL;
+export const revalidate = 300;
 
 export async function GET() {
   try {
     const getCached = unstable_cache(
       fetchFilteredSeries,
       ["kalshi-series-browse"],
-      { revalidate: CACHE_TTL, tags: ["kalshi-series-browse"] }
+      { revalidate: 300, tags: ["kalshi-series-browse"] }
     );
     const series = await getCached();
 

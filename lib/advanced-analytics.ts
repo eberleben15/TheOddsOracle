@@ -346,7 +346,7 @@ export function calculateTeamAnalytics(
     threePointThreat: finalThreePointThreat,
     freeThrowReliability: finalFreeThrowReliability,
     reboundingAdvantage: finalReboundingAdvantage,
-    assistTurnoverRatio: finalAssistTurnoverRatio,
+    assistToTurnoverRatio: finalAssistTurnoverRatio,
     consistency,
     homeAdvantage,
   };

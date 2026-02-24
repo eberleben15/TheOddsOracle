@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@nextui-org/react";
 
-interface Job {
+export interface Job {
   id: string;
   jobName: string;
   status: string;

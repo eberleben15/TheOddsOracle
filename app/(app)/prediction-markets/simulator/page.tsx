@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -64,7 +64,7 @@ export default function SimulatorPage() {
   const [selectedStrategyIds, setSelectedStrategyIds] = useState<Set<string>>(
     new Set(["flat_2", "kelly_25", "kelly_50"])
   );
-  const searchParams = use(useSearchParams());
+  const searchParams = useSearchParams();
   const [betSource, setBetSource] = useState<"demo" | "custom" | "sandbox">("demo");
   const [customBetsText, setCustomBetsText] = useState("");
   const [sandboxCount, setSandboxCount] = useState<number | null>(null);

@@ -51,3 +51,21 @@ export {
   computeEdgeAccuracyFromPredictions,
   buildComparisonSummary,
 } from "./dna-engine";
+
+// Decision engine (Brain B): plug-in contract — see docs/STRATEGIC_DIRECTION.md
+export type {
+  CandidateBet,
+  CandidateCorrelation,
+  DecisionEngineConstraints,
+  SelectedPosition,
+  DecisionEngineResult,
+  DecisionEngineOptimizer,
+} from "./decision-engine-types";
+
+export { recommendedBetsToCandidates, kalshiMarketsToCandidates, polymarketMarketsToCandidates, polymarketEventsToCandidates } from "./candidates-adapter";
+export { runDecisionEngine } from "./decision-engine-runner";
+export {
+  GreedyOptimizer,
+  defaultGreedyOptimizer,
+  GREEDY_OPTIMIZER_NAME,
+} from "./greedy-optimizer";

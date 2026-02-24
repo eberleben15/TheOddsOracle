@@ -88,12 +88,21 @@ export async function GET(request: NextRequest) {
     { isDemo: useDemo }
   );
 
-  return Response.json(summary);
+  const response: Record<string, unknown> = { ...summary };
+  if (settings) {
+    (response as Record<string, unknown>).decisionEngine = {
+      maxPositions: settings.maxPositions ?? undefined,
+      maxFractionPerPosition: settings.maxFractionPerPosition ?? undefined,
+      maxFactorFraction: settings.maxFactorFraction ?? undefined,
+    };
+  }
+
+  return Response.json(response);
 }
 
 /**
  * PATCH /api/bankroll
- * Body: { bankrollUsd?: number, kellyFraction?: number }
+ * Body: { bankrollUsd?, kellyFraction?, riskProfile?, maxPositions?, maxFractionPerPosition?, maxFactorFraction? }
  * Upserts user bankroll settings (multi-tenant: per userId).
  */
 export async function PATCH(request: NextRequest) {
@@ -102,12 +111,19 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { bankrollUsd?: number; kellyFraction?: number; riskProfile?: RiskProfile | null };
+  let body: {
+    bankrollUsd?: number;
+    kellyFraction?: number;
+    riskProfile?: RiskProfile | null;
+    maxPositions?: number | null;
+    maxFractionPerPosition?: number | null;
+    maxFactorFraction?: number | null;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return Response.json(
-      { error: "Invalid JSON. Expected { bankrollUsd?, kellyFraction?, riskProfile? }" },
+      { error: "Invalid JSON. Expected { bankrollUsd?, kellyFraction?, riskProfile?, maxPositions?, maxFractionPerPosition?, maxFactorFraction? }" },
       { status: 400 }
     );
   }
@@ -115,6 +131,9 @@ export async function PATCH(request: NextRequest) {
   const bankrollUsd = body.bankrollUsd;
   const kellyFraction = body.kellyFraction;
   const riskProfile = body.riskProfile;
+  const maxPositions = body.maxPositions;
+  const maxFractionPerPosition = body.maxFractionPerPosition;
+  const maxFactorFraction = body.maxFactorFraction;
 
   if (bankrollUsd !== undefined && (typeof bankrollUsd !== "number" || bankrollUsd < 0)) {
     return Response.json(
@@ -141,6 +160,24 @@ export async function PATCH(request: NextRequest) {
       { status: 400 }
     );
   }
+  if (maxPositions !== undefined && maxPositions !== null && (typeof maxPositions !== "number" || maxPositions < 1 || maxPositions > 100)) {
+    return Response.json(
+      { error: "maxPositions must be between 1 and 100" },
+      { status: 400 }
+    );
+  }
+  if (maxFractionPerPosition !== undefined && maxFractionPerPosition !== null && (typeof maxFractionPerPosition !== "number" || maxFractionPerPosition <= 0 || maxFractionPerPosition > 1)) {
+    return Response.json(
+      { error: "maxFractionPerPosition must be between 0 and 1 (e.g. 0.02 = 2%)" },
+      { status: 400 }
+    );
+  }
+  if (maxFactorFraction !== undefined && maxFactorFraction !== null && (typeof maxFactorFraction !== "number" || maxFactorFraction <= 0 || maxFactorFraction > 1)) {
+    return Response.json(
+      { error: "maxFactorFraction must be between 0 and 1 (e.g. 0.4 = 40%)" },
+      { status: 400 }
+    );
+  }
 
   const updated = await prisma.userBankrollSettings.upsert({
     where: { userId: session.user.id },
@@ -149,11 +186,17 @@ export async function PATCH(request: NextRequest) {
       bankrollUsd: bankrollUsd ?? 0,
       kellyFraction: kellyFraction ?? 0.25,
       riskProfile: riskProfile ?? null,
+      maxPositions: maxPositions ?? null,
+      maxFractionPerPosition: maxFractionPerPosition ?? null,
+      maxFactorFraction: maxFactorFraction ?? null,
     },
     update: {
       ...(bankrollUsd !== undefined && { bankrollUsd }),
       ...(kellyFraction !== undefined && { kellyFraction }),
       ...(riskProfile !== undefined && { riskProfile: riskProfile ?? null }),
+      ...(maxPositions !== undefined && { maxPositions: maxPositions ?? null }),
+      ...(maxFractionPerPosition !== undefined && { maxFractionPerPosition: maxFractionPerPosition ?? null }),
+      ...(maxFactorFraction !== undefined && { maxFactorFraction: maxFactorFraction ?? null }),
     },
   });
 
@@ -161,5 +204,8 @@ export async function PATCH(request: NextRequest) {
     bankrollUsd: updated.bankrollUsd,
     kellyFraction: updated.kellyFraction,
     riskProfile: updated.riskProfile,
+    maxPositions: updated.maxPositions,
+    maxFractionPerPosition: updated.maxFractionPerPosition,
+    maxFactorFraction: updated.maxFactorFraction,
   });
 }

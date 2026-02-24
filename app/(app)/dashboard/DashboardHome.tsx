@@ -7,6 +7,7 @@ import { GamesSection } from "./_components/GamesSection";
 import { DashboardPortfolioSection } from "./_components/DashboardPortfolioSection";
 import { ActionFlowsSection } from "./_components/ActionFlowsSection";
 import { RecommendedBetsSection } from "./_components/RecommendedBetsSection";
+import { BuildSlateSection } from "./_components/BuildSlateSection";
 import { GettingStartedSection } from "./_components/GettingStartedSection";
 import { OpenBetsSection } from "./_components/OpenBetsSection";
 import type { OddsGame, LiveGame } from "@/types";
@@ -87,6 +88,9 @@ export function DashboardHome({
         <h2 className="text-lg font-semibold text-text-dark mb-4">Value bets</h2>
         <RecommendedBetsSection />
       </section>
+
+      {/* Build my slate (decision engine) */}
+      <BuildSlateSection />
 
       {/* Getting started / How-tos */}
       <GettingStartedSection />

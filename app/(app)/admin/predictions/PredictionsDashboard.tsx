@@ -128,6 +128,8 @@ interface PredictionItem {
   closingSpread: number | null;
   clvSpread: number | null;
   lineMovement: number | null;
+  /** Closing O/U line when available (from list API or detail). */
+  closingTotal?: number | null;
   createdAt: string;
 }
 

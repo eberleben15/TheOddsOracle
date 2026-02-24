@@ -66,6 +66,10 @@ model UserBankrollSettings {
   bankrollUsd    Float    @default(0) // Risk capital in USD
   kellyFraction  Float    @default(0.25) // Fraction of full Kelly (e.g. 0.25 = quarter Kelly)
   riskProfile    String?  // conservative | moderate | aggressive
+  // Decision engine (Build my slate) defaults
+  maxPositions             Int?    // Max positions per slate (e.g. 12)
+  maxFractionPerPosition   Float?  // Max fraction of bankroll per position (e.g. 0.02 = 2%)
+  maxFactorFraction        Float?  // Max fraction of portfolio in one factor (e.g. 0.4 = 40%)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

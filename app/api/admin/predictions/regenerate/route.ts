@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
         const previousValues: PredictionSnapshot = {
           predictedScore: pred.predictedScore as { home: number; away: number },
           predictedSpread: pred.predictedSpread,
-          predictedTotal: pred.predictedTotal,
+          predictedTotal: pred.predictedTotal ?? undefined,
           winProbability: pred.winProbability as { home: number; away: number },
           confidence: pred.confidence,
         };
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
             const newValues: PredictionSnapshot = {
               predictedScore: newPrediction.predictedScore as { home: number; away: number },
               predictedSpread: newPrediction.predictedSpread,
-              predictedTotal: newPrediction.predictedTotal,
+              predictedTotal: newPrediction.predictedTotal ?? undefined,
               winProbability: newPrediction.winProbability as { home: number; away: number },
               confidence: newPrediction.confidence,
             };
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
 
     await logJobExecution({
       jobName: "regenerate-predictions",
-      status: errors === 0 ? "success" : "partial",
+      status: errors === 0 ? "success" : "failed",
       startedAt: new Date(startTime),
       completedAt: new Date(),
       metadata: {

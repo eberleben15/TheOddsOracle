@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     await logJobExecution({
       jobName: "sync-games",
-      status: result.success ? "success" : "partial",
+      status: result.success ? "success" : "failed",
       startedAt: new Date(startTime),
       completedAt: new Date(),
       metadata: {

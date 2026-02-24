@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-02-24T21:47:42.873Z",
+  "solver": "classical-greedy",
+  "runs": 5,
+  "candidatesCount": 25,
+  "constraints": {
+    "bankrollUsd": 2000,
+    "kellyFraction": 0.25,
+    "maxFractionPerPosition": 0.02,
+    "maxPositions": 12,
+    "maxFactorFraction": 0.4
+  },
+  "positionsSelected": 12,
+  "solveTimeMs": {
+    "mean": 0.06,
+    "std": 0.09
+  },
+  "objectiveValue": {
+    "mean": 8.59,
+    "std": 0
+  }
+}

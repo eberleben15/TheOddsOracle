@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
 
     await logJobExecution({
       jobName: "backfill-predictions",
-      status: totalErrors === 0 ? "success" : "partial",
+      status: totalErrors === 0 ? "success" : "failed",
       startedAt: new Date(startTime),
       completedAt: new Date(),
       metadata: {

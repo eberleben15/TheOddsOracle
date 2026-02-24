@@ -8,8 +8,11 @@ import {
   kalshiMarketPositionsToABEPositions,
   polymarketDataPositionsToABEPositions,
   kalshiMarketToABEContracts,
+  polymarketMarketToABEContracts,
   abeContractIdToKalshiTicker,
+  abeContractIdToPolymarketConditionId,
 } from "@/lib/abe";
+import { getPolymarketClient } from "@/lib/api-clients/polymarket-client";
 import { runPortfolioRiskAnalysis } from "@/lib/abe/portfolio-risk-engine";
 import { runRules } from "@/lib/abe/rule-engine";
 import type { ABEPosition, ABERule, ABEContract } from "@/types/abe";
@@ -68,12 +71,18 @@ export async function POST(request: NextRequest) {
 
   let portfolioReport: Awaited<ReturnType<typeof runPortfolioRiskAnalysis>> | undefined;
   let contractPrices: Record<string, number> = {};
+  const allContracts: ABEContract[] = [];
+
   if (positions.length > 0) {
     const tickers = new Set<string>();
+    const pmConditionIds = new Set<string>();
     for (const p of positions) {
       const t = abeContractIdToKalshiTicker(p.contractId);
       if (t) tickers.add(t);
+      const cid = abeContractIdToPolymarketConditionId(p.contractId);
+      if (cid) pmConditionIds.add(cid);
     }
+
     if (tickers.size > 0) {
       try {
         const client = getKalshiClient();
@@ -82,20 +91,39 @@ export async function POST(request: NextRequest) {
           status: "open",
           limit: 500,
         });
-        const contracts: ABEContract[] = [];
         for (const m of markets) {
           const abeContracts = kalshiMarketToABEContracts(m);
           for (const c of abeContracts) {
-            contracts.push(c);
+            allContracts.push(c);
             contractPrices[c.id] = c.price;
           }
         }
-        portfolioReport = runPortfolioRiskAnalysis({ positions, contracts });
       } catch (e) {
-        console.error("[rules/run] Portfolio analysis failed", e);
+        console.error("[rules/run] Kalshi markets fetch failed", e);
       }
-    } else {
-      portfolioReport = runPortfolioRiskAnalysis({ positions });
+    }
+
+    if (pmConditionIds.size > 0) {
+      try {
+        const pmClient = getPolymarketClient();
+        const marketMap = await pmClient.getMarketsForConditionIds(Array.from(pmConditionIds));
+        for (const [, { market, event }] of marketMap) {
+          const abeContracts = polymarketMarketToABEContracts(market, event);
+          for (const c of abeContracts) {
+            allContracts.push(c);
+            contractPrices[c.id] = c.price;
+          }
+        }
+      } catch (e) {
+        console.error("[rules/run] Polymarket markets fetch failed", e);
+      }
+    }
+
+    if (allContracts.length > 0 || positions.length > 0) {
+      portfolioReport = runPortfolioRiskAnalysis({
+        positions,
+        contracts: allContracts.length > 0 ? allContracts : undefined,
+      });
     }
   }
 

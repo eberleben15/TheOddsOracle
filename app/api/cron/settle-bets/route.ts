@@ -53,13 +53,12 @@ export async function POST(request: NextRequest) {
 
   if (!result.success && result.errors.length) {
     return NextResponse.json(
-      { success: result.success, ...result, duration: result.duration },
+      { ...result, duration: result.duration },
       { status: 500 }
     );
   }
 
   return NextResponse.json({
-    success: result.success,
     ...result,
     duration: result.duration,
   });

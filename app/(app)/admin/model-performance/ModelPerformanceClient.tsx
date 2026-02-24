@@ -404,7 +404,7 @@ export function ModelPerformanceClient() {
                   <XAxis dataKey="bucket" />
                   <YAxis domain={[0, 100]} unit="%" />
                   <Tooltip
-                    formatter={(value: number) => [`${value.toFixed(1)}%`, ""]}
+                    formatter={(value: number | undefined) => [`${value != null ? value.toFixed(1) : ""}%`, ""]}
                     contentStyle={{ background: "var(--body-bg)" }}
                   />
                   <ReferenceLine y={50} stroke="#94a3b8" strokeDasharray="3 3" />
@@ -461,7 +461,7 @@ export function ModelPerformanceClient() {
                     <XAxis dataKey="period" tick={{ fontSize: 12 }} />
                     <YAxis domain={[0, 100]} unit="%" />
                     <Tooltip
-                      formatter={(value: number) => [`${value.toFixed(1)}%`, "Accuracy"]}
+                      formatter={(value: number | undefined) => [`${value != null ? value.toFixed(1) : ""}%`, "Accuracy"]}
                       contentStyle={{ background: "var(--body-bg)" }}
                     />
                     <ReferenceLine y={50} stroke="#94a3b8" strokeDasharray="3 3" />
@@ -496,7 +496,7 @@ export function ModelPerformanceClient() {
                     <XAxis type="number" domain={[0, 100]} unit="%" />
                     <YAxis type="category" dataKey="sportLabel" width={60} />
                     <Tooltip
-                      formatter={(value: number) => [`${value.toFixed(1)}%`, "Accuracy"]}
+                      formatter={(value: number | undefined) => [`${value != null ? value.toFixed(1) : ""}%`, "Accuracy"]}
                       contentStyle={{ background: "var(--body-bg)" }}
                     />
                     <Bar dataKey="winnerAccuracy" fill="#3b82f6" name="Winner %" radius={[0, 4, 4, 0]} />

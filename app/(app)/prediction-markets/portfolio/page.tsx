@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { kalshiTickerToABEContractId } from "@/lib/abe";
@@ -37,7 +37,7 @@ export default function PortfolioPage() {
   const [useDemoPortfolio, setUseDemoPortfolio] = useState(false);
   const [demoContracts, setDemoContracts] = useState<ABEContract[]>([]);
   const [bankrollSummary, setBankrollSummary] = useState<BankrollSummary | null>(null);
-  const searchParams = use(useSearchParams());
+  const searchParams = useSearchParams();
   type PortfolioSource = "connected" | "sandbox" | "both";
   const [portfolioSource, setPortfolioSource] = useState<PortfolioSource>("connected");
 
