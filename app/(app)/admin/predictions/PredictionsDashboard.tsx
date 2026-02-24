@@ -594,7 +594,7 @@ export function PredictionsDashboard() {
                       <div className="text-2xl font-bold text-blue-600">
                         {performance.winnerAccuracy.toFixed(1)}%
                       </div>
-                      <div className="text-xs text-gray-500">Winner Pick</div>
+                      <div className="text-xs text-gray-500">Winner (SU)</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold">
@@ -613,13 +613,15 @@ export function PredictionsDashboard() {
               </div>
             )}
 
-            {/* Secondary Metrics Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Secondary Metrics Grid - Straight-up winner accuracy by category */}
+            <div>
+              <div className="text-sm font-medium text-gray-500 mb-2">Straight-Up Winner Accuracy by Category</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Category: Home vs Away */}
               {performance.categories && (
                 <>
                   <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Home Picks</div>
+                    <div className="text-xs text-gray-500 mb-1">Home Picks (SU)</div>
                     <div className={`text-xl font-bold ${
                       performance.categories.homePickWinRate >= 55 ? "text-green-600" : 
                       performance.categories.homePickWinRate >= 50 ? "text-gray-700" : "text-red-600"
@@ -629,7 +631,7 @@ export function PredictionsDashboard() {
                     <div className="text-xs text-gray-400">{performance.categories.homePickCount} picks</div>
                   </div>
                   <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Away Picks</div>
+                    <div className="text-xs text-gray-500 mb-1">Away Picks (SU)</div>
                     <div className={`text-xl font-bold ${
                       performance.categories.awayPickWinRate >= 55 ? "text-green-600" : 
                       performance.categories.awayPickWinRate >= 50 ? "text-gray-700" : "text-red-600"
@@ -645,33 +647,34 @@ export function PredictionsDashboard() {
               {performance.categories && (
                 <>
                   <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Favorites (&gt;3pt)</div>
+                    <div className="text-xs text-gray-500 mb-1">&gt;3pt spread (SU)</div>
                     <div className={`text-xl font-bold ${
                       performance.categories.favoriteWinRate >= 55 ? "text-green-600" : 
                       performance.categories.favoriteWinRate >= 50 ? "text-gray-700" : "text-red-600"
                     }`}>
                       {performance.categories.favoriteWinRate.toFixed(1)}%
                     </div>
-                    <div className="text-xs text-gray-400">{performance.categories.favoriteCount} picks</div>
+                    <div className="text-xs text-gray-400">Picks w/ |spread| &gt;3</div>
                   </div>
                   <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Close Games</div>
+                    <div className="text-xs text-gray-500 mb-1">≤3pt spread (SU)</div>
                     <div className={`text-xl font-bold ${
                       performance.categories.underdogWinRate >= 55 ? "text-green-600" : 
                       performance.categories.underdogWinRate >= 50 ? "text-gray-700" : "text-red-600"
                     }`}>
                       {performance.categories.underdogWinRate.toFixed(1)}%
                     </div>
-                    <div className="text-xs text-gray-400">{performance.categories.underdogCount} picks</div>
+                    <div className="text-xs text-gray-400">Picks w/ |spread| ≤3</div>
                   </div>
                 </>
               )}
+              </div>
             </div>
 
-            {/* Confidence Tiers */}
+            {/* Confidence Tiers - Straight-up */}
             {performance.categories && (
               <div className="bg-white/40 dark:bg-gray-800/40 rounded-lg p-4">
-                <div className="text-sm font-medium text-gray-600 mb-3">Performance by Confidence</div>
+                <div className="text-sm font-medium text-gray-600 mb-3">Performance by Confidence (SU)</div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
                     <div className="text-xs text-gray-500 mb-1">High (75%+)</div>

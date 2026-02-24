@@ -89,8 +89,8 @@ interface OddsHistoryItem {
   gameId: string;
   sport: string;
   capturedAt: string;
-  consensusSpread: number | null;
-  consensusTotal: number | null;
+  spread: number | null;      // Prisma OddsHistory uses spread/total
+  total: number | null;
   isOpening: boolean;
   isClosing: boolean;
 }
@@ -284,13 +284,13 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Away:</span>
                       <span className={`text-lg font-bold ${predictedWinner === "away" ? "text-green-600" : ""}`}>
-                        {predictedAway}{predictedWinner === "away" && " ✓"}
+                        {predictedAway}{p.validated && wasCorrect && predictedWinner === "away" && " ✓"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Home:</span>
                       <span className={`text-lg font-bold ${predictedWinner === "home" ? "text-green-600" : ""}`}>
-                        {predictedHome}{predictedWinner === "home" && " ✓"}
+                        {predictedHome}{p.validated && wasCorrect && predictedWinner === "home" && " ✓"}
                       </span>
                     </div>
                     <Divider />
@@ -299,7 +299,7 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
                       <span className="font-medium">{p.predictedTotal?.toFixed(0) ?? (predictedHome + predictedAway)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500">Spread:</span>
+                      <span className="text-gray-500">Spread (home):</span>
                       <span className="font-medium">{p.predictedSpread > 0 ? "+" : ""}{p.predictedSpread.toFixed(1)}</span>
                     </div>
                   </div>
@@ -423,7 +423,10 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
                   <div className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-2">
                     Alternate Spread Suggestion
                   </div>
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Original:</span>
+                    <span className="font-medium">{p.predictedSpread > 0 ? "+" : ""}{p.predictedSpread.toFixed(1)}</span>
+                    <span className="text-gray-400">→</span>
                     <Chip size="sm" color={p.alternateSpread.riskLevel === "safer" ? "success" : p.alternateSpread.riskLevel === "aggressive" ? "danger" : "default"}>
                       {p.alternateSpread.riskLevel}
                     </Chip>
@@ -481,7 +484,9 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
                 <div className="font-medium">{p.predictionTrace.homeAdvantage.toFixed(2)}</div>
               </div>
               <div>
-                <div className="text-gray-500">Raw Win Prob</div>
+                <div className="text-gray-500" title="Pre-recalibration; Win Probability bars above use post-recalibration">
+                  Raw Win Prob <span className="text-gray-400">(pre-recal)</span>
+                </div>
                 <div className="font-medium">{(p.predictionTrace.homeWinProbRaw * 100).toFixed(1)}%</div>
               </div>
               {p.predictionTrace.fourFactorsScore !== undefined && (
@@ -506,12 +511,17 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
       )}
 
       {/* Line Movement */}
-      {(p.openingSpread !== null || oddsHistory.length > 0) && (
+      {(p.openingSpread !== null || p.closingSpread !== null || oddsHistory.length > 0) && (
         <Card>
           <CardHeader>
             <h3 className="font-semibold">Line Movement & CLV</h3>
           </CardHeader>
           <CardBody>
+            {p.openingSpread === null && p.closingSpread === null && !p.validated && (
+              <p className="text-sm text-gray-500 mb-4">
+                Opening and closing lines are populated when the game is validated. Odds captures below show available snapshots.
+              </p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
               <div>
                 <div className="text-gray-500">Opening Spread</div>
@@ -562,9 +572,9 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
                           })}
                         </TableCell>
                         <TableCell>
-                          {oh.consensusSpread != null ? `${oh.consensusSpread > 0 ? "+" : ""}${oh.consensusSpread.toFixed(1)}` : "-"}
+                          {oh.spread != null ? `${oh.spread > 0 ? "+" : ""}${oh.spread.toFixed(1)}` : "-"}
                         </TableCell>
-                        <TableCell>{oh.consensusTotal?.toFixed(1) ?? "-"}</TableCell>
+                        <TableCell>{oh.total?.toFixed(1) ?? "-"}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             {oh.isOpening && <Chip size="sm" color="primary" variant="flat">Opening</Chip>}
@@ -620,12 +630,12 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
           <h3 className="font-semibold">Metadata</h3>
         </CardHeader>
         <CardBody>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm min-w-0">
+            <div className="min-w-0 overflow-hidden">
               <div className="text-gray-500">Prediction ID</div>
               <div className="font-mono text-xs break-all">{p.id}</div>
             </div>
-            <div>
+            <div className="min-w-0 overflow-hidden">
               <div className="text-gray-500">Game ID</div>
               <div className="font-mono text-xs break-all">{p.gameId}</div>
             </div>
@@ -645,11 +655,11 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
             )}
             {trackedGame && (
               <>
-                <div>
+                <div className="min-w-0">
                   <div className="text-gray-500">Discovered</div>
-                  <div className="font-medium">{new Date(trackedGame.discoveredAt).toLocaleString()}</div>
+                  <div className="font-medium break-words">{new Date(trackedGame.discoveredAt).toLocaleString()}</div>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-gray-500">Game Status</div>
                   <Chip size="sm" color={trackedGame.status === "completed" ? "success" : "default"}>
                     {trackedGame.status}

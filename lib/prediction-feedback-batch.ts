@@ -26,9 +26,15 @@ import {
   TrackedPrediction,
 } from "./prediction-tracker";
 import { fitFromValidations, setRecalibrationParams, type RecalibrationParams } from "./recalibration";
+import type { Prisma } from "@/generated/prisma-client/client";
 import { prisma } from "./prisma";
+import { generatePerformanceReport } from "./validation-dashboard";
+import type { BiasCorrection } from "./recommendation-engine";
+import { buildTrainingDataset } from "./training-dataset";
+import { runEvaluation } from "./evaluation-harness";
 
 const RECALIBRATION_KEY = "recalibration_platt";
+const BIAS_CORRECTION_KEY = "bias_correction";
 
 export interface BatchSyncResult {
   success: boolean;
@@ -37,6 +43,7 @@ export interface BatchSyncResult {
   outcomesRecorded: number;
   trainingRan: boolean;
   recalibrationParams?: RecalibrationParams;
+  biasCorrection?: BiasCorrection;
   validatedCount: number;
   duration: number;
   errors?: string[];
@@ -61,6 +68,18 @@ export interface BatchSyncResult {
 /** Odds API sport keys to fetch (all sports we track predictions for). */
 const ODDS_API_SPORTS = ["basketball_ncaab", "basketball_nba", "icehockey_nhl", "baseball_mlb"] as const;
 
+/** Metadata stored with calibrated params (for audit / reproducibility) */
+export interface CalibrationMetadata {
+  trainedAt: string; // ISO timestamp
+  validatedCount: number;
+  metrics?: {
+    brierScore?: number;
+    logLoss?: number;
+    winnerAccuracy?: number;
+  };
+  version?: number;
+}
+
 /**
  * Load recalibration params from DB (if stored).
  */
@@ -69,8 +88,9 @@ export async function loadRecalibrationParams(): Promise<RecalibrationParams | n
     const row = await prisma.modelConfig.findUnique({
       where: { key: RECALIBRATION_KEY },
     });
-    if (row?.value && typeof row.value === "object" && "A" in row.value && "B" in row.value) {
-      return row.value as RecalibrationParams;
+    const v = row?.value;
+    if (v && typeof v === "object" && "A" in v && "B" in v) {
+      return { A: (v as any).A, B: (v as any).B };
     }
   } catch {
     // Table might not exist yet
@@ -79,17 +99,82 @@ export async function loadRecalibrationParams(): Promise<RecalibrationParams | n
 }
 
 /**
- * Save recalibration params to DB.
+ * Load recalibration params with metadata.
  */
-export async function saveRecalibrationParams(params: RecalibrationParams): Promise<void> {
+export async function loadRecalibrationWithMetadata(): Promise<{
+  params: RecalibrationParams;
+  metadata?: CalibrationMetadata;
+} | null> {
   try {
+    const row = await prisma.modelConfig.findUnique({
+      where: { key: RECALIBRATION_KEY },
+    });
+    const v = row?.value;
+    if (v && typeof v === "object" && "A" in v && "B" in v) {
+      const obj = v as Record<string, unknown>;
+      return {
+        params: { A: obj.A as number, B: obj.B as number },
+        metadata: obj._meta as CalibrationMetadata | undefined,
+      };
+    }
+  } catch {
+    // Table might not exist
+  }
+  return null;
+}
+
+/**
+ * Save recalibration params to DB with optional metadata.
+ */
+export async function saveRecalibrationParams(
+  params: RecalibrationParams,
+  metadata?: CalibrationMetadata
+): Promise<void> {
+  try {
+    const value =
+      metadata != null
+        ? { ...params, _meta: { ...metadata, trainedAt: metadata.trainedAt || new Date().toISOString() } }
+        : params;
     await prisma.modelConfig.upsert({
       where: { key: RECALIBRATION_KEY },
-      create: { key: RECALIBRATION_KEY, value: params },
-      update: { value: params },
+      create: { key: RECALIBRATION_KEY, value: value as Prisma.InputJsonValue },
+      update: { value: value as Prisma.InputJsonValue },
     });
   } catch (error) {
     console.warn("Could not persist recalibration params:", error);
+  }
+}
+
+/**
+ * Load persisted bias corrections from DB.
+ */
+export async function loadBiasCorrection(): Promise<BiasCorrection | null> {
+  try {
+    const row = await prisma.modelConfig.findUnique({
+      where: { key: BIAS_CORRECTION_KEY },
+    });
+    const v = row?.value;
+    if (v && typeof v === "object" && ("homeTeamBias" in v || "awayTeamBias" in v || "scoreBias" in v)) {
+      return v as BiasCorrection;
+    }
+  } catch {
+    // Table might not exist
+  }
+  return null;
+}
+
+/**
+ * Save bias corrections to DB.
+ */
+export async function saveBiasCorrection(params: BiasCorrection): Promise<void> {
+  try {
+    await prisma.modelConfig.upsert({
+      where: { key: BIAS_CORRECTION_KEY },
+      create: { key: BIAS_CORRECTION_KEY, value: params as Prisma.InputJsonValue },
+      update: { value: params as Prisma.InputJsonValue },
+    });
+  } catch (error) {
+    console.warn("Could not persist bias corrections:", error);
   }
 }
 
@@ -164,6 +249,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
       const validated = await getValidatedPredictions();
       let trainingRan = false;
       let recalibrationParams: RecalibrationParams | undefined;
+      let biasCorrection: BiasCorrection | undefined;
 
       if (validated.length >= 20) {
         // Stored winProbability is post-Platt; suitable for training next iteration.
@@ -177,7 +263,26 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
         recalibrationParams = params;
         trainingRan = true;
 
-        await saveRecalibrationParams(params);
+        const examples = await buildTrainingDataset({ limit: 5000 });
+        const metrics = examples.length > 0 ? runEvaluation(examples) : undefined;
+        await saveRecalibrationParams(params, {
+          trainedAt: new Date().toISOString(),
+          validatedCount: validated.length,
+          metrics: metrics
+            ? {
+                brierScore: metrics.brierScore,
+                logLoss: metrics.logLoss,
+                winnerAccuracy: metrics.winnerAccuracy,
+              }
+            : undefined,
+        });
+      }
+
+      // Persist bias corrections from validation (for recommendations)
+      const report = await generatePerformanceReport(90);
+      if (report.biases && (report.biases.homeTeamBias != null || report.biases.awayTeamBias != null || report.biases.scoreBias != null)) {
+        biasCorrection = report.biases;
+        await saveBiasCorrection(report.biases);
       }
 
       const stats = await getTrackingStats();
@@ -188,6 +293,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
         outcomesRecorded: 0,
         trainingRan,
         recalibrationParams,
+        biasCorrection,
         validatedCount: stats.validated,
         duration: Date.now() - start,
         diagnostics,
@@ -454,6 +560,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
     // 3. Train model from validated predictions (skip if syncOnly)
     let trainingRan = false;
     let recalibrationParams: RecalibrationParams | undefined;
+    let biasCorrection: BiasCorrection | undefined;
 
     if (!syncOnly) {
       const validated = await getValidatedPredictions();
@@ -470,7 +577,26 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
         recalibrationParams = params;
         trainingRan = true;
 
-        await saveRecalibrationParams(params);
+        const examples = await buildTrainingDataset({ limit: 5000 });
+        const metrics = examples.length > 0 ? runEvaluation(examples) : undefined;
+        await saveRecalibrationParams(params, {
+          trainedAt: new Date().toISOString(),
+          validatedCount: validated.length,
+          metrics: metrics
+            ? {
+                brierScore: metrics.brierScore,
+                logLoss: metrics.logLoss,
+                winnerAccuracy: metrics.winnerAccuracy,
+              }
+            : undefined,
+        });
+      }
+
+      // Persist bias corrections from validation (for recommendations)
+      const report = await generatePerformanceReport(90);
+      if (report.biases && (report.biases.homeTeamBias != null || report.biases.awayTeamBias != null || report.biases.scoreBias != null)) {
+        biasCorrection = report.biases;
+        await saveBiasCorrection(report.biases);
       }
     }
 
@@ -483,6 +609,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
       outcomesRecorded,
       trainingRan,
       recalibrationParams,
+      biasCorrection,
       validatedCount: stats.validated,
       duration: Date.now() - start,
       errors: errors.length > 0 ? errors : undefined,

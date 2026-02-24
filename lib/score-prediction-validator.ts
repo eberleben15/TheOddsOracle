@@ -238,24 +238,27 @@ export function calculateValidationMetrics(
   for (const v of validations) {
     // Determine if we bet on home or away based on our prediction
     const betOnHome = v.predictedSpread > 0;
-    const ourLine = v.predictedSpread; // Our predicted spread (positive = home favored)
-    
-    // Use market spread if available, otherwise use our predicted spread for comparison
-    const lineToCompare = v.marketSpread ?? ourLine;
-    
+    const ourLine = v.predictedSpread; // Our format: positive = home favored
+
+    // Use market spread if available, otherwise use our predicted spread.
+    // Odds API uses negative = home favored; our format uses positive = home favored.
+    // Normalize to our format so cover formulas work: lineInOurFormat = home margin threshold.
+    const lineInOurFormat =
+      v.marketSpread != null ? -v.marketSpread : ourLine;
+
     // Actual margin from home perspective (positive = home won by this much)
     const actualMargin = v.actualSpread;
-    
+
     // For ATS: did we cover?
-    // If betting home at -5: home needs to win by MORE than 5 to cover
-    // If betting away at +5: away needs to lose by LESS than 5 (or win) to cover
+    // If betting home at -5: home needs to win by MORE than 5 to cover (actualMargin > 5)
+    // If betting away at +5: away covers when actualMargin < 5
     if (betOnHome) {
-      const homeCover = actualMargin - lineToCompare; // >0 means home covered
+      const homeCover = actualMargin - lineInOurFormat; // >0 means home covered
       if (homeCover > 0) atsWins++;
       else if (homeCover < 0) atsLosses++;
       else atsPushes++;
     } else {
-      const awayCover = lineToCompare - actualMargin; // >0 means away covered
+      const awayCover = lineInOurFormat - actualMargin; // >0 means away covered
       if (awayCover > 0) atsWins++;
       else if (awayCover < 0) atsLosses++;
       else atsPushes++;

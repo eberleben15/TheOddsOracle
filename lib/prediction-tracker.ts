@@ -272,7 +272,7 @@ export async function recordOutcome(
     const prevSnapshot: PredictionSnapshot = {
       predictedScore: prediction.predictedScore as { home: number; away: number },
       predictedSpread: prediction.predictedSpread,
-      predictedTotal: prediction.predictedTotal,
+      predictedTotal: prediction.predictedTotal ?? undefined,
       winProbability: prediction.winProbability as { home: number; away: number },
       confidence: prediction.confidence,
       validated: prediction.validated,
@@ -629,6 +629,11 @@ function convertDbToTracked(dbPrediction: any): TrackedPrediction {
       confidence: dbPrediction.confidence,
       keyFactors: Array.isArray(dbPrediction.keyFactors) ? dbPrediction.keyFactors : [],
       valueBets: Array.isArray(dbPrediction.valueBets) ? dbPrediction.valueBets : [],
+      trace: dbPrediction.predictionTrace &&
+        typeof dbPrediction.predictionTrace === "object" &&
+        ("modelPath" in dbPrediction.predictionTrace || "totalScore" in dbPrediction.predictionTrace)
+        ? (dbPrediction.predictionTrace as import("./advanced-analytics").PredictionTrace)
+        : undefined,
     },
     favorableBets: Array.isArray(dbPrediction.favorableBets) ? dbPrediction.favorableBets : undefined,
     actualOutcome: dbPrediction.actualHomeScore !== null ? {

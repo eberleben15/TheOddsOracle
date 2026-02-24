@@ -43,6 +43,9 @@ interface RecommendedBet {
   line: number | null;
   confidence: number;
   reasoning: string;
+  edge?: number;
+  isModelOnly?: boolean;
+  tier?: "high" | "medium" | "low";
 }
 
 interface BetRecommendation {
@@ -60,6 +63,7 @@ interface BetRecommendation {
   confidence: number;
   keyFactors: string[];
   oddsSnapshot: Record<string, unknown> | null;
+  favorableBets?: Array<{ type: string; team?: string; recommendation: string; edge: number; confidence: number; valueRating?: string }> | null;
   recommendedBets: RecommendedBet[];
   alreadyBet: boolean;
 }
@@ -114,6 +118,16 @@ export function BetsPageClient() {
   // Recommendations state
   const [recommendations, setRecommendations] = useState<BetRecommendation[]>([]);
   const [lowConfidence, setLowConfidence] = useState<BetRecommendation[]>([]);
+  const [performanceGate, setPerformanceGate] = useState<{
+    passed: boolean;
+    atsWinRate: number;
+    gamesDecided: number;
+    threshold: number;
+    strictGateUsed?: boolean;
+    recsHiddenDueToGate?: boolean;
+  } | null>(null);
+  const [strictGate, setStrictGate] = useState(false);
+  const [showModelOnlyDisclaimer, setShowModelOnlyDisclaimer] = useState(false);
   const [loadingRecs, setLoadingRecs] = useState(true);
   
   // Bet records state
@@ -150,7 +164,8 @@ export function BetsPageClient() {
     try {
       const params = new URLSearchParams({ date: selectedDate });
       if (sport) params.set("sport", sport);
-      
+      if (strictGate) params.set("strictGate", "true");
+
       const res = await fetch(`/api/admin/bets/recommendations?${params}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -159,15 +174,19 @@ export function BetsPageClient() {
       }
       setRecommendations(data.recommendations || []);
       setLowConfidence(data.lowConfidence || []);
+      setPerformanceGate(data.performanceGate ?? null);
+      setShowModelOnlyDisclaimer(data.showModelOnlyDisclaimer ?? false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load recommendations";
       setError(message);
       setRecommendations([]);
       setLowConfidence([]);
+      setPerformanceGate(null);
+      setShowModelOnlyDisclaimer(false);
     } finally {
       setLoadingRecs(false);
     }
-  }, [selectedDate, sport]);
+  }, [selectedDate, sport, strictGate]);
 
   const fetchRecords = useCallback(async () => {
     setLoadingRecords(true);
@@ -298,8 +317,31 @@ export function BetsPageClient() {
       case "moneyline": return "Moneyline";
       case "total_over": return "Over";
       case "total_under": return "Under";
+      case "total_prediction": return "Predicted Total";
       default: return type;
     }
+  };
+
+  // Format bet line for display: American spread (negative=favorite), totals without + prefix
+  const formatBetLine = (bet: RecommendedBet) => {
+    if (bet.line === null) return "";
+    if (bet.type === "total_over" || bet.type === "total_under" || bet.type === "total_prediction")
+      return ` ${bet.line}`;
+    if (bet.type === "spread") {
+      const american = bet.side === "home" ? -bet.line : bet.line;
+      return ` ${american > 0 ? "+" : ""}${american}`;
+    }
+    return ` ${bet.line > 0 ? "+" : ""}${bet.line}`;
+  };
+
+  const formatRecordLine = (record: BetRecord) => {
+    if (record.line === null) return "";
+    if (record.betType === "total_over" || record.betType === "total_under") return ` ${record.line}`;
+    if (record.betType === "spread") {
+      const american = record.betSide === "home" ? -record.line : record.line;
+      return ` ${american > 0 ? "+" : ""}${american}`;
+    }
+    return ` ${record.line > 0 ? "+" : ""}${record.line}`;
   };
 
   const getResultColor = (result: string | null) => {
@@ -349,6 +391,16 @@ export function BetsPageClient() {
         </Select>
 
         {activeTab === "today" && (
+          <>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={strictGate}
+              onChange={(e) => setStrictGate(e.target.checked)}
+              className="rounded"
+            />
+            <span>Hide recs when ATS &lt; 53%</span>
+          </label>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
@@ -384,6 +436,7 @@ export function BetsPageClient() {
               Today
             </Button>
           </div>
+          </>
         )}
 
         {activeTab === "history" && (
@@ -430,6 +483,30 @@ export function BetsPageClient() {
             </Card>
           ) : (
             <>
+              {performanceGate?.recsHiddenDueToGate && (
+                <Card className="border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
+                  <CardBody className="py-3">
+                    <p className="text-sm text-red-800 dark:text-red-200">
+                      <strong>Strict gate:</strong> Recommendations hidden because ATS is {performanceGate.atsWinRate.toFixed(1)}% (below {performanceGate.threshold}% threshold). Uncheck &quot;Hide recs when ATS &lt; 53%&quot; to show them.
+                    </p>
+                  </CardBody>
+                </Card>
+              )}
+              {performanceGate && !performanceGate.passed && !performanceGate.recsHiddenDueToGate && (
+                <Card className="border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                  <CardBody className="py-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      <strong>Performance note:</strong> Historical ATS win rate is {performanceGate.atsWinRate.toFixed(1)}% ({performanceGate.gamesDecided} games).
+                      Recommendations are shown for internal use. Consider the {performanceGate.threshold}% ATS threshold before relying on these picks.
+                    </p>
+                  </CardBody>
+                </Card>
+              )}
+              {showModelOnlyDisclaimer && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Some picks are model-only (no market odds to compare). Odds may differ at your sportsbook.
+                </p>
+              )}
               <p className="text-sm text-gray-500">
                 {recommendations.length} recommended picks • {lowConfidence.length} low confidence games hidden
               </p>
@@ -474,7 +551,7 @@ export function BetsPageClient() {
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xs text-gray-500">Spread</div>
+                        <div className="text-xs text-gray-500">Spread (home)</div>
                         <div className="font-semibold">
                           {rec.predictedSpread > 0 ? "+" : ""}{rec.predictedSpread.toFixed(1)}
                         </div>
@@ -496,41 +573,70 @@ export function BetsPageClient() {
                           className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
                         >
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Chip
                                 size="sm"
                                 color={bet.confidence >= 65 ? "success" : "primary"}
                               >
                                 {getBetTypeLabel(bet.type)}
                               </Chip>
+                              {bet.tier && (
+                                <Chip size="sm" variant="bordered" color={
+                                  bet.tier === "high" ? "success" :
+                                  bet.tier === "medium" ? "primary" : "default"
+                                }>
+                                  {bet.tier} edge
+                                </Chip>
+                              )}
+                              {bet.isModelOnly && (
+                                <Chip size="sm" variant="flat" color="warning">
+                                  Model only
+                                </Chip>
+                              )}
                               <span className="font-medium">
                                 {bet.side === "home" ? rec.homeTeam : 
                                  bet.side === "away" ? rec.awayTeam :
                                  bet.side.charAt(0).toUpperCase() + bet.side.slice(1)}
-                                {bet.line !== null && ` ${bet.line > 0 ? "+" : ""}${bet.line}`}
+                                {formatBetLine(bet)}
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                               {bet.reasoning}
                             </p>
                           </div>
-                          <Button
-                            size="sm"
-                            color="primary"
-                            isDisabled={rec.alreadyBet}
-                            onPress={() => openPlaceBetModal(rec, bet)}
-                          >
-                            Place Bet
-                          </Button>
+                          {bet.type !== "total_prediction" ? (
+                            <Button
+                              size="sm"
+                              color="primary"
+                              isDisabled={rec.alreadyBet}
+                              onPress={() => openPlaceBetModal(rec, bet)}
+                            >
+                              Place Bet
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-gray-500">Informational — compare to your book</span>
+                          )}
                         </div>
                       ))}
                     </div>
 
+                    {/* Favorable Bets from matchup page (when user viewed and enriched) */}
+                    {rec.favorableBets && rec.favorableBets.length > 0 && (
+                      <div className="text-sm">
+                        <span className="font-medium text-gray-600 dark:text-gray-400">Favorable bets (matchup):</span>{" "}
+                        {rec.favorableBets.slice(0, 3).map((fb, i) => (
+                          <Chip key={i} size="sm" variant="flat" className="mr-1 mt-1">
+                            {fb.recommendation} ({fb.edge.toFixed(1)}% edge)
+                          </Chip>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Key Factors */}
                     {rec.keyFactors.length > 0 && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 break-words">
                         <span className="font-medium">Key factors:</span>{" "}
-                        {rec.keyFactors.slice(0, 3).join(" • ")}
+                        {rec.keyFactors.slice(0, 5).join(" • ")}
                       </div>
                     )}
                   </CardBody>
@@ -639,7 +745,7 @@ export function BetsPageClient() {
                             {record.betSide === "home" ? record.homeTeam.split(" ").pop() :
                              record.betSide === "away" ? record.awayTeam.split(" ").pop() :
                              record.betSide}
-                            {record.line !== null && ` ${record.line > 0 ? "+" : ""}${record.line}`}
+                            {formatRecordLine(record)}
                           </span>
                         </div>
                       </TableCell>
@@ -716,7 +822,7 @@ export function BetsPageClient() {
                       {selectedBetType.side === "home" ? selectedRec.homeTeam :
                        selectedBetType.side === "away" ? selectedRec.awayTeam :
                        selectedBetType.side}
-                      {selectedBetType.line !== null && ` ${selectedBetType.line > 0 ? "+" : ""}${selectedBetType.line}`}
+                      {formatBetLine(selectedBetType)}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 mt-1">{selectedBetType.reasoning}</p>
@@ -784,7 +890,7 @@ export function BetsPageClient() {
                       {settlingBet.betSide === "home" ? settlingBet.homeTeam :
                        settlingBet.betSide === "away" ? settlingBet.awayTeam :
                        settlingBet.betSide}
-                      {settlingBet.line !== null && ` ${settlingBet.line > 0 ? "+" : ""}${settlingBet.line}`}
+                      {formatRecordLine(settlingBet)}
                     </span>
                   </div>
                   <div className="text-sm text-gray-500 mt-1">
