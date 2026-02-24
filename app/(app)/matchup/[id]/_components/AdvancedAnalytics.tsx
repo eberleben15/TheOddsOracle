@@ -16,6 +16,7 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { OddsGame } from "@/types";
 import { ParsedOdds } from "@/lib/odds-utils";
 import { getSportFromGame } from "@/lib/sports/sport-detection";
+import { buildBestOddsSnapshot } from "@/lib/odds-utils";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import React from "react";
 
@@ -24,10 +25,7 @@ interface AdvancedAnalyticsProps {
   homeTeamStats: TeamStats;
   awayRecentGames: GameResult[];
   homeRecentGames: GameResult[];
-  odds?: {
-    moneyline?: { away: number; home: number };
-    spread?: number;
-  };
+  odds?: import("@/lib/odds-utils").OddsSnapshotForRecs | null;
   game?: OddsGame;
   parsedOdds?: ParsedOdds[];
 }
@@ -41,6 +39,15 @@ interface StoredPrediction {
   confidence: number;
   keyFactors: string[];
   valueBets: Array<{ type: string; recommendation: string; confidence: number; reason: string }>;
+  simulation?: {
+    homeScore: { percentiles: { p25: number; p75: number } };
+    awayScore: { percentiles: { p25: number; p75: number } };
+    confidenceIntervals: {
+      spread: { lower: number; upper: number };
+      total: { lower: number; upper: number };
+    };
+    simulationCount: number;
+  };
 }
 
 export function AdvancedAnalytics({
@@ -58,6 +65,10 @@ export function AdvancedAnalytics({
   // State for fetched prediction
   const [storedPrediction, setStoredPrediction] = useState<StoredPrediction | null>(null);
   const [predictionLoading, setPredictionLoading] = useState(true);
+  const [apiPrediction, setApiPrediction] = useState<StoredPrediction | null>(null);
+  const [apiPredictionLoading, setApiPredictionLoading] = useState(false);
+  const [apiPredictionError, setApiPredictionError] = useState(false);
+  const [apiRetryKey, setApiRetryKey] = useState(0);
   const [usedFallback, setUsedFallback] = useState(false);
 
   // Fetch existing prediction from database
@@ -80,6 +91,7 @@ export function AdvancedAnalytics({
             confidence: data.prediction.confidence,
             keyFactors: data.prediction.keyFactors ?? [],
             valueBets: data.prediction.valueBets ?? [],
+            simulation: data.prediction.simulation,
           });
         }
         setPredictionLoading(false);
@@ -89,6 +101,50 @@ export function AdvancedAnalytics({
         setPredictionLoading(false);
       });
   }, [gameId]);
+
+  // When no stored prediction, fetch from matchup-prediction API for full prediction + simulation
+  const retryApiPrediction = () => {
+    setApiPredictionError(false);
+    setApiPrediction(null);
+    setApiRetryKey((k) => k + 1);
+  };
+  useEffect(() => {
+    if (predictionLoading || storedPrediction || !game?.away_team || !game?.home_team) return;
+    setApiPredictionLoading(true);
+    setApiPredictionError(false);
+    const sportKey = game?.sport_key ?? sport ?? "cbb";
+    const params = new URLSearchParams({
+      awayTeam: game.away_team,
+      homeTeam: game.home_team,
+      sport: typeof sportKey === "string" ? sportKey : "cbb",
+    });
+    fetch(`/api/matchup-prediction?${params}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.prediction) {
+          const p = data.prediction;
+          setApiPrediction({
+            id: "",
+            predictedScore: p.predictedScore,
+            predictedSpread: p.predictedSpread,
+            alternateSpread: p.alternateSpread ?? null,
+            winProbability: p.winProbability,
+            confidence: p.confidence,
+            keyFactors: p.keyFactors ?? [],
+            valueBets: p.valueBets ?? [],
+            simulation: p.simulation,
+          });
+          setApiPredictionError(false);
+        } else {
+          setApiPredictionError(true);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch matchup prediction:", err);
+        setApiPredictionError(true);
+      })
+      .finally(() => setApiPredictionLoading(false));
+  }, [predictionLoading, storedPrediction, game?.away_team, game?.home_team, game?.sport_key, sport, apiRetryKey]);
 
   // Calculate analytics for display (needed for team comparison cards)
   const awayAnalytics = useMemo(
@@ -100,18 +156,26 @@ export function AdvancedAnalytics({
     [homeTeamStats, homeRecentGames, sport]
   );
 
-  // Fallback prediction (only generated if no stored prediction exists)
+  // Fallback prediction (client-side, only when no stored or API prediction)
   const fallbackPrediction = useMemo(() => {
-    if (storedPrediction || predictionLoading) return null;
+    if (storedPrediction || apiPrediction || predictionLoading) return null;
     setUsedFallback(true);
     const base = predictMatchup(awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats, sport);
     return odds ? identifyValueBets(base, odds) : base;
-  }, [storedPrediction, predictionLoading, awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats, sport, odds]);
+  }, [storedPrediction, apiPrediction, predictionLoading, awayAnalytics, homeAnalytics, awayTeamStats, homeTeamStats, sport, odds]);
 
-  // Track fallback prediction if we had to generate one (for feedback loop)
+  // Track prediction for feedback loop (fallback or API-sourced)
   useEffect(() => {
-    if (!fallbackPrediction || !game?.id) return;
-    
+    const toTrack = apiPrediction ?? fallbackPrediction;
+    if (!toTrack || !game?.id) return;
+    const pred = {
+      predictedScore: toTrack.predictedScore,
+      predictedSpread: toTrack.predictedSpread,
+      winProbability: toTrack.winProbability,
+      confidence: toTrack.confidence,
+      keyFactors: toTrack.keyFactors,
+      valueBets: toTrack.valueBets,
+    };
     fetch("/api/predictions/track", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -120,15 +184,15 @@ export function AdvancedAnalytics({
         date: game.commence_time,
         homeTeam: game.home_team,
         awayTeam: game.away_team,
-        prediction: fallbackPrediction,
+        prediction: pred,
         sport: game.sport_key ?? undefined,
-        keyFactors: fallbackPrediction.keyFactors?.length ? fallbackPrediction.keyFactors : undefined,
-        valueBets: fallbackPrediction.valueBets?.length ? fallbackPrediction.valueBets : undefined,
+        keyFactors: pred.keyFactors?.length ? pred.keyFactors : undefined,
+        valueBets: pred.valueBets?.length ? pred.valueBets : undefined,
       }),
-    }).catch((err) => console.warn("Failed to track fallback prediction:", err));
-  }, [fallbackPrediction, game?.id, game?.commence_time, game?.home_team, game?.away_team, game?.sport_key]);
+    }).catch((err) => console.warn("Failed to track prediction:", err));
+  }, [apiPrediction, fallbackPrediction, game?.id, game?.commence_time, game?.home_team, game?.away_team, game?.sport_key]);
 
-  // Build the prediction object for display (prefer stored, fallback to generated)
+  // Build the prediction object for display (stored > API with simulation > local fallback)
   const prediction: MatchupPrediction = useMemo(() => {
     if (storedPrediction) {
       return {
@@ -138,8 +202,27 @@ export function AdvancedAnalytics({
         winProbability: storedPrediction.winProbability,
         confidence: storedPrediction.confidence,
         keyFactors: storedPrediction.keyFactors,
-        valueBets: storedPrediction.valueBets,
-      };
+        valueBets: storedPrediction.valueBets.map((v) => ({
+          ...v,
+          type: (v.type === "spread" || v.type === "total" || v.type === "moneyline" ? v.type : "moneyline") as "spread" | "total" | "moneyline",
+        })),
+        simulation: storedPrediction.simulation,
+      } as MatchupPrediction;
+    }
+    if (apiPrediction) {
+      return {
+        predictedScore: apiPrediction.predictedScore,
+        predictedSpread: apiPrediction.predictedSpread,
+        alternateSpread: apiPrediction.alternateSpread ?? undefined,
+        winProbability: apiPrediction.winProbability,
+        confidence: apiPrediction.confidence,
+        keyFactors: apiPrediction.keyFactors,
+        valueBets: apiPrediction.valueBets.map((v) => ({
+          ...v,
+          type: (v.type === "spread" || v.type === "total" || v.type === "moneyline" ? v.type : "moneyline") as "spread" | "total" | "moneyline",
+        })),
+        simulation: apiPrediction.simulation,
+      } as MatchupPrediction;
     }
     if (fallbackPrediction) {
       return fallbackPrediction;
@@ -153,7 +236,7 @@ export function AdvancedAnalytics({
       keyFactors: [],
       valueBets: [],
     };
-  }, [storedPrediction, fallbackPrediction]);
+  }, [storedPrediction, apiPrediction, fallbackPrediction]);
 
   // Analyze favorable bets
   const [favorableBetAnalysis, setFavorableBetAnalysis] = useState<any>(null);
@@ -188,15 +271,7 @@ export function AdvancedAnalytics({
           ourProbability: b.ourPrediction?.probability ?? 0,
           impliedProbability: b.currentOdds?.impliedProbability ?? 0,
         }));
-        const first = parsedOdds[0];
-        const firstWithTotal = first as typeof first & { total?: { over?: { point?: number }; under?: { point?: number } } };
-        const oddsSnapshot = {
-          spread: first?.spread?.home?.point,
-          total: firstWithTotal?.total?.over?.point ?? firstWithTotal?.total?.under?.point,
-          moneyline: first?.moneyline
-            ? { away: first.moneyline.away?.price, home: first.moneyline.home?.price }
-            : undefined,
-        };
+        const oddsSnapshot = buildBestOddsSnapshot(parsedOdds);
         fetch("/api/predictions/enrich", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -323,22 +398,64 @@ export function AdvancedAnalytics({
                         Predicted Spread: <span className="font-semibold">{homeTeamStats.name.split(' ')[0]} {prediction.predictedSpread > 0 ? '-' : '+'}{safeNumber(Math.abs(prediction.predictedSpread), 1)}</span>
                       </span>
                     </div>
-                    {prediction.alternateSpread && (
+                    {prediction.simulation ? (
+                      <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                        <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-2">
+                          Monte Carlo uncertainty ({prediction.simulation.simulationCount.toLocaleString()} runs)
+                        </div>
+                        <div className="text-sm text-slate-700 space-y-1">
+                          <div>
+                            <span className="text-slate-500">Score range (25th–75th):</span>{" "}
+                            {awayTeamStats.name.split(' ')[0]} {Math.round(prediction.simulation.awayScore.percentiles.p25)}–{Math.round(prediction.simulation.awayScore.percentiles.p75)} · {homeTeamStats.name.split(' ')[0]} {Math.round(prediction.simulation.homeScore.percentiles.p25)}–{Math.round(prediction.simulation.homeScore.percentiles.p75)}
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Spread 80% CI:</span>{" "}
+                            {prediction.simulation.confidenceIntervals.spread.lower >= 0 ? '+' : ''}{Math.round(prediction.simulation.confidenceIntervals.spread.lower)} to {prediction.simulation.confidenceIntervals.spread.upper >= 0 ? '+' : ''}{Math.round(prediction.simulation.confidenceIntervals.spread.upper)}
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Total 80% CI:</span>{" "}
+                            {Math.round(prediction.simulation.confidenceIntervals.total.lower)}–{Math.round(prediction.simulation.confidenceIntervals.total.upper)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : apiPredictionLoading && hasValidPrediction ? (
+                      <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2 text-sm text-slate-600">
+                        <Spinner size="sm" />
+                        Simulating uncertainty…
+                      </div>
+                    ) : apiPredictionError && hasValidPrediction ? (
+                      <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-between gap-2 text-sm text-amber-800">
+                        <span>Uncertainty simulation unavailable</span>
+                        <button
+                          type="button"
+                          onClick={retryApiPrediction}
+                          className="text-xs font-medium text-amber-700 hover:underline"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    ) : null}
+                    {prediction.alternateSpread && (() => {
+                      const alt = prediction.alternateSpread;
+                      const isUnderdog = (alt.team === 'home' && alt.spread < 0) || (alt.team === 'away' && alt.spread > 0);
+                      const sign = isUnderdog ? '+' : '-';
+                      const teamName = alt.team === 'home' ? homeTeamStats.name.split(' ')[0] : awayTeamStats.name.split(' ')[0];
+                      return (
                       <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs ${
-                        prediction.alternateSpread.riskLevel === 'safer' 
+                        alt.riskLevel === 'safer' 
                           ? 'bg-green-50 text-green-700 border border-green-200' 
-                          : prediction.alternateSpread.riskLevel === 'aggressive'
+                          : alt.riskLevel === 'aggressive'
                             ? 'bg-orange-50 text-orange-700 border border-orange-200'
                             : 'bg-blue-50 text-blue-700 border border-blue-200'
                       }`}>
                         <span className="font-medium">
-                          Alt: {prediction.alternateSpread.team === 'home' ? homeTeamStats.name.split(' ')[0] : awayTeamStats.name.split(' ')[0]} {prediction.alternateSpread.spread > 0 ? '-' : '+'}{Math.abs(prediction.alternateSpread.spread).toFixed(1)}
+                          Alt: {teamName} {sign}{Math.abs(alt.spread).toFixed(1)}
                         </span>
                         <span className="text-[10px] opacity-75">
-                          ({prediction.alternateSpread.riskLevel} • {prediction.alternateSpread.confidence}% conf)
+                          ({alt.riskLevel} • {safeNumber(alt.confidence, 1)}% conf)
                         </span>
                       </div>
-                    )}
+                    ); })()}
                   </div>
                 </>
               ) : (

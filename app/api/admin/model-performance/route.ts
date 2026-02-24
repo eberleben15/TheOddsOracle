@@ -12,6 +12,8 @@ import { runEvaluation } from "@/lib/evaluation-harness";
 import {
   loadRecalibrationWithMetadata,
   loadBiasCorrection,
+  loadVarianceModel,
+  loadNumSimulations,
 } from "@/lib/prediction-feedback-batch";
 
 export async function GET(request: NextRequest) {
@@ -24,11 +26,13 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const sport = searchParams.get("sport") || undefined;
 
-    const [performanceReport, examples, recal, bias] = await Promise.all([
+    const [performanceReport, examples, recal, bias, varianceModel, numSimulations] = await Promise.all([
       generatePerformanceReport(90, sport),
       buildTrainingDataset({ sport, limit: 5000 }),
       loadRecalibrationWithMetadata(),
       loadBiasCorrection(),
+      loadVarianceModel(),
+      loadNumSimulations(),
     ]);
 
     const stats = getDatasetStats(examples);
@@ -84,6 +88,10 @@ export async function GET(request: NextRequest) {
           : null,
         biasCorrection: bias,
       },
+      varianceModel: varianceModel
+        ? { baseVariance: varianceModel.baseVariance, estimatedAt: varianceModel.estimatedAt }
+        : null,
+      numSimulations,
     });
   } catch (error) {
     console.error("Model performance API error:", error);

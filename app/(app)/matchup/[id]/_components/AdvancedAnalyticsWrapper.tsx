@@ -5,17 +5,14 @@ import { AdvancedAnalytics } from "./AdvancedAnalytics";
 import { PremiumGate } from "@/components/PremiumGate";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { TeamStats, GameResult, OddsGame } from "@/types";
-import { ParsedOdds } from "@/lib/odds-utils";
+import { ParsedOdds, type OddsSnapshotForRecs } from "@/lib/odds-utils";
 
 interface AdvancedAnalyticsWrapperProps {
   awayTeamStats: TeamStats;
   homeTeamStats: TeamStats;
   awayRecentGames: GameResult[];
   homeRecentGames: GameResult[];
-  odds?: {
-    moneyline?: { away: number; home: number };
-    spread?: number;
-  };
+  odds?: OddsSnapshotForRecs | null;
   game?: OddsGame;
   parsedOdds?: ParsedOdds[];
 }

@@ -1,6 +1,12 @@
 import { OddsGame, OddsMarket, OddsOutcome } from "@/types";
 import { parseOddsWithValidation } from "./team-matcher";
 
+export interface ParsedTotal {
+  over: OddsOutcome | null;
+  under: OddsOutcome | null;
+  point: number | null;
+}
+
 export interface ParsedOdds {
   bookmaker: string;
   moneyline?: {
@@ -11,6 +17,7 @@ export interface ParsedOdds {
     away: OddsOutcome | null;
     home: OddsOutcome | null;
   };
+  total?: ParsedTotal | null;
   matchQuality?: {
     moneyline?: {
       confidence: 'high' | 'medium' | 'low';
@@ -44,6 +51,7 @@ export function parseOdds(game: OddsGame): ParsedOdds[] {
     bookmaker: result.bookmaker,
     moneyline: result.moneyline,
     spread: result.spread,
+    total: result.total ?? undefined,
     matchQuality: result.matchQuality ? {
       moneyline: result.matchQuality.moneyline ? {
         confidence: result.matchQuality.moneyline.confidence,
@@ -140,5 +148,52 @@ export function getBestMoneylineOdds(
   });
 
   return { away: bestAway, home: bestHome, awayBookmaker, homeBookmaker };
+}
+
+/** OddsSnapshot format (aligned with recommendation-engine) */
+export interface OddsSnapshotForRecs {
+  spread?: number;
+  total?: number;
+  moneyline?: { away?: number; home?: number };
+}
+
+/**
+ * Build best-odds snapshot from all bookmakers.
+ * - Moneyline: best (highest decimal) price per side across books
+ * - Spread: consensus (median) of home spread point
+ * - Total: consensus (median) of total point
+ */
+export function buildBestOddsSnapshot(parsedOdds: ParsedOdds[]): OddsSnapshotForRecs | null {
+  if (!parsedOdds.length) return null;
+  const snapshot: OddsSnapshotForRecs = {};
+
+  // Best moneyline
+  const bestML = getBestMoneylineOdds(parsedOdds);
+  if (bestML?.away || bestML?.home) {
+    snapshot.moneyline = {
+      away: bestML.away?.price,
+      home: bestML.home?.price,
+    };
+  }
+
+  // Consensus spread (home spread point)
+  const spreadPoints = parsedOdds
+    .map((o) => o.spread?.home?.point)
+    .filter((p): p is number => typeof p === "number");
+  if (spreadPoints.length > 0) {
+    spreadPoints.sort((a, b) => a - b);
+    snapshot.spread = spreadPoints[Math.floor(spreadPoints.length / 2)];
+  }
+
+  // Consensus total
+  const totalPoints = parsedOdds
+    .map((o) => o.total?.point)
+    .filter((p): p is number => typeof p === "number");
+  if (totalPoints.length > 0) {
+    totalPoints.sort((a, b) => a - b);
+    snapshot.total = totalPoints[Math.floor(totalPoints.length / 2)];
+  }
+
+  return Object.keys(snapshot).length > 0 ? snapshot : null;
 }
 

@@ -490,6 +490,22 @@ export function matchTeamsToOutcomes(
 /**
  * Enhanced parseOdds function with robust team matching
  */
+/** Parsed total (Over/Under) from a bookmaker */
+export interface ParsedTotalResult {
+  over: OddsOutcome | null;
+  under: OddsOutcome | null;
+  point: number | null;
+}
+
+function parseTotalsMarket(markets: OddsMarket[] | undefined): ParsedTotalResult {
+  const totalsMarket = markets?.find((m) => m.key === "totals");
+  if (!totalsMarket?.outcomes?.length) return { over: null, under: null, point: null };
+  const overOutcome = totalsMarket.outcomes.find((o) => o.name === "Over") ?? null;
+  const underOutcome = totalsMarket.outcomes.find((o) => o.name === "Under") ?? null;
+  const point = overOutcome?.point ?? underOutcome?.point ?? null;
+  return { over: overOutcome ?? null, under: underOutcome ?? null, point };
+}
+
 export function parseOddsWithValidation(
   game: { away_team: string; home_team: string },
   bookmakers: Array<{ title: string; markets: OddsMarket[] }>
@@ -497,6 +513,7 @@ export function parseOddsWithValidation(
   bookmaker: string;
   moneyline?: { away: OddsOutcome | null; home: OddsOutcome | null };
   spread?: { away: OddsOutcome | null; home: OddsOutcome | null };
+  total?: ParsedTotalResult | null;
   matchQuality?: {
     moneyline?: TeamMatchResult;
     spread?: TeamMatchResult;
@@ -536,6 +553,8 @@ export function parseOddsWithValidation(
       }
     }
 
+    const totalParsed = parseTotalsMarket(bookmaker.markets);
+
     return {
       bookmaker: bookmaker.title,
       moneyline: {
@@ -546,6 +565,7 @@ export function parseOddsWithValidation(
         away: spreadMatch.away,
         home: spreadMatch.home,
       },
+      total: (totalParsed.over ?? totalParsed.under) ? totalParsed : null,
       matchQuality: {
         moneyline: moneylineMatch,
         spread: spreadMatch,

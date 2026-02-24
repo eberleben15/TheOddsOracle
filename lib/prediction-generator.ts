@@ -7,6 +7,7 @@
 
 import { OddsGame } from "@/types";
 import { getSportFromGame } from "./sports/sport-detection";
+import { parseOdds, buildBestOddsSnapshot } from "./odds-utils";
 import {
   getTeamSeasonStats,
   findTeamByName,
@@ -123,41 +124,11 @@ export async function generatePredictionForGame(
   }
 }
 
-/**
- * Extract odds snapshot from game data
- */
+/** Extract best-odds snapshot from game (consensus spread/total, best ML across bookmakers) */
 function extractOddsFromGame(game: OddsGame): Record<string, unknown> | null {
-  if (!game.bookmakers?.length) return null;
-
-  const bookmaker = game.bookmakers[0];
-  const snapshot: Record<string, unknown> = {};
-
-  for (const market of bookmaker.markets || []) {
-    if (market.key === "spreads" && market.outcomes?.length >= 2) {
-      const homeOutcome = market.outcomes.find((o) => o.name === game.home_team);
-      if (homeOutcome?.point != null) {
-        snapshot.spread = homeOutcome.point;
-      }
-    }
-    if (market.key === "totals" && market.outcomes?.length >= 1) {
-      const overOutcome = market.outcomes.find((o) => o.name === "Over");
-      if (overOutcome?.point != null) {
-        snapshot.total = overOutcome.point;
-      }
-    }
-    if (market.key === "h2h" && market.outcomes?.length >= 2) {
-      const homeOutcome = market.outcomes.find((o) => o.name === game.home_team);
-      const awayOutcome = market.outcomes.find((o) => o.name === game.away_team);
-      if (homeOutcome?.price != null && awayOutcome?.price != null) {
-        snapshot.moneyline = {
-          home: homeOutcome.price,
-          away: awayOutcome.price,
-        };
-      }
-    }
-  }
-
-  return Object.keys(snapshot).length > 0 ? snapshot : null;
+  const parsed = parseOdds(game);
+  const snapshot = buildBestOddsSnapshot(parsed);
+  return snapshot as Record<string, unknown> | null;
 }
 
 /**

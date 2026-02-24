@@ -13,9 +13,17 @@ import {
   checkPerformanceGate,
   applyBiasCorrection,
   type OddsSnapshot,
+  type SimulationUncertainty,
 } from "@/lib/recommendation-engine";
 import { generatePerformanceReport } from "@/lib/validation-dashboard";
-import { loadBiasCorrection } from "@/lib/prediction-feedback-batch";
+import {
+  loadBiasCorrection,
+  getVarianceModelForSimulation,
+  loadNumSimulations,
+} from "@/lib/prediction-feedback-batch";
+import { runMonteCarloSimulation } from "@/lib/monte-carlo-simulation";
+import type { MatchupPrediction } from "@/lib/advanced-analytics";
+import { getLeagueConstants } from "@/lib/advanced-analytics";
 
 interface BetRecommendation {
   id: string;
@@ -99,6 +107,12 @@ export async function GET(request: NextRequest) {
       existingBets.forEach((b) => betPredictionIds.add(b.predictionId));
     }
 
+    // Load variance model and numSimulations once for Monte Carlo
+    const [varianceModel, numSimulations] =
+      predictions.length > 0
+        ? await Promise.all([getVarianceModelForSimulation(), loadNumSimulations()])
+        : [null, 10000];
+
     const recommendations: BetRecommendation[] = predictions.map((pred) => {
       const oddsSnap = pred.oddsSnapshot as OddsSnapshot | null | undefined;
       const rawInput = {
@@ -118,7 +132,33 @@ export async function GET(request: NextRequest) {
         sport: pred.sport,
       };
       const input = applyBiasCorrection(rawInput, biases);
-      const recs = hideRecsDueToGate ? [] : generateRecommendations(input, oddsSnap);
+
+      let simulation: SimulationUncertainty | undefined;
+      if (!hideRecsDueToGate && varianceModel && predictions.length <= 30) {
+        const league = getLeagueConstants(pred.sport ?? "cbb");
+        const minimalPred: MatchupPrediction = {
+          predictedScore: rawInput.predictedScore,
+          predictedSpread: rawInput.predictedSpread,
+          winProbability: rawInput.winProbability,
+          confidence: rawInput.confidence,
+          keyFactors: [],
+          valueBets: [],
+        };
+        const simResult = runMonteCarloSimulation(
+          minimalPred,
+          varianceModel,
+          numSimulations as number,
+          { scoreMin: league.scoreMin, scoreMax: league.scoreMax }
+        );
+        simulation = {
+          confidenceIntervals: {
+            spread: simResult.confidenceIntervals.spread,
+            total: simResult.confidenceIntervals.total,
+          },
+        };
+      }
+      const inputWithSim = simulation ? { ...input, simulation } : input;
+      const recs = hideRecsDueToGate ? [] : generateRecommendations(inputWithSim, oddsSnap);
 
       const winProb = pred.winProbability as { home: number; away: number } | null;
       const homeWinProb =

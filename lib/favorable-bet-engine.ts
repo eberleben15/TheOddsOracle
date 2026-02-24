@@ -13,6 +13,8 @@ import { MatchupPrediction } from "./advanced-analytics";
 export interface FavorableBet {
   type: 'moneyline' | 'spread' | 'total';
   team?: 'away' | 'home';
+  /** For total bets: 'over' or 'under' */
+  totalSide?: 'over' | 'under';
   recommendation: string;
   bookmaker: string;
   bookmakers?: string[]; // List of all bookmakers offering this bet at this price
@@ -41,6 +43,47 @@ export interface FavorableBetAnalysis {
   highestEdge: number;
 }
 
+/** CI width thresholds per sport — beyond filter we skip; between acceptable and filter we downweight */
+const CI_THRESHOLDS: Record<string, { spreadAcceptable: number; spreadFilter: number; totalAcceptable: number; totalFilter: number }> = {
+  cbb: { spreadAcceptable: 12, spreadFilter: 26, totalAcceptable: 22, totalFilter: 50 },
+  basketball_ncaab: { spreadAcceptable: 12, spreadFilter: 26, totalAcceptable: 22, totalFilter: 50 },
+  nba: { spreadAcceptable: 10, spreadFilter: 22, totalAcceptable: 20, totalFilter: 42 },
+  basketball_nba: { spreadAcceptable: 10, spreadFilter: 22, totalAcceptable: 20, totalFilter: 42 },
+  nhl: { spreadAcceptable: 1.5, spreadFilter: 3.5, totalAcceptable: 2.5, totalFilter: 6 },
+  icehockey_nhl: { spreadAcceptable: 1.5, spreadFilter: 3.5, totalAcceptable: 2.5, totalFilter: 6 },
+  mlb: { spreadAcceptable: 2, spreadFilter: 5, totalAcceptable: 4, totalFilter: 10 },
+  baseball_mlb: { spreadAcceptable: 2, spreadFilter: 5, totalAcceptable: 4, totalFilter: 10 },
+  default: { spreadAcceptable: 12, spreadFilter: 26, totalAcceptable: 22, totalFilter: 50 },
+};
+
+function getTotalUncertaintyMultiplier(
+  sim: MatchupPrediction["simulation"],
+  sport: string | null
+): number {
+  if (!sim?.confidenceIntervals?.total) return 1;
+  const ci = sim.confidenceIntervals.total;
+  const width = ci.upper - ci.lower;
+  const th = CI_THRESHOLDS[sport ?? "default"] ?? CI_THRESHOLDS.default;
+  if (width <= th.totalAcceptable) return 1;
+  if (width >= th.totalFilter) return 0.4;
+  const mult = 1 - ((width - th.totalAcceptable) / (th.totalFilter - th.totalAcceptable)) * 0.6;
+  return Math.max(0.4, mult);
+}
+
+function getSpreadUncertaintyMultiplier(
+  sim: MatchupPrediction["simulation"],
+  sport: string | null
+): number {
+  if (!sim?.confidenceIntervals?.spread) return 1;
+  const ci = sim.confidenceIntervals.spread;
+  const width = ci.upper - ci.lower;
+  const th = CI_THRESHOLDS[sport ?? "default"] ?? CI_THRESHOLDS.default;
+  if (width <= th.spreadAcceptable) return 1;
+  if (width >= th.spreadFilter) return 0.4;
+  const mult = 1 - ((width - th.spreadAcceptable) / (th.spreadFilter - th.spreadAcceptable)) * 0.6;
+  return Math.max(0.4, mult);
+}
+
 /**
  * Analyze odds and predictions to find favorable bets
  */
@@ -52,6 +95,9 @@ export function analyzeFavorableBets(
   homeTeamStats: TeamStats
 ): FavorableBetAnalysis {
   const favorableBets: FavorableBet[] = [];
+  const sport = game.sport_key ?? null;
+  const spreadMult = getSpreadUncertaintyMultiplier(prediction.simulation, sport);
+  const totalMult = getTotalUncertaintyMultiplier(prediction.simulation, sport);
 
   // Analyze moneyline bets
   parsedOdds.forEach((bookmakerOdds) => {
@@ -168,9 +214,9 @@ export function analyzeFavorableBets(
 
         if (edge > 0.02) {
           const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
-          const confidence = calculateBetConfidence(edge, prediction.confidence);
+          const confidence = Math.round(calculateBetConfidence(edge, prediction.confidence) * spreadMult);
           const valueRating = getValueRating(edge, expectedValue);
-
+          if (confidence >= 45) {
           favorableBets.push({
             type: 'spread',
             team: 'away',
@@ -190,6 +236,7 @@ export function analyzeFavorableBets(
             reason: generateBetReason('spread', 'away', edge, awayTeamStats, homeTeamStats, prediction, spreadPoint),
             valueRating: valueRating,
           });
+          }
         }
       }
 
@@ -212,9 +259,9 @@ export function analyzeFavorableBets(
 
         if (edge > 0.02) {
           const expectedValue = (ourProb * (1 / impliedProb - 1) - (1 - ourProb)) * 100;
-          const confidence = calculateBetConfidence(edge, prediction.confidence);
+          const confidence = Math.round(calculateBetConfidence(edge, prediction.confidence) * spreadMult);
           const valueRating = getValueRating(edge, expectedValue);
-
+          if (confidence >= 45) {
           favorableBets.push({
             type: 'spread',
             team: 'home',
@@ -234,6 +281,85 @@ export function analyzeFavorableBets(
             reason: generateBetReason('spread', 'home', edge, awayTeamStats, homeTeamStats, prediction, spreadPoint),
             valueRating: valueRating,
           });
+          }
+        }
+      }
+    }
+
+    // Analyze total (Over/Under) bets
+    if (bookmakerOdds.total?.over || bookmakerOdds.total?.under) {
+      const ourTotal = (prediction.predictedScore?.home ?? 0) + (prediction.predictedScore?.away ?? 0);
+      const line = bookmakerOdds.total.point;
+      if (line == null || ourTotal <= 0) return;
+
+      // P(over) heuristic: 0.5 + 0.5 * tanh((ourTotal - line) / 10)
+      const diff = (ourTotal - line) / 10;
+      const ourProbOver = 0.5 + 0.5 * Math.tanh(diff);
+
+      // Over
+      if (bookmakerOdds.total.over && bookmakerOdds.total.over.price >= 1.0) {
+        const americanOdds = decimalToAmerican(bookmakerOdds.total.over.price);
+        const impliedProb = calculateImpliedProbability(americanOdds);
+        const edge = ourProbOver - impliedProb;
+        if (edge > 0.02) {
+          const expectedValue = (ourProbOver * (1 / impliedProb - 1) - (1 - ourProbOver)) * 100;
+          const confidence = Math.round(calculateBetConfidence(edge, prediction.confidence) * totalMult);
+          const valueRating = getValueRating(edge, expectedValue);
+          if (confidence >= 45) {
+            favorableBets.push({
+              type: 'total',
+              totalSide: 'over',
+              recommendation: `Over ${line.toFixed(1)}`,
+              bookmaker: bookmakerOdds.bookmaker,
+              currentOdds: {
+                decimal: bookmakerOdds.total.over.price,
+                american: americanOdds,
+                impliedProbability: impliedProb * 100,
+              },
+              ourPrediction: {
+                probability: ourProbOver * 100,
+                expectedValue,
+              },
+              edge: edge * 100,
+              confidence,
+              reason: `Our model predicts ${ourTotal.toFixed(0)} total vs line ${line.toFixed(1)} (+${(edge * 100).toFixed(1)}% edge on Over)`,
+              valueRating,
+            });
+          }
+        }
+      }
+
+      // Under
+      if (bookmakerOdds.total.under && bookmakerOdds.total.under.price >= 1.0) {
+        const ourProbUnder = 1 - ourProbOver;
+        const americanOdds = decimalToAmerican(bookmakerOdds.total.under.price);
+        const impliedProb = calculateImpliedProbability(americanOdds);
+        const edge = ourProbUnder - impliedProb;
+        if (edge > 0.02) {
+          const expectedValue = (ourProbUnder * (1 / impliedProb - 1) - (1 - ourProbUnder)) * 100;
+          const confidence = Math.round(calculateBetConfidence(edge, prediction.confidence) * totalMult);
+          const valueRating = getValueRating(edge, expectedValue);
+          if (confidence >= 45) {
+            favorableBets.push({
+              type: 'total',
+              totalSide: 'under',
+              recommendation: `Under ${line.toFixed(1)}`,
+              bookmaker: bookmakerOdds.bookmaker,
+              currentOdds: {
+                decimal: bookmakerOdds.total.under.price,
+                american: americanOdds,
+                impliedProbability: impliedProb * 100,
+              },
+              ourPrediction: {
+                probability: ourProbUnder * 100,
+                expectedValue,
+              },
+              edge: edge * 100,
+              confidence,
+              reason: `Our model predicts ${ourTotal.toFixed(0)} total vs line ${line.toFixed(1)} (+${(edge * 100).toFixed(1)}% edge on Under)`,
+              valueRating,
+            });
+          }
         }
       }
     }
@@ -271,8 +397,8 @@ function consolidateFavorableBets(bets: FavorableBet[]): FavorableBet[] {
   const betGroups = new Map<string, FavorableBet[]>();
 
   bets.forEach((bet) => {
-    // Create a key: type-teamIdentifier (group all prices together)
-    const teamIdentifier = bet.team || 'total';
+    const teamIdentifier =
+      bet.type === 'total' ? (bet.totalSide ?? 'over') : (bet.team ?? 'total');
     const key = `${bet.type}-${teamIdentifier}`;
 
     if (!betGroups.has(key)) {

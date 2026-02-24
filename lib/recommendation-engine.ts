@@ -20,6 +20,14 @@ export interface OddsSnapshot {
   moneyline?: { away?: number; home?: number };
 }
 
+/** Monte Carlo confidence intervals (optional, used to downweight noisy games) */
+export interface SimulationUncertainty {
+  confidenceIntervals: {
+    spread: { lower: number; upper: number };
+    total: { lower: number; upper: number };
+  };
+}
+
 /** Input prediction for the engine */
 export interface RecommendationInput {
   predictedScore: { home: number; away: number };
@@ -30,6 +38,8 @@ export interface RecommendationInput {
   homeTeam: string;
   awayTeam: string;
   sport: string | null;
+  /** Optional Monte Carlo uncertainty — used to downweight when CIs are wide */
+  simulation?: SimulationUncertainty;
 }
 
 /** Bias corrections from validation (points we over/under predict) */
@@ -68,6 +78,39 @@ const ADAPTIVE_THRESHOLDS: Record<
 
 function getThresholds(sport: string | null) {
   return ADAPTIVE_THRESHOLDS[sport ?? "default"] ?? ADAPTIVE_THRESHOLDS.default;
+}
+
+/** CI width thresholds per sport — beyond filter we skip; between acceptable and filter we downweight */
+const CI_THRESHOLDS: Record<
+  string,
+  { spreadAcceptable: number; spreadFilter: number; totalAcceptable: number; totalFilter: number }
+> = {
+  cbb: { spreadAcceptable: 12, spreadFilter: 26, totalAcceptable: 22, totalFilter: 50 },
+  basketball_ncaab: { spreadAcceptable: 12, spreadFilter: 26, totalAcceptable: 22, totalFilter: 50 },
+  nba: { spreadAcceptable: 10, spreadFilter: 22, totalAcceptable: 20, totalFilter: 42 },
+  basketball_nba: { spreadAcceptable: 10, spreadFilter: 22, totalAcceptable: 20, totalFilter: 42 },
+  nhl: { spreadAcceptable: 1.5, spreadFilter: 3.5, totalAcceptable: 2.5, totalFilter: 6 },
+  icehockey_nhl: { spreadAcceptable: 1.5, spreadFilter: 3.5, totalAcceptable: 2.5, totalFilter: 6 },
+  mlb: { spreadAcceptable: 2, spreadFilter: 5, totalAcceptable: 4, totalFilter: 10 },
+  baseball_mlb: { spreadAcceptable: 2, spreadFilter: 5, totalAcceptable: 4, totalFilter: 10 },
+  default: { spreadAcceptable: 12, spreadFilter: 26, totalAcceptable: 22, totalFilter: 50 },
+};
+
+function getCIThresholds(sport: string | null) {
+  const key = sport ?? "default";
+  return CI_THRESHOLDS[key] ?? CI_THRESHOLDS.default;
+}
+
+/** Confidence multiplier from CI width (1 = no penalty, 0.4 = max penalty). Returns null to filter out. */
+function uncertaintyMultiplier(
+  width: number,
+  acceptable: number,
+  filter: number
+): number | null {
+  if (width <= acceptable) return 1;
+  if (width >= filter) return null;
+  const mult = 1 - ((width - acceptable) / (filter - acceptable)) * 0.6;
+  return Math.max(0.4, mult);
 }
 
 /** Compute tier from edge and confidence */
@@ -136,6 +179,33 @@ export function generateRecommendations(
   const hasOdds = !!oddsSnapshot && (oddsSnapshot.spread != null || oddsSnapshot.total != null);
   const sport = input.sport ?? "default";
   const thresholds = getThresholds(input.sport);
+  const ciThresholds = getCIThresholds(input.sport);
+
+  const sim = input.simulation;
+  const spreadCIWidth =
+    sim?.confidenceIntervals?.spread != null
+      ? sim.confidenceIntervals.spread.upper - sim.confidenceIntervals.spread.lower
+      : 0;
+  const totalCIWidth =
+    sim?.confidenceIntervals?.total != null
+      ? sim.confidenceIntervals.total.upper - sim.confidenceIntervals.total.lower
+      : 0;
+  const spreadMult =
+    spreadCIWidth > 0
+      ? uncertaintyMultiplier(
+          spreadCIWidth,
+          ciThresholds.spreadAcceptable,
+          ciThresholds.spreadFilter
+        )
+      : 1;
+  const totalMult =
+    totalCIWidth > 0
+      ? uncertaintyMultiplier(
+          totalCIWidth,
+          ciThresholds.totalAcceptable,
+          ciThresholds.totalFilter
+        )
+      : 1;
 
   const homeWinProb =
     (input.winProbability.home > 1 ? input.winProbability.home : input.winProbability.home * 100);
@@ -149,14 +219,16 @@ export function generateRecommendations(
   const winnerTeam = predictedWinner === "home" ? input.homeTeam : input.awayTeam;
 
   // --- Spread ---
-  if (confidence >= thresholds.minConfidence) {
+  if (confidence >= thresholds.minConfidence && spreadMult !== null) {
     if (hasOdds && oddsSnapshot!.spread != null) {
       const marketSpread = oddsSnapshot!.spread!;
       const isHomePick = predictedWinner === "home";
       const ourProb = spreadCoverProbability(input.predictedSpread, marketSpread, isHomePick);
       const edgePct = (ourProb - SPREAD_IMPLIED_PROB) * 100;
       if (edgePct >= thresholds.minEdge) {
-        const conf = Math.round(confidence * 0.6 + Math.min(edgePct * 2, 40));
+        let conf = Math.round(confidence * 0.6 + Math.min(edgePct * 2, 40));
+        conf = Math.round(conf * spreadMult);
+        if (conf >= 50) {
         recs.push({
           type: "spread",
           side: predictedWinner,
@@ -167,17 +239,21 @@ export function generateRecommendations(
           isModelOnly: false,
           tier: computeTier(edgePct, conf),
         });
+        }
       }
     } else {
-      recs.push({
-        type: "spread",
-        side: predictedWinner,
-        line: input.predictedSpread,
-        confidence,
-        reasoning: `${winnerTeam} predicted to win by ${spreadDiff.toFixed(1)} points`,
-        isModelOnly: true,
-        tier: computeTier(undefined, confidence),
-      });
+      const conf = Math.round(confidence * spreadMult);
+      if (conf >= 50) {
+        recs.push({
+          type: "spread",
+          side: predictedWinner,
+          line: input.predictedSpread,
+          confidence: conf,
+          reasoning: `${winnerTeam} predicted to win by ${spreadDiff.toFixed(1)} points`,
+          isModelOnly: true,
+          tier: computeTier(undefined, conf),
+        });
+      }
     }
   }
 
@@ -221,35 +297,44 @@ export function generateRecommendations(
   }
 
   // --- Total ---
-  if (input.predictedTotal != null && confidence >= thresholds.minConfidence) {
+  if (
+    input.predictedTotal != null &&
+    confidence >= thresholds.minConfidence &&
+    totalMult !== null
+  ) {
     const marketTotal = oddsSnapshot?.total;
     if (hasOdds && marketTotal != null) {
       const totalDiff = input.predictedTotal - marketTotal;
       if (Math.abs(totalDiff) >= thresholds.minTotalDiff) {
         const isOver = totalDiff > 0;
         const edge = Math.abs(totalDiff);
+        const conf = Math.round(confidence * totalMult);
+        if (conf >= 50) {
         recs.push({
           type: isOver ? "total_over" : "total_under",
           side: isOver ? "over" : "under",
           line: marketTotal,
-          confidence,
+          confidence: conf,
           reasoning: `Predicted total ${input.predictedTotal.toFixed(0)} vs market ${marketTotal} (${totalDiff > 0 ? "+" : ""}${totalDiff.toFixed(1)})`,
           edge,
           isModelOnly: false,
-          tier: computeTier(edge, confidence),
+          tier: computeTier(edge, conf),
         });
+        }
       }
     } else {
-      // Model-only: informational predicted total (compare to your sportsbook)
+      const conf = Math.round(confidence * totalMult);
+      if (conf >= 50) {
       recs.push({
         type: "total_prediction",
         side: "prediction",
         line: input.predictedTotal,
-        confidence,
+        confidence: conf,
         reasoning: `Predicted total ${input.predictedTotal.toFixed(0)} — compare to your sportsbook's line`,
         isModelOnly: true,
-        tier: computeTier(undefined, confidence),
+        tier: computeTier(undefined, conf),
       });
+      }
     }
   }
 

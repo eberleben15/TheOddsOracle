@@ -5,9 +5,11 @@
  * gets tracked and has a prediction generated.
  */
 
+import type { Prisma } from "@/generated/prisma-client/client";
 import { prisma } from "./prisma";
 import { getUpcomingGames } from "./odds-api";
 import { generatePredictionForGame } from "./prediction-generator";
+import { parseOdds, buildBestOddsSnapshot } from "./odds-utils";
 import type { OddsGame } from "@/types";
 
 /** Sports to track and generate predictions for */
@@ -30,41 +32,11 @@ export interface GameSyncResult {
   duration: number;
 }
 
-/**
- * Extract odds snapshot from game data
- */
+/** Extract best-odds snapshot from game (consensus spread/total, best ML across bookmakers) */
 function extractOddsSnapshot(game: OddsGame): Record<string, unknown> | null {
-  if (!game.bookmakers?.length) return null;
-  
-  const bookmaker = game.bookmakers[0];
-  const snapshot: Record<string, unknown> = {};
-  
-  for (const market of bookmaker.markets || []) {
-    if (market.key === "spreads" && market.outcomes?.length >= 2) {
-      const homeOutcome = market.outcomes.find(o => o.name === game.home_team);
-      if (homeOutcome?.point != null) {
-        snapshot.spread = homeOutcome.point;
-      }
-    }
-    if (market.key === "totals" && market.outcomes?.length >= 1) {
-      const overOutcome = market.outcomes.find(o => o.name === "Over");
-      if (overOutcome?.point != null) {
-        snapshot.total = overOutcome.point;
-      }
-    }
-    if (market.key === "h2h" && market.outcomes?.length >= 2) {
-      const homeOutcome = market.outcomes.find(o => o.name === game.home_team);
-      const awayOutcome = market.outcomes.find(o => o.name === game.away_team);
-      if (homeOutcome?.price != null && awayOutcome?.price != null) {
-        snapshot.moneyline = {
-          home: homeOutcome.price,
-          away: awayOutcome.price,
-        };
-      }
-    }
-  }
-  
-  return Object.keys(snapshot).length > 0 ? snapshot : null;
+  const parsed = parseOdds(game);
+  const snapshot = buildBestOddsSnapshot(parsed);
+  return snapshot as Record<string, unknown> | null;
 }
 
 /**
@@ -122,7 +94,7 @@ export async function syncGames(sportsFilter?: string[]): Promise<GameSyncResult
                 homeTeam: game.home_team,
                 awayTeam: game.away_team,
                 commenceTime: new Date(game.commence_time),
-                oddsSnapshot: oddsSnapshot ?? undefined,
+                oddsSnapshot: (oddsSnapshot ?? undefined) as Prisma.InputJsonValue | undefined,
                 status: "pending",
               },
             });

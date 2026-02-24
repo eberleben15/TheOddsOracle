@@ -7,7 +7,7 @@ import { BettingInsights } from "./_components/BettingInsights";
 import { AdvancedAnalyticsWrapper } from "./_components/AdvancedAnalyticsWrapper";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { EmptyState } from "@/components/EmptyState";
-import { parseOdds } from "@/lib/odds-utils";
+import { parseOdds, buildBestOddsSnapshot } from "@/lib/odds-utils";
 import { notFound } from "next/navigation";
 import { TeamStats, HeadToHead, GameResult } from "@/types";
 import { getSportFromGame } from "@/lib/sports/sport-detection";
@@ -161,13 +161,7 @@ export default async function MatchupPage({ params, searchParams }: MatchupPageP
                 homeTeamStats={homeTeamStats}
                 awayRecentGames={recentGames.away}
                 homeRecentGames={recentGames.home}
-                odds={{
-                  moneyline: parseOdds(game)[0]?.moneyline ? {
-                    away: parseOdds(game)[0]?.moneyline?.away?.price || 0,
-                    home: parseOdds(game)[0]?.moneyline?.home?.price || 0,
-                  } : undefined,
-                  spread: parseOdds(game)[0]?.spread?.home?.point,
-                }}
+                odds={buildBestOddsSnapshot(parseOdds(game)) ?? undefined}
                 game={game}
                 parsedOdds={parseOdds(game)}
               />

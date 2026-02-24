@@ -9,6 +9,7 @@ import { isAdmin } from "@/lib/admin-utils";
 import {
   saveRecalibrationParams,
   saveBiasCorrection,
+  saveNumSimulations,
 } from "@/lib/prediction-feedback-batch";
 import { setRecalibrationParams } from "@/lib/recalibration";
 import type { BiasCorrection } from "@/lib/recommendation-engine";
@@ -46,6 +47,13 @@ export async function PATCH(request: NextRequest) {
       if (typeof b.awayTeamBias === "number") bias.awayTeamBias = b.awayTeamBias;
       if (typeof b.scoreBias === "number") bias.scoreBias = b.scoreBias;
       await saveBiasCorrection(bias);
+    }
+
+    if (body.numSimulations != null) {
+      const n = Number(body.numSimulations);
+      if (!Number.isNaN(n) && n >= 1000 && n <= 50000) {
+        await saveNumSimulations(n);
+      }
     }
 
     return NextResponse.json({ success: true });

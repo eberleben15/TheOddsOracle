@@ -134,7 +134,7 @@ export async function getCompletedScoresBySport(
 export async function getUpcomingGames(
   sport: string = "basketball_ncaab",
   regions: string = "us",
-  markets: string = "h2h,spreads"
+  markets: string = "h2h,spreads,totals"
 ): Promise<OddsGame[]> {
   return getUpcomingGamesBySport(sport, regions, markets);
 }
@@ -142,7 +142,7 @@ export async function getUpcomingGames(
 export async function getUpcomingGamesBySport(
   sport: string = "basketball_ncaab",
   regions: string = "us",
-  markets: string = "h2h,spreads"
+  markets: string = "h2h,spreads,totals"
 ): Promise<OddsGame[]> {
   const apiKey = process.env.THE_ODDS_API_KEY;
 

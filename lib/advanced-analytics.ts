@@ -12,6 +12,7 @@ import { CalibrationCoefficients, DEFAULT_COEFFICIENTS } from "./prediction-cali
 import { SimulationResult } from "./monte-carlo-simulation";
 import type { Sport } from "./sports/sport-config";
 import { applyPlattScaling, getRecalibrationParams } from "./recalibration";
+import { decimalToAmerican } from "./odds-utils";
 
 /** League constants per sport so predicted scores match sportsbook/ESPN scale (pace, PPG, score bounds). */
 export interface LeagueConstants {
@@ -1492,14 +1493,16 @@ export function predictMatchup(
  */
 export function identifyValueBets(
   prediction: MatchupPrediction,
-  odds: { moneyline?: { away: number; home: number }; spread?: number }
+  odds: { moneyline?: { away?: number; home?: number }; spread?: number }
 ): MatchupPrediction {
   const valueBets = [];
   
   // Check moneyline value
-  if (odds.moneyline) {
-    const awayImpliedProb = moneylineToProb(odds.moneyline.away);
-    const homeImpliedProb = moneylineToProb(odds.moneyline.home);
+  if (odds.moneyline && odds.moneyline.away != null && odds.moneyline.home != null) {
+    const awayAmerican = decimalToAmerican(odds.moneyline.away);
+    const homeAmerican = decimalToAmerican(odds.moneyline.home);
+    const awayImpliedProb = moneylineToProb(awayAmerican);
+    const homeImpliedProb = moneylineToProb(homeAmerican);
     
     const awayEdge = prediction.winProbability.away - awayImpliedProb;
     const homeEdge = prediction.winProbability.home - homeImpliedProb;

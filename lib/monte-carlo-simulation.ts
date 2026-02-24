@@ -68,21 +68,44 @@ export interface SimulationResult {
   simulationCount: number;
 }
 
+/** Seeded PRNG (mulberry32) for reproducible simulations */
+function createSeededRng(seed: number): () => number {
+  return () => {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
  * Generate random number from normal distribution (Box-Muller transform)
  */
-function randomNormal(mean: number, stdDev: number): number {
-  const u1 = Math.random();
-  const u2 = Math.random();
+function randomNormal(mean: number, stdDev: number, rng: () => number = Math.random): number {
+  const u1 = rng();
+  const u2 = rng();
   const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
   return z0 * stdDev + mean;
 }
 
+/** Default CBB score bounds when sport not specified */
+const DEFAULT_SCORE_MIN = 40;
+const DEFAULT_SCORE_MAX = 120;
+
 /**
- * Clamp score to realistic college basketball range
+ * Clamp score to realistic range (sport-specific when bounds provided)
  */
-function clampScore(score: number): number {
-  return Math.max(40, Math.min(120, score));
+function clampScore(score: number, scoreMin: number = DEFAULT_SCORE_MIN, scoreMax: number = DEFAULT_SCORE_MAX): number {
+  return Math.max(scoreMin, Math.min(scoreMax, score));
+}
+
+export interface MonteCarloOptions {
+  numSimulations?: number;
+  /** Sport-specific score bounds (e.g. NHL 1–8, MLB 0–15, CBB 40–120) */
+  scoreMin?: number;
+  scoreMax?: number;
+  /** Optional seed for reproducible simulations (uses mulberry32 PRNG) */
+  seed?: number;
 }
 
 /**
@@ -91,8 +114,13 @@ function clampScore(score: number): number {
 export function runMonteCarloSimulation(
   prediction: MatchupPrediction,
   varianceModel: VarianceModel,
-  numSimulations: number = 10000
+  numSimulations: number = 10000,
+  options?: MonteCarloOptions
 ): SimulationResult {
+  const resolvedNum = options?.numSimulations ?? numSimulations;
+  const scoreMin = options?.scoreMin ?? DEFAULT_SCORE_MIN;
+  const scoreMax = options?.scoreMax ?? DEFAULT_SCORE_MAX;
+  const rng = options?.seed !== undefined ? createSeededRng(options.seed) : Math.random;
   const homeMean = prediction.predictedScore.home;
   const awayMean = prediction.predictedScore.away;
   
@@ -115,14 +143,14 @@ export function runMonteCarloSimulation(
   const totals: number[] = [];
   const homeWins = { count: 0 };
   
-  for (let i = 0; i < numSimulations; i++) {
+  for (let i = 0; i < resolvedNum; i++) {
     // Sample from normal distribution
-    let homeScore = randomNormal(homeMean, homeStdDev);
-    let awayScore = randomNormal(awayMean, awayStdDev);
+    let homeScore = randomNormal(homeMean, homeStdDev, rng);
+    let awayScore = randomNormal(awayMean, awayStdDev, rng);
     
-    // Clamp to realistic ranges
-    homeScore = clampScore(homeScore);
-    awayScore = clampScore(awayScore);
+    // Clamp to realistic ranges (sport-specific when options provided)
+    homeScore = clampScore(homeScore, scoreMin, scoreMax);
+    awayScore = clampScore(awayScore, scoreMin, scoreMax);
     
     homeScores.push(homeScore);
     awayScores.push(awayScore);
@@ -200,13 +228,13 @@ export function runMonteCarloSimulation(
     homeScore: homeStats,
     awayScore: awayStats,
     winProbability: {
-      home: homeWins.count / numSimulations,
-      away: 1 - (homeWins.count / numSimulations),
+      home: homeWins.count / resolvedNum,
+      away: 1 - (homeWins.count / resolvedNum),
     },
     spread: spreadStats,
     total: totalStats,
     confidenceIntervals,
-    simulationCount: numSimulations,
+    simulationCount: resolvedNum,
   };
 }
 

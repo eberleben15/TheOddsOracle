@@ -30,11 +30,20 @@ import type { Prisma } from "@/generated/prisma-client/client";
 import { prisma } from "./prisma";
 import { generatePerformanceReport } from "./validation-dashboard";
 import type { BiasCorrection } from "./recommendation-engine";
+import type { VarianceModel } from "./variance-estimation";
+import {
+  estimateVarianceModelFromValidatedPredictions,
+  DEFAULT_VARIANCE_MODEL,
+} from "./variance-estimation";
 import { buildTrainingDataset } from "./training-dataset";
 import { runEvaluation } from "./evaluation-harness";
 
 const RECALIBRATION_KEY = "recalibration_platt";
 const BIAS_CORRECTION_KEY = "bias_correction";
+const VARIANCE_MODEL_KEY = "variance_model";
+const MONTE_CARLO_NUM_SIMULATIONS_KEY = "monte_carlo_num_simulations";
+
+const DEFAULT_NUM_SIMULATIONS = 10000;
 
 export interface BatchSyncResult {
   success: boolean;
@@ -44,6 +53,7 @@ export interface BatchSyncResult {
   trainingRan: boolean;
   recalibrationParams?: RecalibrationParams;
   biasCorrection?: BiasCorrection;
+  varianceModel?: VarianceModel;
   validatedCount: number;
   duration: number;
   errors?: string[];
@@ -179,6 +189,82 @@ export async function saveBiasCorrection(params: BiasCorrection): Promise<void> 
 }
 
 /**
+ * Load persisted variance model for Monte Carlo simulation.
+ */
+export async function loadVarianceModel(): Promise<VarianceModel | null> {
+  try {
+    const row = await prisma.modelConfig.findUnique({
+      where: { key: VARIANCE_MODEL_KEY },
+    });
+    const v = row?.value;
+    if (v && typeof v === "object" && "baseVariance" in v && "varianceByQuality" in v) {
+      return v as unknown as VarianceModel;
+    }
+  } catch {
+    // Table might not exist
+  }
+  return null;
+}
+
+/**
+ * Save variance model to DB.
+ */
+export async function saveVarianceModel(model: VarianceModel): Promise<void> {
+  try {
+    await prisma.modelConfig.upsert({
+      where: { key: VARIANCE_MODEL_KEY },
+      create: { key: VARIANCE_MODEL_KEY, value: model as unknown as Prisma.InputJsonValue },
+      update: { value: model as unknown as Prisma.InputJsonValue },
+    });
+  } catch (error) {
+    console.warn("Could not persist variance model:", error);
+  }
+}
+
+/**
+ * Get variance model for Monte Carlo simulation.
+ * Returns persisted model if available, otherwise default.
+ */
+export async function getVarianceModelForSimulation(): Promise<VarianceModel> {
+  const loaded = await loadVarianceModel();
+  return loaded ?? { ...DEFAULT_VARIANCE_MODEL, estimatedAt: Date.now() };
+}
+
+/**
+ * Load configured number of Monte Carlo simulations.
+ * Returns persisted value if valid (1000–50000), otherwise default 10000.
+ */
+export async function loadNumSimulations(): Promise<number> {
+  try {
+    const row = await prisma.modelConfig.findUnique({
+      where: { key: MONTE_CARLO_NUM_SIMULATIONS_KEY },
+    });
+    const v = row?.value;
+    const n = typeof v === "number" ? v : Number(v);
+    if (!Number.isNaN(n) && n >= 1000 && n <= 50000) return Math.round(n);
+  } catch {
+    // Table may not exist
+  }
+  return DEFAULT_NUM_SIMULATIONS;
+}
+
+/**
+ * Save Monte Carlo numSimulations to ModelConfig.
+ */
+export async function saveNumSimulations(num: number): Promise<void> {
+  const clamped = Math.max(1000, Math.min(50000, Math.round(num)));
+  try {
+    await prisma.modelConfig.upsert({
+      where: { key: MONTE_CARLO_NUM_SIMULATIONS_KEY },
+      create: { key: MONTE_CARLO_NUM_SIMULATIONS_KEY, value: clamped as unknown as Prisma.InputJsonValue },
+      update: { value: clamped as unknown as Prisma.InputJsonValue },
+    });
+  } catch (error) {
+    console.warn("Could not persist numSimulations:", error);
+  }
+}
+
+/**
  * Load recalibration params from DB and set as active for predictions.
  * Call at app/request start for server-side prediction routes.
  */
@@ -285,6 +371,10 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
         await saveBiasCorrection(report.biases);
       }
 
+      // Estimate and persist variance model (for Monte Carlo simulation)
+      const varianceModel = estimateVarianceModelFromValidatedPredictions(validated);
+      await saveVarianceModel(varianceModel);
+
       const stats = await getTrackingStats();
       return {
         success: true,
@@ -294,6 +384,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
         trainingRan,
         recalibrationParams,
         biasCorrection,
+        varianceModel,
         validatedCount: stats.validated,
         duration: Date.now() - start,
         diagnostics,
@@ -561,6 +652,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
     let trainingRan = false;
     let recalibrationParams: RecalibrationParams | undefined;
     let biasCorrection: BiasCorrection | undefined;
+    let varianceModel: VarianceModel | undefined;
 
     if (!syncOnly) {
       const validated = await getValidatedPredictions();
@@ -598,6 +690,10 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
         biasCorrection = report.biases;
         await saveBiasCorrection(report.biases);
       }
+
+      // Estimate and persist variance model (for Monte Carlo simulation)
+      varianceModel = estimateVarianceModelFromValidatedPredictions(validated);
+      await saveVarianceModel(varianceModel);
     }
 
     const stats = await getTrackingStats();
@@ -610,6 +706,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
       trainingRan,
       recalibrationParams,
       biasCorrection,
+      varianceModel,
       validatedCount: stats.validated,
       duration: Date.now() - start,
       errors: errors.length > 0 ? errors : undefined,

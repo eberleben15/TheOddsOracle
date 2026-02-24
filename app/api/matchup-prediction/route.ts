@@ -6,9 +6,10 @@
 
 import { NextResponse } from "next/server";
 import { getTeamSeasonStats } from "@/lib/sports/unified-sports-api";
-import { calculateTeamAnalytics, predictMatchup } from "@/lib/advanced-analytics";
+import { calculateTeamAnalytics, predictMatchup, getLeagueConstants } from "@/lib/advanced-analytics";
+import { runMonteCarloSimulation } from "@/lib/monte-carlo-simulation";
 import { Sport } from "@/lib/sports/sport-config";
-import { loadRecalibrationFromDb } from "@/lib/prediction-feedback-batch";
+import { loadRecalibrationFromDb, getVarianceModelForSimulation, loadNumSimulations } from "@/lib/prediction-feedback-batch";
 
 export async function GET(request: Request) {
   try {
@@ -63,6 +64,16 @@ export async function GET(request: Request) {
       homeStats,
       sport
     );
+
+    const [varianceModel, numSimulations] = await Promise.all([
+      getVarianceModelForSimulation(),
+      loadNumSimulations(),
+    ]);
+    const league = getLeagueConstants(sport);
+    prediction.simulation = runMonteCarloSimulation(prediction, varianceModel, numSimulations, {
+      scoreMin: league.scoreMin,
+      scoreMax: league.scoreMax,
+    });
 
     return NextResponse.json({
       success: true,

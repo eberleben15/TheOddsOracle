@@ -1,13 +1,16 @@
 /**
  * Variance Estimation
- * 
- * Analyzes historical prediction errors to estimate score variance
- * by team quality, matchup type, and other factors.
+ *
+ * Analyzes prediction errors to estimate score variance by team quality,
+ * matchup type, and score range. Supports two sources:
+ * - Validated predictions (DB): no historical API needed
+ * - Historical data set: for backtest-style estimation
  */
 
-import { HistoricalDataSet, HistoricalGame } from "./historical-data-collector";
+import { HistoricalDataSet } from "./historical-data-collector";
 import { calculateTeamAnalytics, predictMatchup } from "./advanced-analytics";
 import { validateGamePrediction, PredictionValidation } from "./score-prediction-validator";
+import type { TrackedPrediction } from "./prediction-tracker";
 
 export interface VarianceModel {
   // Base variance (average prediction error)
@@ -40,6 +43,20 @@ export interface VarianceModel {
   varianceModelVersion: string;
   estimatedAt: number;
 }
+
+/** Minimum validated predictions to estimate variance (otherwise use default) */
+const MIN_VALIDATIONS_FOR_ESTIMATE = 20;
+
+/** Default variance model when insufficient data (CBB-oriented) */
+export const DEFAULT_VARIANCE_MODEL: VarianceModel = {
+  baseVariance: 64,
+  varianceByQuality: { elite: 49, good: 64, average: 81, poor: 100 },
+  varianceByMatchup: { blowout: 64, competitive: 81, close: 100 },
+  varianceByScore: { low: 81, medium: 64, high: 49 },
+  homeTeamVariance: 1.0,
+  varianceModelVersion: "default",
+  estimatedAt: 0,
+};
 
 /**
  * Calculate variance statistics from validation results
@@ -153,29 +170,7 @@ export async function estimateVarianceModel(
     .slice(0, sampleSize);
   
   if (sampleGames.length === 0) {
-    // Return default variance model
-    return {
-      baseVariance: 64, // 8^2 (typical MAE of 8 points)
-      varianceByQuality: {
-        elite: 49, // 7^2
-        good: 64, // 8^2
-        average: 81, // 9^2
-        poor: 100, // 10^2
-      },
-      varianceByMatchup: {
-        blowout: 64,
-        competitive: 81,
-        close: 100,
-      },
-      varianceByScore: {
-        low: 81,
-        medium: 64,
-        high: 49,
-      },
-      homeTeamVariance: 1.0,
-      varianceModelVersion: "1.0-default",
-      estimatedAt: Date.now(),
-    };
+    return { ...DEFAULT_VARIANCE_MODEL, estimatedAt: Date.now() };
   }
   
   // Generate predictions for sample games
@@ -264,6 +259,70 @@ export async function estimateVarianceModel(
   console.log(`Base variance: ${stats.baseVariance.toFixed(2)} (std dev: ${stats.standardDeviation.toFixed(2)})`);
   
   return model;
+}
+
+/**
+ * Estimate variance model from validated predictions (no historical API required).
+ * Uses real prediction-vs-outcome errors from the DB. Falls back to default when
+ * fewer than MIN_VALIDATIONS_FOR_ESTIMATE predictions.
+ */
+export function estimateVarianceModelFromValidatedPredictions(
+  predictions: TrackedPrediction[]
+): VarianceModel {
+  const validations: PredictionValidation[] = [];
+  for (const p of predictions) {
+    if (!p.actualOutcome) continue;
+    const pred = p.prediction;
+    const predTotal = p.predictedTotal ?? (pred.predictedScore.home + pred.predictedScore.away);
+    validations.push(
+      validateGamePrediction(
+        { ...pred, predictedTotal: predTotal },
+        {
+          homeScore: p.actualOutcome.homeScore,
+          awayScore: p.actualOutcome.awayScore,
+          homeTeam: p.homeTeam,
+          awayTeam: p.awayTeam,
+          gameId: parseInt(p.gameId, 10) || 0,
+          date: p.date,
+        }
+      )
+    );
+  }
+
+  if (validations.length < MIN_VALIDATIONS_FOR_ESTIMATE) {
+    return { ...DEFAULT_VARIANCE_MODEL, estimatedAt: Date.now() };
+  }
+
+  const stats = calculateVarianceStats(validations);
+
+  function catVar(errors: number[]): number {
+    if (errors.length === 0) return stats.baseVariance;
+    const mean = errors.reduce((a, b) => a + b, 0) / errors.length;
+    return errors.reduce((sum, err) => sum + Math.pow(err - mean, 2), 0) / errors.length;
+  }
+
+  return {
+    baseVariance: stats.baseVariance,
+    varianceByQuality: {
+      elite: catVar(stats.varianceByQuality.elite),
+      good: catVar(stats.varianceByQuality.good),
+      average: catVar(stats.varianceByQuality.average),
+      poor: catVar(stats.varianceByQuality.poor),
+    },
+    varianceByMatchup: {
+      blowout: catVar(stats.varianceByMatchup.blowout),
+      competitive: catVar(stats.varianceByMatchup.competitive),
+      close: catVar(stats.varianceByMatchup.close),
+    },
+    varianceByScore: {
+      low: catVar(stats.varianceByScore.low),
+      medium: catVar(stats.varianceByScore.medium),
+      high: catVar(stats.varianceByScore.high),
+    },
+    homeTeamVariance: 1.0,
+    varianceModelVersion: "validated",
+    estimatedAt: Date.now(),
+  };
 }
 
 /**
