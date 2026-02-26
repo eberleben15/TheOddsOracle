@@ -1,26 +1,27 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PolymarketEventCard } from "./PolymarketEventCard";
-import type { PolymarketEvent } from "@/types/polymarket";
+import { KalshiMarketCard } from "./KalshiMarketCard";
+import type { KalshiMarket } from "@/types/kalshi";
 import { ArrowPathIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
-import { POLYMARKET_CATEGORIES } from "@/lib/polymarket-categories";
+import { KALSHI_BROWSE_CATEGORIES } from "@/lib/kalshi-categories";
 
 const PAGE_SIZE = 100;
 
 /** null = All categories */
 type SelectedCategoryId = string | null;
 
-export function PolymarketBrowseClient() {
-  const [events, setEvents] = useState<PolymarketEvent[]>([]);
+export function KalshiBrowseClient() {
+  const [markets, setMarkets] = useState<KalshiMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
+  const [cursor, setCursor] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<SelectedCategoryId>(null);
 
-  const fetchEvents = useCallback(
-    async (offset = 0, append = false) => {
+  const fetchMarkets = useCallback(
+    async (cursorParam?: string | null, append = false) => {
       if (append) {
         setLoadingMore(true);
       } else {
@@ -31,28 +32,31 @@ export function PolymarketBrowseClient() {
       try {
         const params = new URLSearchParams({
           limit: String(PAGE_SIZE),
-          offset: String(offset),
-          active: "true",
-          closed: "false",
-          order: "volume",
-          ascending: "false",
         });
-        if (selectedCategory) params.set("tag_id", selectedCategory);
+        if (selectedCategory) {
+          params.set("category", selectedCategory);
+        } else if (cursorParam) {
+          params.set("cursor", cursorParam);
+        }
 
-        const res = await fetch(`/api/polymarket/events?${params.toString()}`);
-        if (!res.ok) throw new Error(res.statusText);
+        const res = await fetch(`/api/kalshi/markets?${params.toString()}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || res.statusText);
+        }
         const data = await res.json();
-        const list = Array.isArray(data) ? data : [];
+        const list = Array.isArray(data.markets) ? data.markets : [];
 
         if (append) {
-          setEvents((prev) => [...prev, ...list]);
+          setMarkets((prev) => [...prev, ...list]);
         } else {
-          setEvents(list);
+          setMarkets(list);
         }
-        setHasMore(list.length >= PAGE_SIZE);
+        setCursor(selectedCategory ? null : (data.cursor || null));
+        setHasMore(!!data.cursor && data.cursor.length > 0);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load");
-        if (!append) setEvents([]);
+        if (!append) setMarkets([]);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -62,35 +66,34 @@ export function PolymarketBrowseClient() {
   );
 
   useEffect(() => {
-    fetchEvents(0, false);
-  }, [fetchEvents]);
+    fetchMarkets(null, false);
+  }, [fetchMarkets]);
 
   const handleCategoryChange = (categoryId: SelectedCategoryId) => {
     setSelectedCategory(categoryId);
-    setEvents([]);
+    setMarkets([]);
   };
 
   const handleLoadMore = () => {
-    const currentCount = events.length;
-    if (!loadingMore && hasMore) fetchEvents(currentCount, true);
+    if (!loadingMore && hasMore && cursor) fetchMarkets(cursor, true);
   };
 
-  if (loading && events.length === 0) {
+  if (loading && markets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         <ArrowPathIcon className="h-8 w-8 text-gray-400 animate-spin" />
-        <p className="text-sm text-[var(--text-body)]">Loading Polymarket events…</p>
+        <p className="text-sm text-[var(--text-body)]">Loading Kalshi markets…</p>
       </div>
     );
   }
 
-  if (error && events.length === 0) {
+  if (error && markets.length === 0) {
     return (
       <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
         {error}
         <button
           type="button"
-          onClick={() => fetchEvents(0, false)}
+          onClick={() => fetchMarkets(null, false)}
           className="ml-3 underline hover:no-underline"
         >
           Retry
@@ -99,14 +102,10 @@ export function PolymarketBrowseClient() {
     );
   }
 
-  const hasOpenMarket = (event: PolymarketEvent) =>
-    event.markets?.some((m) => !m.closed) ?? false;
-  const displayEvents = events.filter(hasOpenMarket);
-
-  if (displayEvents.length === 0) {
+  if (markets.length === 0) {
     return (
       <p className="text-sm text-[var(--text-body)] py-8">
-        No active Polymarket events right now.
+        No open Kalshi markets right now.
       </p>
     );
   }
@@ -128,14 +127,14 @@ export function PolymarketBrowseClient() {
             <Squares2X2Icon className="h-4 w-4" />
             All
           </button>
-          {POLYMARKET_CATEGORIES.map((cat) => (
+          {KALSHI_BROWSE_CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => handleCategoryChange(cat.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 selectedCategory === cat.id
-                  ? "bg-violet-600 text-white"
+                  ? "bg-emerald-600 text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
@@ -145,7 +144,7 @@ export function PolymarketBrowseClient() {
         </div>
         <button
           type="button"
-          onClick={() => fetchEvents(0, false)}
+          onClick={() => fetchMarkets(null, false)}
           disabled={loading}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 shrink-0"
         >
@@ -155,8 +154,8 @@ export function PolymarketBrowseClient() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {displayEvents.map((event) => (
-          <PolymarketEventCard key={event.id} event={event} />
+        {markets.map((market) => (
+          <KalshiMarketCard key={market.ticker} market={market} />
         ))}
       </div>
 

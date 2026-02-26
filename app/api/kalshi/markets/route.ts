@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
           status: DISPLAY_STATUS,
           limit,
           cursor,
+          mve_filter: "exclude", // skip combo markets (bad titles, 0 prices)
           ...(series_ticker ? { series_ticker } : {}),
         });
 

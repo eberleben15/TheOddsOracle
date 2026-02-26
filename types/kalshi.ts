@@ -72,6 +72,8 @@ export interface GetMarketsParams {
   event_ticker?: string;
   series_ticker?: string;
   tickers?: string;
+  /** "exclude" = skip MVE combo markets (bad titles, 0 prices). Use for browse. */
+  mve_filter?: "only" | "exclude";
 }
 
 /** Series = template for recurring events (e.g. "Monthly Jobs Report", "NFL Wins") */
@@ -94,6 +96,28 @@ export interface GetSeriesListParams {
   limit?: number;
   cursor?: string;
   category?: string;
+}
+
+/** Event from GET /events - template for one occurrence (e.g. "Jan 2026 Jobs Report") */
+export interface KalshiEvent {
+  event_ticker: string;
+  series_ticker: string;
+  title: string;
+  category?: string;
+  markets?: KalshiMarket[];
+}
+
+export interface KalshiEventsResponse {
+  events: KalshiEvent[];
+  cursor: string;
+}
+
+export interface GetEventsParams {
+  limit?: number;
+  cursor?: string;
+  status?: "open" | "closed" | "settled";
+  series_ticker?: string;
+  with_nested_markets?: boolean;
 }
 
 // --- Authenticated portfolio endpoints ---

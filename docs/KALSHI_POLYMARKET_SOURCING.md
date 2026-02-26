@@ -16,8 +16,8 @@ We're fetching too few markets. This doc summarizes the API docs and what to cha
 | Use case | Current | Problem |
 |----------|---------|---------|
 | Decision engine | `getOpenMarkets(30)` | Single request, 30 markets, no pagination |
-| Series browse | `getSeriesWithOpenMarkets` per category | Only checks 20 series × 1 market each per category; builds series list, not full market list |
-| getMarketsByCategory | 20 series × 40 markets | Caps at 80 markets total per category |
+| Series browse | `getAllSeriesWithOpenMarketsByCategory` (Events-based) | ✅ Fixed: uses GET /events?status=open to discover series with open markets |
+| getMarketsByCategory | Events API with nested markets | ✅ Fixed: uses GET /events?status=open&with_nested_markets=true, filters by category |
 
 ### Recommended changes
 
@@ -41,9 +41,8 @@ We're fetching too few markets. This doc summarizes the API docs and what to cha
 ### Current behavior
 | Use case | Current | Problem |
 |----------|---------|---------|
-| Decision engine | `getEvents({ active: true, limit: 24 })` | Single page, 24 events, no pagination |
-| getEvents default limit | 24 | Very low for discovery |
-| getMarketsForConditionIds | Scans events with offset up to 300 | Used for resolving positions; not for discovery |
+| Polymarket browse | 100 events per page, order=volume, Load More | ✅ Fixed: paginated, ordered by volume |
+| Decision engine | `getAllActiveEvents(polymarketLimit)` | Uses paginated events with order=volume |
 
 ### Recommended changes
 

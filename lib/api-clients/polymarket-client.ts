@@ -48,12 +48,12 @@ export class PolymarketClient {
   }
 
   /**
-   * Fetch all active events with pagination, ordered by 24h volume (highest first).
-   * Use this when you need broad coverage (e.g. decision engine, discovery).
+   * Fetch all active events with pagination, ordered by total volume (highest first).
+   * Gamma API uses camelCase: volume, volume24hr, liquidity (not volume_24hr).
    */
   async getAllActiveEvents(
     maxEvents?: number,
-    order: string = "volume_24hr"
+    order: string = "volume"
   ): Promise<PolymarketEvent[]> {
     const cap = maxEvents ?? 200;
     const all: PolymarketEvent[] = [];

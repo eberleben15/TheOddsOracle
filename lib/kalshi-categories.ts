@@ -28,33 +28,54 @@ export const CATEGORY_GROUPS = [
     id: "finance",
     label: "Finance & Crypto",
     description: "Economics, markets, crypto",
-    kalshiCategories: ["Economics", "Crypto"],
+    kalshiCategories: ["Economics", "Crypto", "Financials"],
   },
   {
     id: "science-world",
     label: "Science & World",
     description: "Climate, weather, world events",
-    kalshiCategories: ["Climate and Weather", "Science", "World"],
+    kalshiCategories: ["Climate and Weather", "Science", "Science and Technology", "World"],
   },
   {
     id: "other",
     label: "Other",
     description: "Mentions and other topics",
-    kalshiCategories: ["Mentions", "Other"],
+    kalshiCategories: ["Mentions", "Other", "Companies", "Education", "Health", "Social", "Transportation"],
   },
 ] as const;
 
-/** All Kalshi category names we know about (for ordering and slug lookup) */
+/** Browse tab categories (display order for Kalshi browse page, matches Polymarket UX) */
+export const KALSHI_BROWSE_CATEGORIES = [
+  { id: "Sports", label: "Sports" },
+  { id: "Politics", label: "Politics" },
+  { id: "Elections", label: "Elections" },
+  { id: "Entertainment", label: "Entertainment" },
+  { id: "Economics", label: "Economics" },
+  { id: "Financials", label: "Financials" },
+  { id: "Climate and Weather", label: "Climate & Weather" },
+  { id: "Crypto", label: "Crypto" },
+  { id: "Science and Technology", label: "Tech & Science" },
+  { id: "World", label: "World" },
+] as const;
+
+/** All Kalshi category names from the API (for ordering and slug lookup) */
 export const CATEGORY_ORDER = [
   "Sports",
   "Politics",
   "Elections",
   "Entertainment",
   "Economics",
+  "Financials",
   "Climate and Weather",
   "Crypto",
   "Science",
+  "Science and Technology",
   "World",
+  "Companies",
+  "Education",
+  "Health",
+  "Social",
+  "Transportation",
   "Mentions",
   "Other",
 ] as const;

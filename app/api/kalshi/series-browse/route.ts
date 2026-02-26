@@ -3,27 +3,37 @@ import { getKalshiClient } from "@/lib/api-clients/kalshi-client";
 import type { KalshiSeries } from "@/types/kalshi";
 import { CATEGORY_ORDER } from "@/lib/kalshi-categories";
 
-const MAX_SERIES_PER_CATEGORY = 20;
-
-/** Build browse list from per-category data — avoids global vs per-category mismatch. */
+/**
+ * Build browse list from Events API — the correct discovery path.
+ * GET /series ignores limit and returns thousands of series in undefined order;
+ * GET /events?status=open returns only tradeable events with series_ticker + category.
+ */
 async function fetchFilteredSeries(): Promise<KalshiSeries[]> {
   const client = getKalshiClient();
+  const byCategory = await client.getAllSeriesWithOpenMarketsByCategory({ maxEvents: 500 });
+
   const seen = new Set<string>();
   const result: KalshiSeries[] = [];
 
   for (const category of CATEGORY_ORDER) {
-    try {
-      const seriesWithOpen = await client.getSeriesWithOpenMarkets(category, {
-        maxSeries: MAX_SERIES_PER_CATEGORY,
-      });
-      for (const s of seriesWithOpen) {
-        if (!seen.has(s.ticker)) {
-          seen.add(s.ticker);
-          result.push(s);
-        }
+    const list = byCategory.get(category) ?? [];
+    for (const s of list) {
+      if (!seen.has(s.ticker)) {
+        seen.add(s.ticker);
+        result.push(s);
       }
-    } catch (err) {
-      console.error(`[kalshi/series-browse] category "${category}" failed:`, err);
+    }
+  }
+
+  // Include any categories from API not in our CATEGORY_ORDER
+  const knownCats = new Set<string>(CATEGORY_ORDER);
+  for (const [cat, list] of byCategory) {
+    if (knownCats.has(cat)) continue;
+    for (const s of list) {
+      if (!seen.has(s.ticker)) {
+        seen.add(s.ticker);
+        result.push(s);
+      }
     }
   }
 

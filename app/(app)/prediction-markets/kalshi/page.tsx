@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SeriesBrowseClient } from "../_components/SeriesBrowseClient";
+import { KalshiBrowseClient } from "../_components/KalshiBrowseClient";
 
 export default function KalshiPage() {
   return (
@@ -29,7 +29,7 @@ export default function KalshiPage() {
         </div>
       </div>
 
-      <SeriesBrowseClient />
+      <KalshiBrowseClient />
     </div>
   );
 }

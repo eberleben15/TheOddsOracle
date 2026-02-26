@@ -49,7 +49,7 @@ export function PredictionMarketCardLayout({
   externalLinkOnly = false,
 }: PredictionMarketCardLayoutProps) {
   const [adding, setAdding] = useState<"yes" | "no" | null>(null);
-  const hasPrices = yesCents != null && noCents != null && (yesCents > 0 || noCents < 100);
+  const hasPrices = yesCents != null && noCents != null;
   const badgeClass = SOURCE_STYLES[sourceVariant];
 
   const handleAdd = async (side: "yes" | "no") => {
