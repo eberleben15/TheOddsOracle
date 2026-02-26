@@ -187,6 +187,27 @@ export class KalshiClient {
   }
 
   /**
+   * Fetch all open markets with pagination until we have enough or no more pages.
+   * Use this when you need broad coverage (e.g. decision engine, discovery).
+   */
+  async getAllOpenMarkets(maxMarkets?: number): Promise<KalshiMarket[]> {
+    const cap = maxMarkets ?? 500;
+    const all: KalshiMarket[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const remaining = cap - all.length;
+      if (remaining < 1) break;
+      const limit = Math.min(1000, remaining);
+      const res = await this.getMarkets({ status: "open", limit, cursor });
+      all.push(...(res.markets ?? []));
+      cursor = res.cursor && res.cursor.length > 0 ? res.cursor : undefined;
+    } while (cursor && all.length < cap);
+
+    return all.slice(0, cap);
+  }
+
+  /**
    * Fetch series list (templates for events). Can filter by category.
    * Public endpoint - no API key required.
    */

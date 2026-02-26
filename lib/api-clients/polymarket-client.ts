@@ -48,6 +48,38 @@ export class PolymarketClient {
   }
 
   /**
+   * Fetch all active events with pagination, ordered by 24h volume (highest first).
+   * Use this when you need broad coverage (e.g. decision engine, discovery).
+   */
+  async getAllActiveEvents(
+    maxEvents?: number,
+    order: string = "volume_24hr"
+  ): Promise<PolymarketEvent[]> {
+    const cap = maxEvents ?? 200;
+    const all: PolymarketEvent[] = [];
+    let offset = 0;
+    const limit = 100;
+
+    while (offset < cap) {
+      const res = await this.getEvents({
+        active: true,
+        closed: false,
+        limit,
+        offset,
+        order,
+        ascending: false,
+      });
+      if (res.length === 0) break;
+      all.push(...res);
+      if (res.length < limit) break;
+      offset += limit;
+      if (all.length >= cap) break;
+    }
+
+    return all.slice(0, cap);
+  }
+
+  /**
    * Fetch active events (live, tradable).
    */
   async getEvents(params: GetEventsParams = {}): Promise<PolymarketEvent[]> {

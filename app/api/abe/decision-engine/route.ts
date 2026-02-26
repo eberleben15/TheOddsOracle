@@ -32,9 +32,9 @@ type Body = {
   includeKalshi?: boolean;
   /** Include Polymarket active events in the candidate pool (default false). */
   includePolymarket?: boolean;
-  /** Max Kalshi markets when includeKalshi (default 30). */
+  /** Max Kalshi markets when includeKalshi (default 100). */
   kalshiLimit?: number;
-  /** Max Polymarket events when includePolymarket (default 24). */
+  /** Max Polymarket events when includePolymarket (default 100). */
   polymarketLimit?: number;
   /** Override constraints (merged with user bankroll settings). */
   constraints?: Partial<DecisionEngineConstraints>;
@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
   const maxFactorFractionDefault = settings?.maxFactorFraction ?? 0.4;
 
   const limit = Math.min(Math.max(1, body.limit ?? 25), 100);
-  const kalshiLimit = Math.min(Math.max(1, body.kalshiLimit ?? 30), 100);
-  const polymarketLimit = Math.min(Math.max(1, body.polymarketLimit ?? 24), 100);
+  const kalshiLimit = Math.min(Math.max(1, body.kalshiLimit ?? 100), 500);
+  const polymarketLimit = Math.min(Math.max(1, body.polymarketLimit ?? 100), 200);
 
   const allCandidates: CandidateBet[] = [];
   let sportsCount = 0;
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
   if (includeKalshi) {
     try {
       const client = getKalshiClient();
-      const { markets } = await client.getOpenMarkets(kalshiLimit);
+      const markets = await client.getAllOpenMarkets(kalshiLimit);
       const kalshiCandidates = kalshiMarketsToCandidates(markets);
       kalshiCount = kalshiCandidates.length;
       allCandidates.push(...kalshiCandidates);
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
   if (includePolymarket) {
     try {
       const client = getPolymarketClient();
-      const events = await client.getEvents({ active: true, limit: polymarketLimit });
+      const events = await client.getAllActiveEvents(polymarketLimit);
       const polymarketCandidates = polymarketEventsToCandidates(events);
       polymarketCount = polymarketCandidates.length;
       allCandidates.push(...polymarketCandidates);
