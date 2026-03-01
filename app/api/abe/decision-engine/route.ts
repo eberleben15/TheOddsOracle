@@ -20,6 +20,11 @@ import { getPolymarketClient } from "@/lib/api-clients/polymarket-client";
 import type { Sport } from "@/lib/sports/sport-config";
 import { getAllSports } from "@/lib/sports/sport-config";
 import type { DecisionEngineConstraints, CandidateBet } from "@/lib/abe/decision-engine-types";
+import {
+  getAllPlayerPropsForSport,
+  findValuePropsForMultipleGames,
+  type PropValueBet,
+} from "@/lib/player-props";
 
 export const dynamic = "force-dynamic";
 
@@ -32,13 +37,48 @@ type Body = {
   includeKalshi?: boolean;
   /** Include Polymarket active events in the candidate pool (default false). */
   includePolymarket?: boolean;
+  /** Include NBA player props in the candidate pool (default false). */
+  includePlayerProps?: boolean;
   /** Max Kalshi markets when includeKalshi (default 100). */
   kalshiLimit?: number;
   /** Max Polymarket events when includePolymarket (default 100). */
   polymarketLimit?: number;
+  /** Max player props games when includePlayerProps (default 5). */
+  playerPropsLimit?: number;
   /** Override constraints (merged with user bankroll settings). */
   constraints?: Partial<DecisionEngineConstraints>;
 };
+
+function playerPropsToCandidates(valueBets: PropValueBet[]): CandidateBet[] {
+  return valueBets.map((vb) => {
+    const odds = vb.prediction.recommendation === "over"
+      ? vb.prediction.overOdds
+      : vb.prediction.underOdds;
+    
+    // Convert American odds to implied probability (price)
+    const price = odds
+      ? odds >= 100
+        ? 100 / (odds + 100)
+        : Math.abs(odds) / (Math.abs(odds) + 100)
+      : 0.5;
+    
+    // Estimated true probability from our confidence
+    const winProb = Math.min(0.95, Math.max(0.05, vb.prediction.confidence / 100));
+    
+    // Edge as the difference between our probability and market price
+    const edge = winProb - price;
+    
+    return {
+      id: `prop:${vb.gameId}:${vb.prediction.playerId}:${vb.prediction.propType}`,
+      label: `${vb.prediction.playerName} ${vb.prediction.propType.toUpperCase()} ${vb.prediction.recommendation.toUpperCase()} ${vb.prediction.line}`,
+      source: "player_props" as const,
+      winProb,
+      price,
+      edge,
+      factorIds: ["player_props", "nba", `game:${vb.gameId}`],
+    };
+  });
+}
 
 const VALID_SPORTS = new Set(getAllSports());
 
@@ -72,9 +112,10 @@ export async function POST(request: NextRequest) {
 
   const includeKalshi = body.includeKalshi === true;
   const includePolymarket = body.includePolymarket === true;
-  if (!sport && !includeKalshi && !includePolymarket) {
+  const includePlayerProps = body.includePlayerProps === true;
+  if (!sport && !includeKalshi && !includePolymarket && !includePlayerProps) {
     return Response.json(
-      { error: "Provide at least one of: sport, includeKalshi, or includePolymarket." },
+      { error: "Provide at least one of: sport, includeKalshi, includePolymarket, or includePlayerProps." },
       { status: 400 }
     );
   }
@@ -92,11 +133,13 @@ export async function POST(request: NextRequest) {
   const limit = Math.min(Math.max(1, body.limit ?? 25), 100);
   const kalshiLimit = Math.min(Math.max(1, body.kalshiLimit ?? 100), 500);
   const polymarketLimit = Math.min(Math.max(1, body.polymarketLimit ?? 100), 200);
+  const playerPropsLimit = Math.min(Math.max(1, body.playerPropsLimit ?? 5), 10);
 
   const allCandidates: CandidateBet[] = [];
   let sportsCount = 0;
   let kalshiCount = 0;
   let polymarketCount = 0;
+  let playerPropsCount = 0;
 
   if (sport) {
     const recommendedBets = await getRecommendedBets(sport, limit);
@@ -126,6 +169,20 @@ export async function POST(request: NextRequest) {
       allCandidates.push(...polymarketCandidates);
     } catch (err) {
       console.warn("[abe/decision-engine] Polymarket fetch failed:", err);
+    }
+  }
+
+  if (includePlayerProps) {
+    try {
+      const propOddsList = await getAllPlayerPropsForSport("basketball_nba", "default", playerPropsLimit);
+      if (propOddsList.length > 0) {
+        const propResults = await findValuePropsForMultipleGames(propOddsList);
+        const playerPropsCandidates = playerPropsToCandidates(propResults.topValueBets);
+        playerPropsCount = playerPropsCandidates.length;
+        allCandidates.push(...playerPropsCandidates);
+      }
+    } catch (err) {
+      console.warn("[abe/decision-engine] Player props fetch failed:", err);
     }
   }
 
@@ -170,6 +227,6 @@ export async function POST(request: NextRequest) {
       maxFactorFraction: constraints.maxFactorFraction,
     },
     excludedWithLabels,
-    candidateCounts: { sports: sportsCount, kalshi: kalshiCount, polymarket: polymarketCount },
+    candidateCounts: { sports: sportsCount, kalshi: kalshiCount, polymarket: polymarketCount, playerProps: playerPropsCount },
   });
 }

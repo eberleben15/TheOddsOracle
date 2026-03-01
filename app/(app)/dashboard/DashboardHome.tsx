@@ -1,22 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { SparklesIcon, BoltIcon } from "@heroicons/react/24/outline";
 import { DashboardWelcome } from "./_components/DashboardWelcome";
-import { DashboardStatsStrip } from "./_components/DashboardStatsStrip";
-import { GamesSection } from "./_components/GamesSection";
-import { DashboardPortfolioSection } from "./_components/DashboardPortfolioSection";
-import { ActionFlowsSection } from "./_components/ActionFlowsSection";
+import { SportsSummarySection } from "./_components/SportsSummarySection";
+import { PredictionMarketsSummarySection } from "./_components/PredictionMarketsSummarySection";
+import { UnifiedPortfolioSection } from "./_components/UnifiedPortfolioSection";
 import { RecommendedBetsSection } from "./_components/RecommendedBetsSection";
-import { BuildSlateSection } from "./_components/BuildSlateSection";
 import { GettingStartedSection } from "./_components/GettingStartedSection";
-import { OpenBetsSection } from "./_components/OpenBetsSection";
 import type { OddsGame, LiveGame } from "@/types";
 import type { Sport } from "@/lib/sports/sport-config";
 
 export interface DashboardHomeProps {
   isAdmin: boolean;
-  liveCount?: number;
-  upcomingCount?: number;
   liveGames?: LiveGame[];
   upcomingGames?: OddsGame[];
   sport?: Sport;
@@ -26,8 +22,6 @@ export interface DashboardHomeProps {
 
 export function DashboardHome({
   isAdmin,
-  liveCount = 0,
-  upcomingCount = 0,
   liveGames = [],
   upcomingGames = [],
   sport = "cbb",
@@ -37,7 +31,7 @@ export function DashboardHome({
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header: welcome + admin */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <DashboardWelcome />
         {isAdmin && (
           <Link
@@ -49,53 +43,66 @@ export function DashboardHome({
         )}
       </div>
 
-      {/* At-a-glance stats */}
-      <DashboardStatsStrip liveCount={liveCount} upcomingCount={upcomingCount} />
+      {/* Unified Portfolio Overview - Top priority */}
+      <UnifiedPortfolioSection />
 
-      {/* Today's games (CBB) */}
-      <section className="mb-8">
-        {gamesError ? (
-          <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-4 py-3">
-            {gamesError}. <Link href={`/sports/${sport}`} className="underline">Open Sports</Link> to try again.
-          </p>
-        ) : (
-          <GamesSection
-            liveGames={liveGames}
-            upcomingGames={upcomingGames}
-            sport={sport}
-            teamLogos={teamLogos}
-            compact
-            rightHeaderAction={
-              <Link
-                href={`/sports/${sport}`}
-                className="text-sm font-medium text-primary hover:underline shrink-0"
-              >
-                View all in Sports →
-              </Link>
-            }
-          />
-        )}
-      </section>
+      {/* Sports Betting Section */}
+      <SportsSummarySection
+        initialSport={sport}
+        initialLiveGames={liveGames}
+        initialUpcomingGames={upcomingGames}
+        initialTeamLogos={teamLogos ?? {}}
+        gamesError={gamesError}
+      />
 
-      {/* Portfolio summary */}
-      <DashboardPortfolioSection />
+      {/* Prediction Markets Section */}
+      <PredictionMarketsSummarySection />
 
-      {/* Quick actions */}
-      <ActionFlowsSection />
-
-      {/* Value / recommended bets (anchor for /dashboard#value-bets) */}
+      {/* Value bets / AI recommendations */}
       <section className="mb-8" id="value-bets">
-        <h2 className="text-lg font-semibold text-text-dark mb-4">Value bets</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-[var(--text-dark)]">Value Bets</h2>
+            <p className="text-sm text-gray-500">AI-identified edges across sports</p>
+          </div>
+          <Link
+            href="/dashboard#value-bets"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            View All →
+          </Link>
+        </div>
         <RecommendedBetsSection />
       </section>
 
-      {/* Build my slate (decision engine) */}
-      <BuildSlateSection />
+      {/* Slate Builder CTA */}
+      <section className="mb-8">
+        <Link
+          href="/slate-builder"
+          className="block p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
+        >
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <SparklesIcon className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-[var(--text-dark)] group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                Slate Builder
+                <BoltIcon className="h-4 w-4 text-amber-500" />
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Build an optimized betting portfolio in one click. We analyze value bets and size positions based on your bankroll and risk tolerance.
+              </p>
+              <span className="inline-block mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:underline">
+                Open Slate Builder →
+              </span>
+            </div>
+          </div>
+        </Link>
+      </section>
 
       {/* Getting started / How-tos */}
       <GettingStartedSection />
-
-      <OpenBetsSection />
     </div>
   );
 }

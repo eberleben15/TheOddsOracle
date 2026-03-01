@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "updatedAt": "2026-02-27T02:09:42.658Z",
+  "sports": {
+    "basketball_ncaab": {
+      "enabled": true,
+      "confidenceMultiplier": 1,
+      "minConfidenceThreshold": 0
+    },
+    "basketball_nba": {
+      "enabled": false,
+      "confidenceMultiplier": 0,
+      "minConfidenceThreshold": 0
+    },
+    "icehockey_nhl": {
+      "enabled": true,
+      "confidenceMultiplier": 1,
+      "minConfidenceThreshold": 0
+    },
+    "baseball_mlb": {
+      "enabled": true,
+      "confidenceMultiplier": 1,
+      "minConfidenceThreshold": 0
+    }
+  },
+  "spreadMagnitude": {
+    "smallSpread": {
+      "enabled": true,
+      "confidenceMultiplier": 1
+    },
+    "mediumSpread": {
+      "enabled": true,
+      "confidenceMultiplier": 0.6
+    },
+    "largeSpread": {
+      "enabled": true,
+      "confidenceMultiplier": 1
+    },
+    "veryLargeSpread": {
+      "enabled": true,
+      "confidenceMultiplier": 1
+    }
+  },
+  "totalBucket": {
+    "lowTotal": {
+      "enabled": true,
+      "confidenceMultiplier": 1
+    },
+    "mediumTotal": {
+      "enabled": false,
+      "confidenceMultiplier": 0
+    },
+    "highTotal": {
+      "enabled": true,
+      "confidenceMultiplier": 1
+    },
+    "veryHighTotal": {
+      "enabled": true,
+      "confidenceMultiplier": 0.6
+    }
+  },
+  "confidenceBands": {
+    "low": {
+      "enabled": true,
+      "confidenceMultiplier": 1
+    },
+    "medium": {
+      "enabled": true,
+      "confidenceMultiplier": 1
+    },
+    "high": {
+      "enabled": true,
+      "confidenceMultiplier": 0.7
+    }
+  },
+  "featureWeights": {
+    "significanceThreshold": 0.1,
+    "overrides": {}
+  },
+  "global": {
+    "minSampleSizeForAdjustment": 10,
+    "winRateThresholdForDisable": 35,
+    "winRateThresholdForDownweight": 45,
+    "targetWinRate": 52.4
+  }
+}

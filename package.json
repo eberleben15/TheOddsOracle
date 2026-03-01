@@ -16,6 +16,9 @@
     "create-admin": "node scripts/create-admin-user.js",
     "postinstall": "node scripts/postinstall-prisma.js",
     "predictions:clear": "tsx scripts/clear-all-predictions.ts",
+    "build-training-dataset": "tsx scripts/build-training-dataset.ts",
+    "ats-feedback": "tsx scripts/ats-feedback-report.ts",
+    "ats-feedback:config": "tsx scripts/ats-feedback-report.ts --generate-config feedback-config.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -35,6 +38,7 @@
     "@heroicons/react": "^2.2.0",
     "@nextui-org/react": "^2.6.11",
     "@prisma/adapter-pg": "^7.2.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "@types/node": "^24.10.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -51,6 +55,7 @@
     "react-dom": "^19.2.3",
     "react-icons": "^5.5.0",
     "recharts": "^3.7.0",
+    "simple-statistics": "^7.8.8",
     "tailwind-merge": "^3.4.0",
     "typescript": "^5.9.3",
     "zod": "^4.2.1"
@@ -62,6 +67,7 @@
     "@types/pg": "^8.16.0",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.22",
+    "ignore-loader": "^0.1.2",
     "postcss": "^8.5.6",
     "prisma": "^7.1.0",
     "tailwindcss": "^3.4.1",

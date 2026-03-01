@@ -26,7 +26,7 @@ export default async function AdminCronPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Cron Job History</h1>
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Recent runs of generate-predictions, record-outcomes, and refresh-team-stats.
+        Recent runs of generate-predictions, record-outcomes, refresh-team-stats, line-movement, and validate-player-props.
       </p>
       <CronJobsClient initialJobs={jobsForClient} />
       <p className="text-xs text-gray-500">

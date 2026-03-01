@@ -12,9 +12,36 @@ import {
   getTeamSeasonStats,
   findTeamByName,
 } from "./sports/unified-sports-api";
-import { calculateTeamAnalytics, predictMatchup } from "./advanced-analytics";
-import { trackPrediction } from "./prediction-tracker";
+import { calculateTeamAnalytics, predictMatchup, TeamAnalytics } from "./advanced-analytics";
+import { trackPrediction, StoredTeamAnalytics } from "./prediction-tracker";
 import { loadRecalibrationFromDb } from "./prediction-feedback-batch";
+
+/** Convert TeamAnalytics to StoredTeamAnalytics for DB persistence */
+function toStoredAnalytics(a: TeamAnalytics): StoredTeamAnalytics {
+  return {
+    netRating: a.netRating,
+    offensiveRating: a.offensiveRating,
+    defensiveRating: a.defensiveRating,
+    offensiveEfficiency: a.offensiveEfficiency,
+    defensiveEfficiency: a.defensiveEfficiency,
+    adjustedOffensiveEfficiency: a.adjustedOffensiveEfficiency,
+    adjustedDefensiveEfficiency: a.adjustedDefensiveEfficiency,
+    strengthOfSchedule: a.strengthOfSchedule,
+    recentFormOffensiveEfficiency: a.recentFormOffensiveEfficiency,
+    recentFormDefensiveEfficiency: a.recentFormDefensiveEfficiency,
+    momentum: a.momentum,
+    winStreak: a.winStreak,
+    last5Wins: a.last5Record.wins,
+    last5Losses: a.last5Record.losses,
+    shootingEfficiency: a.shootingEfficiency,
+    threePointThreat: a.threePointThreat,
+    freeThrowReliability: a.freeThrowReliability,
+    reboundingAdvantage: a.reboundingAdvantage,
+    assistToTurnoverRatio: a.assistToTurnoverRatio,
+    consistency: a.consistency,
+    homeAdvantage: a.homeAdvantage,
+  };
+}
 
 export interface PredictionGenerationResult {
   success: boolean;
@@ -96,7 +123,7 @@ export async function generatePredictionForGame(
     // Extract odds snapshot for tracking
     const oddsSnapshot = extractOddsFromGame(game);
 
-    // Track prediction in database
+    // Track prediction in database with full analytics
     const predictionId = await trackPrediction(
       game.id,
       game.commence_time,
@@ -109,6 +136,10 @@ export async function generatePredictionForGame(
         valueBets: prediction.valueBets?.length ? prediction.valueBets : undefined,
         oddsSnapshot,
         predictionTrace: prediction.trace ?? undefined,
+        teamAnalytics: {
+          away: toStoredAnalytics(awayAnalytics),
+          home: toStoredAnalytics(homeAnalytics),
+        },
       }
     );
 

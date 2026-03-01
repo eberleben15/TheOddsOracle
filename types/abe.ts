@@ -4,7 +4,7 @@
  */
 
 /** Source of the contract (adapter identifier) */
-export type ContractSource = "kalshi" | "polymarket" | "sportsbook";
+export type ContractSource = "kalshi" | "polymarket" | "sportsbook" | "player_props";
 
 /**
  * Unified contract: a single tradeable outcome (e.g. "Yes" on a binary market).

@@ -108,6 +108,14 @@ interface ModelPerformanceData {
     ats?: { wins: number; losses: number; winRate: number };
   }>;
   config: Config;
+  playerProps?: {
+    total: number;
+    hits: number;
+    misses: number;
+    hitRate: number;
+    byPropType: Record<string, { total: number; hits: number }>;
+    byRecommendation: { over: { total: number; hits: number }; under: { total: number; hits: number } };
+  } | null;
 }
 
 const SPORT_OPTIONS = [
@@ -386,6 +394,62 @@ export function ModelPerformanceClient() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Player Props Performance Card */}
+      {d.playerProps && d.playerProps.total > 0 && (
+        <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-l-4 border-l-purple-500">
+          <CardHeader className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              NBA Player Props
+              <InfoBubble content="Performance of player prop predictions (points, rebounds, assists, etc.). Hit rate shows % of over/under calls that were correct." />
+            </h2>
+            <a
+              href="/admin/player-props"
+              className="text-sm text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 underline"
+            >
+              View Full Analytics →
+            </a>
+          </CardHeader>
+          <CardBody>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{d.playerProps.total}</div>
+                <div className="text-xs text-gray-500">Total Props</div>
+              </div>
+              <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{d.playerProps.hits}</div>
+                <div className="text-xs text-gray-500">Hits</div>
+              </div>
+              <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                <div className="text-2xl font-bold text-red-600">{d.playerProps.misses}</div>
+                <div className="text-xs text-gray-500">Misses</div>
+              </div>
+              <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                <div className={`text-2xl font-bold ${d.playerProps.hitRate >= 0.55 ? "text-green-600" : d.playerProps.hitRate >= 0.50 ? "text-yellow-600" : "text-red-600"}`}>
+                  {(d.playerProps.hitRate * 100).toFixed(1)}%
+                </div>
+                <div className="text-xs text-gray-500">Hit Rate</div>
+              </div>
+              <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Over:</span>
+                    <span className="font-medium">
+                      {d.playerProps.byRecommendation.over.hits}/{d.playerProps.byRecommendation.over.total}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Under:</span>
+                    <span className="font-medium">
+                      {d.playerProps.byRecommendation.under.hits}/{d.playerProps.byRecommendation.under.total}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Calibration chart */}
       {d.calibrationChart.length > 0 && (

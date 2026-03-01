@@ -102,10 +102,34 @@ function extractConsensusOdds(game: OddsGame): OddsSnapshot {
 }
 
 /**
+ * Check if a game is live (has already started).
+ * Used as a guardrail to prevent processing live games.
+ */
+export function isGameLive(commenceTime: string | Date): boolean {
+  const gameTime = typeof commenceTime === 'string' ? new Date(commenceTime) : commenceTime;
+  return gameTime <= new Date();
+}
+
+/**
+ * Check if a game is within the pregame window (not live, but starting soon).
+ * @param commenceTime - The game start time
+ * @param minMinutesBefore - Minimum minutes before game to consider "pregame" (default 30)
+ */
+export function isGamePregame(commenceTime: string | Date, minMinutesBefore: number = 30): boolean {
+  const gameTime = typeof commenceTime === 'string' ? new Date(commenceTime) : commenceTime;
+  const now = new Date();
+  const minutesUntilGame = (gameTime.getTime() - now.getTime()) / (1000 * 60);
+  return minutesUntilGame >= minMinutesBefore;
+}
+
+/**
  * Capture odds for all upcoming games in a sport.
  * - Creates new snapshot if odds have changed since last capture
  * - Marks first capture as "opening" line
  * - Marks pre-game capture as "closing" line (when game starts within 30 min)
+ * 
+ * GUARDRAIL: This function skips live games (games that have already started).
+ * We only capture pregame odds to prevent wild swings from affecting predictions.
  *
  * IMPORTANT: Closing line capture depends on cron frequency. A game gets a closing
  * line only if this function runs when minutesUntilGame <= 30. If the cron runs
@@ -132,6 +156,13 @@ export async function captureOddsForSport(sport: string): Promise<CaptureResult>
 
     for (const game of games) {
       try {
+        // GUARDRAIL: Skip live games - we only capture pregame odds
+        const gameTime = new Date(game.commence_time);
+        if (gameTime <= now) {
+          // Game has started or is about to start, skip odds capture
+          continue;
+        }
+        
         const snapshot = extractConsensusOdds(game);
         
         // Skip games with no odds data

@@ -11,11 +11,19 @@ import { getTeamSeasonStats, findTeamByName } from "./sports/unified-sports-api"
 import { getSportFromGame } from "./sports/sport-detection";
 import { parseOdds } from "./odds-utils";
 import { analyzeFavorableBets } from "./favorable-bet-engine";
-import { calculateTeamAnalytics, predictMatchup } from "./advanced-analytics";
+import { calculateTeamAnalytics, predictMatchup, MatchupPrediction } from "./advanced-analytics";
 import type { RecommendedBet } from "@/types";
 import { Sport, getSportConfig } from "./sports/sport-config";
 import { recommendedBetsCache } from "./recommended-bets-cache";
 import { teamStatsCache } from "./team-stats-cache";
+import {
+  getPipelineConfigForRecommendations,
+  applyConfigToConfidence,
+  type FeedbackPipelineConfig,
+} from "./feedback-pipeline-config";
+
+/** Cache for pipeline config (loaded once per aggregation run) */
+let cachedPipelineConfig: FeedbackPipelineConfig | null = null;
 
 /**
  * Get recommended bets across all upcoming games for a specific sport
@@ -27,6 +35,11 @@ export async function getRecommendedBets(sport: Sport = "cbb", limit: number = 1
     const cached = recommendedBetsCache.get(sport);
     if (cached) {
       return cached.slice(0, limit);
+    }
+
+    // Load pipeline config once per run (for applying ATS feedback adjustments)
+    if (!cachedPipelineConfig) {
+      cachedPipelineConfig = await getPipelineConfigForRecommendations();
     }
 
     const config = getSportConfig(sport);
@@ -165,8 +178,13 @@ async function analyzeGameForBets(game: OddsGame): Promise<RecommendedBet[]> {
       homeTeamStats
     );
 
-    // Convert to RecommendedBet format
-    const recommendedBets: RecommendedBet[] = analysis.bets.map((bet, idx) => {
+    // Convert to RecommendedBet format, applying pipeline config adjustments
+    const recommendedBets: RecommendedBet[] = [];
+    const sportKey = game.sport_key ?? sport;
+    
+    for (let idx = 0; idx < analysis.bets.length; idx++) {
+      const bet = analysis.bets[idx];
+      
       // Format game time
       const gameTime = game.commence_time
         ? new Date(game.commence_time).toLocaleString('en-US', {
@@ -186,7 +204,26 @@ async function analyzeGameForBets(game: OddsGame): Promise<RecommendedBet[]> {
         console.warn(`[getRecommendedBets] Invalid decimal odds for bet ${bet.recommendation}: ${decimalOdds}`);
       }
 
-      return {
+      // Apply pipeline config to adjust confidence based on ATS feedback
+      let adjustedConfidence = bet.confidence;
+      if (cachedPipelineConfig) {
+        const predictedTotal = prediction.predictedScore.home + prediction.predictedScore.away;
+        const configResult = applyConfigToConfidence(
+          bet.confidence,
+          sportKey,
+          prediction.predictedSpread,
+          predictedTotal,
+          cachedPipelineConfig
+        );
+        
+        // Skip this bet if config returns null (segment is disabled)
+        if (configResult === null) {
+          continue;
+        }
+        adjustedConfidence = configResult;
+      }
+
+      recommendedBets.push({
         id: `${game.id}-${bet.type}-${bet.team || 'total'}-${bet.currentOdds.decimal.toFixed(2)}-${idx}`,
         gameId: game.id,
         gameTitle: `${awayTeamName} @ ${homeTeamName}`,
@@ -202,12 +239,12 @@ async function analyzeGameForBets(game: OddsGame): Promise<RecommendedBet[]> {
         },
         ourPrediction: bet.ourPrediction,
         edge: bet.edge,
-        confidence: bet.confidence,
+        confidence: adjustedConfidence, // Use adjusted confidence from pipeline config
         reason: bet.reason,
         valueRating: bet.valueRating,
         team: bet.team, // Preserve team info for consolidation
-      };
-    });
+      });
+    }
 
     return recommendedBets;
   } catch (error) {

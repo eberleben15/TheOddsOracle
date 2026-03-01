@@ -34,6 +34,7 @@ import {
   MagnifyingGlassIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
 // Types
@@ -768,6 +769,28 @@ export function PredictionsDashboard() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Player Props Link Card */}
+      <Card className="border-l-4 border-l-purple-500">
+        <CardBody className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+              <UserGroupIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">NBA Player Props</h3>
+              <p className="text-sm text-gray-500">
+                Track player prop predictions, hit rates, and performance by stat type
+              </p>
+            </div>
+          </div>
+          <Link href="/admin/player-props">
+            <Button color="secondary" variant="flat" size="sm">
+              View Analytics
+            </Button>
+          </Link>
+        </CardBody>
+      </Card>
 
       {/* Actions Panel */}
       <Card>

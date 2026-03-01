@@ -31,6 +31,31 @@ export interface OddsSnapshot {
   moneyline?: { away?: number; home?: number };
 }
 
+/** Serializable TeamAnalytics snapshot for storage */
+export interface StoredTeamAnalytics {
+  netRating: number;
+  offensiveRating: number;
+  defensiveRating: number;
+  offensiveEfficiency: number;
+  defensiveEfficiency: number;
+  adjustedOffensiveEfficiency?: number;
+  adjustedDefensiveEfficiency?: number;
+  strengthOfSchedule?: number;
+  recentFormOffensiveEfficiency?: number;
+  recentFormDefensiveEfficiency?: number;
+  momentum: number;
+  winStreak: number;
+  last5Wins: number;
+  last5Losses: number;
+  shootingEfficiency: number;
+  threePointThreat: number;
+  freeThrowReliability: number;
+  reboundingAdvantage: number;
+  assistToTurnoverRatio: number;
+  consistency: number;
+  homeAdvantage?: number;
+}
+
 export interface TrackPredictionOptions {
   sport?: string;
   keyFactors?: string[];
@@ -38,6 +63,9 @@ export interface TrackPredictionOptions {
   favorableBets?: StoredFavorableBet[] | null;
   oddsSnapshot?: OddsSnapshot | null;
   predictionTrace?: PredictionTrace | null;
+  teamAnalytics?: { away: StoredTeamAnalytics; home: StoredTeamAnalytics } | null;
+  configVersion?: number;
+  recommendationTier?: "high" | "medium" | "low";
 }
 
 export interface TrackedPrediction {
@@ -50,6 +78,7 @@ export interface TrackedPrediction {
   predictedAt: number;
   prediction: MatchupPrediction;
   favorableBets?: StoredFavorableBet[] | null;
+  teamAnalytics?: { away: StoredTeamAnalytics; home: StoredTeamAnalytics } | null;
   actualOutcome?: {
     homeScore: number;
     awayScore: number;
@@ -115,6 +144,9 @@ export async function trackPrediction(
         favorableBets: (options?.favorableBets ?? undefined) as Prisma.InputJsonValue | undefined,
         oddsSnapshot: (options?.oddsSnapshot ?? undefined) as Prisma.InputJsonValue | undefined,
         predictionTrace: (options?.predictionTrace ?? undefined) as Prisma.InputJsonValue | undefined,
+        teamAnalytics: (options?.teamAnalytics ?? undefined) as Prisma.InputJsonValue | undefined,
+        configVersion: options?.configVersion ?? null,
+        recommendationTier: options?.recommendationTier ?? null,
         validated: false,
       },
     });
@@ -636,6 +668,12 @@ function convertDbToTracked(dbPrediction: any): TrackedPrediction {
         : undefined,
     },
     favorableBets: Array.isArray(dbPrediction.favorableBets) ? dbPrediction.favorableBets : undefined,
+    teamAnalytics: dbPrediction.teamAnalytics &&
+      typeof dbPrediction.teamAnalytics === "object" &&
+      "away" in dbPrediction.teamAnalytics &&
+      "home" in dbPrediction.teamAnalytics
+      ? (dbPrediction.teamAnalytics as { away: StoredTeamAnalytics; home: StoredTeamAnalytics })
+      : undefined,
     actualOutcome: dbPrediction.actualHomeScore !== null ? {
       homeScore: dbPrediction.actualHomeScore!,
       awayScore: dbPrediction.actualAwayScore!,

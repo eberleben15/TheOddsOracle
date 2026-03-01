@@ -15,6 +15,7 @@ import {
   loadVarianceModel,
   loadNumSimulations,
 } from "@/lib/prediction-feedback-batch";
+import { getPropPerformanceStats } from "@/lib/player-props";
 
 export async function GET(request: NextRequest) {
   const admin = await isAdmin();
@@ -26,13 +27,17 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const sport = searchParams.get("sport") || undefined;
 
-    const [performanceReport, examples, recal, bias, varianceModel, numSimulations] = await Promise.all([
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 90);
+    
+    const [performanceReport, examples, recal, bias, varianceModel, numSimulations, playerPropsStats] = await Promise.all([
       generatePerformanceReport(90, sport),
       buildTrainingDataset({ sport, limit: 5000 }),
       loadRecalibrationWithMetadata(),
       loadBiasCorrection(),
       loadVarianceModel(),
       loadNumSimulations(),
+      getPropPerformanceStats({ startDate }),
     ]);
 
     const stats = getDatasetStats(examples);
@@ -92,6 +97,14 @@ export async function GET(request: NextRequest) {
         ? { baseVariance: varianceModel.baseVariance, estimatedAt: varianceModel.estimatedAt }
         : null,
       numSimulations,
+      playerProps: playerPropsStats.total > 0 ? {
+        total: playerPropsStats.total,
+        hits: playerPropsStats.hits,
+        misses: playerPropsStats.misses,
+        hitRate: playerPropsStats.hitRate,
+        byPropType: playerPropsStats.byPropType,
+        byRecommendation: playerPropsStats.byRecommendation,
+      } : null,
     });
   } catch (error) {
     console.error("Model performance API error:", error);

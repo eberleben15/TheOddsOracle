@@ -15,6 +15,8 @@ import {
   ArrowTrendingUpIcon,
   BoltIcon,
   Square2StackIcon,
+  SparklesIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { Sport } from "@/lib/sports/sport-config";
 
@@ -69,6 +71,18 @@ export function Sidebar() {
       href: "/prediction-markets/portfolio",
       icon: ChartPieIcon,
       current: pathname === "/prediction-markets/portfolio",
+    },
+    {
+      name: "Slate Builder",
+      href: "/slate-builder",
+      icon: SparklesIcon,
+      current: pathname === "/slate-builder",
+    },
+    {
+      name: "Player Props",
+      href: "/player-props",
+      icon: UserGroupIcon,
+      current: pathname === "/player-props" || pathname.includes("/player-props"),
     },
     {
       name: "Sandbox",

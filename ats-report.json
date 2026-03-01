@@ -1,0 +1,211 @@
+{
+  "overall": {
+    "sampleCount": 173,
+    "wins": 82,
+    "losses": 83,
+    "pushes": 8,
+    "winRate": 49.696969696969695
+  },
+  "featureCorrelations": [
+    {
+      "feature": "homeWinProb",
+      "sampleCount": 173,
+      "winRateAboveMedian": 50.602409638554214,
+      "winRateBelowMedian": 48.78048780487805,
+      "delta": 1.8219218336761642,
+      "correlation": 0.012736463386659682
+    },
+    {
+      "feature": "homeWinProbRaw",
+      "sampleCount": 173,
+      "winRateAboveMedian": 44.047619047619044,
+      "winRateBelowMedian": 55.55555555555556,
+      "delta": -11.507936507936513,
+      "correlation": 0.015536194768806183
+    },
+    {
+      "feature": "totalScore",
+      "sampleCount": 173,
+      "winRateAboveMedian": 44.047619047619044,
+      "winRateBelowMedian": 55.55555555555556,
+      "delta": -11.507936507936513,
+      "correlation": 0.019783316990731537
+    },
+    {
+      "feature": "fourFactorsScore",
+      "sampleCount": 173,
+      "winRateAboveMedian": 45.23809523809524,
+      "winRateBelowMedian": 54.32098765432099,
+      "delta": -9.082892416225747,
+      "correlation": 0.02673045839102174
+    },
+    {
+      "feature": "efficiencyScore",
+      "sampleCount": 173,
+      "winRateAboveMedian": 50,
+      "winRateBelowMedian": 49.382716049382715,
+      "delta": 0.6172839506172849,
+      "correlation": -0.003006400887585494
+    },
+    {
+      "feature": "tempoAdjustment",
+      "sampleCount": 173,
+      "winRateAboveMedian": 47.61904761904761,
+      "winRateBelowMedian": 51.85185185185185,
+      "delta": -4.232804232804234,
+      "correlation": -0.02192866497303345
+    },
+    {
+      "feature": "homeAdvantage",
+      "sampleCount": 173,
+      "winRateAboveMedian": 49.68944099378882,
+      "winRateBelowMedian": 50,
+      "delta": -0.3105590062111787,
+      "correlation": -0.0048972207778893925
+    },
+    {
+      "feature": "momentumScore",
+      "sampleCount": 173,
+      "winRateAboveMedian": 46.42857142857143,
+      "winRateBelowMedian": 53.086419753086425,
+      "delta": -6.657848324514994,
+      "correlation": 0.018923593075149583
+    },
+    {
+      "feature": "confidence",
+      "sampleCount": 173,
+      "winRateAboveMedian": 49.696969696969695,
+      "winRateBelowMedian": 0,
+      "delta": 49.696969696969695,
+      "correlation": -0.020700552160936726
+    },
+    {
+      "feature": "predictedSpread",
+      "sampleCount": 173,
+      "winRateAboveMedian": 47.5,
+      "winRateBelowMedian": 55.55555555555556,
+      "delta": -8.055555555555557,
+      "correlation": -0.006443396728949056
+    },
+    {
+      "feature": "predictedTotal",
+      "sampleCount": 173,
+      "winRateAboveMedian": 47.87234042553192,
+      "winRateBelowMedian": 52.112676056338024,
+      "delta": -4.240335630806108,
+      "correlation": -0.1056896405159972
+    }
+  ],
+  "featureImportance": [
+    {
+      "feature": "predictedTotal",
+      "importance": 0.1056896405159972,
+      "direction": "negative",
+      "sampleCount": 173
+    },
+    {
+      "feature": "fourFactorsScore",
+      "importance": 0.02673045839102174,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "tempoAdjustment",
+      "importance": 0.02192866497303345,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "confidence",
+      "importance": 0.020700552160936726,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "totalScore",
+      "importance": 0.019783316990731537,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "momentumScore",
+      "importance": 0.018923593075149583,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "homeWinProbRaw",
+      "importance": 0.015536194768806183,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "homeWinProb",
+      "importance": 0.012736463386659682,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "predictedSpread",
+      "importance": 0.006443396728949056,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "homeAdvantage",
+      "importance": 0.0048972207778893925,
+      "direction": "neutral",
+      "sampleCount": 173
+    },
+    {
+      "feature": "efficiencyScore",
+      "importance": 0.003006400887585494,
+      "direction": "neutral",
+      "sampleCount": 173
+    }
+  ],
+  "segmentations": {
+    "bySport": [
+      {
+        "segment": "sport",
+        "value": "basketball_ncaab",
+        "sampleCount": 173,
+        "wins": 82,
+        "losses": 83,
+        "pushes": 8,
+        "winRate": 49.696969696969695
+      }
+    ],
+    "byModelPath": [
+      {
+        "segment": "modelPath",
+        "value": "fourFactors",
+        "sampleCount": 173,
+        "wins": 82,
+        "losses": 83,
+        "pushes": 8,
+        "winRate": 49.696969696969695
+      }
+    ],
+    "byConfidenceBand": [
+      {
+        "segment": "confidenceBand",
+        "value": "medium(50-70)",
+        "sampleCount": 134,
+        "wins": 64,
+        "losses": 64,
+        "pushes": 6,
+        "winRate": 50
+      },
+      {
+        "segment": "confidenceBand",
+        "value": "high(>=70)",
+        "sampleCount": 39,
+        "wins": 18,
+        "losses": 19,
+        "pushes": 2,
+        "winRate": 48.64864864864865
+      }
+    ]
+  }
+}

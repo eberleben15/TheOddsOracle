@@ -12,8 +12,6 @@ const DASHBOARD_UPCOMING_LIMIT = 12;
 
 export default async function DashboardPage() {
   const admin = await isAdmin();
-  let liveCount = 0;
-  let upcomingCount = 0;
   let liveGames: LiveGame[] = [];
   let upcomingGames: OddsGame[] = [];
   let teamLogos: Record<string, string> = {};
@@ -28,7 +26,6 @@ export default async function DashboardPage() {
     liveGames = live;
     const liveIds = new Set(live.map((g) => g.id));
     const upcomingFiltered = upcoming.filter((g) => !liveIds.has(g.id));
-    upcomingCount = upcomingFiltered.length;
     upcomingGames = upcomingFiltered.slice(0, DASHBOARD_UPCOMING_LIMIT);
 
     if (liveGames.length > 0 || upcomingGames.length > 0) {
@@ -60,8 +57,6 @@ export default async function DashboardPage() {
     <div className="min-h-full bg-[var(--body-bg)] p-4 md:p-6 lg:p-8">
       <DashboardHome
         isAdmin={admin}
-        liveCount={liveCount}
-        upcomingCount={upcomingCount}
         liveGames={liveGames}
         upcomingGames={upcomingGames}
         sport={DEFAULT_SPORT}

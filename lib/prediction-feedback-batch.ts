@@ -37,6 +37,13 @@ import {
 } from "./variance-estimation";
 import { buildTrainingDataset } from "./training-dataset";
 import { runEvaluation } from "./evaluation-harness";
+import { runATSFeedbackReport } from "./ats-feedback";
+import {
+  generateConfigFromFeedback,
+  loadPipelineConfig,
+  savePipelineConfig,
+  DEFAULT_PIPELINE_CONFIG,
+} from "./feedback-pipeline-config";
 
 const RECALIBRATION_KEY = "recalibration_platt";
 const BIAS_CORRECTION_KEY = "bias_correction";
@@ -351,6 +358,31 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
 
         const examples = await buildTrainingDataset({ limit: 5000 });
         const metrics = examples.length > 0 ? runEvaluation(examples) : undefined;
+        const atsReport = runATSFeedbackReport(examples);
+        if (atsReport.overall.sampleCount > 0) {
+          console.log(
+            `[ATS Feedback] ${atsReport.overall.wins}-${atsReport.overall.losses}-${atsReport.overall.pushes} (${atsReport.overall.winRate.toFixed(1)}%) | Net: ${atsReport.overall.netUnits >= 0 ? "+" : ""}${atsReport.overall.netUnits.toFixed(2)}u | n=${atsReport.overall.sampleCount}`
+          );
+          
+          // Auto-generate and save pipeline config based on ATS feedback
+          try {
+            const currentConfig = await loadPipelineConfig();
+            const newConfig = generateConfigFromFeedback(atsReport, currentConfig || DEFAULT_PIPELINE_CONFIG);
+            await savePipelineConfig(newConfig);
+            console.log(`[ATS Feedback] Pipeline config v${newConfig.version} saved`);
+            
+            // Save feedback history for trend tracking (Phase 1)
+            const { saveFeedbackHistory } = await import("./feedback-history");
+            await saveFeedbackHistory(atsReport, newConfig.version, undefined, {
+              brierScore: metrics?.brierScore,
+              logLoss: metrics?.logLoss,
+              spreadMAE: metrics?.spreadMAE,
+            });
+            console.log(`[Feedback History] Saved report for config v${newConfig.version}`);
+          } catch (configError) {
+            console.warn("[ATS Feedback] Could not save pipeline config:", configError);
+          }
+        }
         await saveRecalibrationParams(params, {
           trainedAt: new Date().toISOString(),
           validatedCount: validated.length,
@@ -671,6 +703,31 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
 
         const examples = await buildTrainingDataset({ limit: 5000 });
         const metrics = examples.length > 0 ? runEvaluation(examples) : undefined;
+        const atsReport = runATSFeedbackReport(examples);
+        if (atsReport.overall.sampleCount > 0) {
+          console.log(
+            `[ATS Feedback] ${atsReport.overall.wins}-${atsReport.overall.losses}-${atsReport.overall.pushes} (${atsReport.overall.winRate.toFixed(1)}%) | Net: ${atsReport.overall.netUnits >= 0 ? "+" : ""}${atsReport.overall.netUnits.toFixed(2)}u | n=${atsReport.overall.sampleCount}`
+          );
+          
+          // Auto-generate and save pipeline config based on ATS feedback
+          try {
+            const currentConfig = await loadPipelineConfig();
+            const newConfig = generateConfigFromFeedback(atsReport, currentConfig || DEFAULT_PIPELINE_CONFIG);
+            await savePipelineConfig(newConfig);
+            console.log(`[ATS Feedback] Pipeline config v${newConfig.version} saved`);
+            
+            // Save feedback history for trend tracking (Phase 1)
+            const { saveFeedbackHistory } = await import("./feedback-history");
+            await saveFeedbackHistory(atsReport, newConfig.version, undefined, {
+              brierScore: metrics?.brierScore,
+              logLoss: metrics?.logLoss,
+              spreadMAE: metrics?.spreadMAE,
+            });
+            console.log(`[Feedback History] Saved report for config v${newConfig.version}`);
+          } catch (configError) {
+            console.warn("[ATS Feedback] Could not save pipeline config:", configError);
+          }
+        }
         await saveRecalibrationParams(params, {
           trainedAt: new Date().toISOString(),
           validatedCount: validated.length,
@@ -694,6 +751,74 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
       // Estimate and persist variance model (for Monte Carlo simulation)
       varianceModel = estimateVarianceModelFromValidatedPredictions(validated);
       await saveVarianceModel(varianceModel);
+      
+      // Validate pending decision engine runs (Phase 4)
+      try {
+        const { 
+          getUnvalidatedDecisionEngineRuns, 
+          validateDecisionEngineRun 
+        } = await import("./decision-engine-tracking");
+        
+        const pendingRuns = await getUnvalidatedDecisionEngineRuns();
+        let deRunsValidated = 0;
+        
+        for (const run of pendingRuns) {
+          const slate = run.selectedSlate as any[];
+          const outcomes = [];
+          
+          for (let i = 0; i < slate.length; i++) {
+            const position = slate[i];
+            // Find corresponding validated prediction by matching game/team info
+            const prediction = await prisma.prediction.findFirst({
+              where: {
+                gameId: position.gameId,
+                validated: true,
+              },
+            });
+            
+            if (prediction && prediction.actualHomeScore != null && prediction.actualAwayScore != null) {
+              // Calculate ATS result for this position
+              const actualMargin = prediction.actualHomeScore - prediction.actualAwayScore;
+              const predictedSpread = prediction.predictedSpread;
+              const marketSpread = (prediction.oddsSnapshot as any)?.spread;
+              
+              if (marketSpread != null) {
+                const lineInOurFormat = -marketSpread;
+                const betOnHome = predictedSpread > 0;
+                let coverRaw: number;
+                
+                if (betOnHome) {
+                  coverRaw = actualMargin - lineInOurFormat;
+                } else {
+                  coverRaw = lineInOurFormat - actualMargin;
+                }
+                
+                const atsResult = coverRaw > 0.5 ? 1 : coverRaw < -0.5 ? -1 : 0;
+                const netUnits = atsResult === 1 ? 0.91 : atsResult === -1 ? -1.0 : 0;
+                
+                outcomes.push({
+                  positionIndex: i,
+                  predictionId: prediction.id,
+                  atsResult,
+                  netUnits,
+                });
+              }
+            }
+          }
+          
+          // Validate if all positions have outcomes
+          if (outcomes.length === slate.length) {
+            await validateDecisionEngineRun(run.id, outcomes);
+            deRunsValidated++;
+          }
+        }
+        
+        if (deRunsValidated > 0) {
+          console.log(`[Decision Engine] Validated ${deRunsValidated} decision engine runs`);
+        }
+      } catch (deError) {
+        console.warn("[Decision Engine] Could not validate runs:", deError);
+      }
     }
 
     const stats = await getTrackingStats();

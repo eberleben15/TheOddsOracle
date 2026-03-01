@@ -7,8 +7,8 @@
 
 import { prisma } from "./prisma";
 
-export type ChangeType = "created" | "regenerated" | "validated" | "updated";
-export type TriggeredBy = "cron" | "admin" | "system" | "user";
+export type ChangeType = "created" | "regenerated" | "validated" | "updated" | "line_movement";
+export type TriggeredBy = "cron" | "admin" | "system" | "user" | "line_movement_monitor";
 
 export interface PredictionSnapshot {
   predictedScore?: { home: number; away: number };
@@ -18,6 +18,8 @@ export interface PredictionSnapshot {
   confidence?: number;
   alternateSpread?: unknown;
   keyFactors?: string[];
+  valueBets?: unknown;
+  oddsSnapshot?: unknown;
   actualHomeScore?: number | null;
   actualAwayScore?: number | null;
   actualWinner?: string | null;
@@ -116,6 +118,78 @@ export async function logPredictionValidated(
     previousValues,
     newValues,
     triggeredBy,
+  });
+}
+
+/**
+ * Log prediction update due to line movement.
+ */
+export async function logLineMovementUpdate(
+  predictionId: string,
+  gameId: string,
+  previousValues: PredictionSnapshot,
+  newValues: PredictionSnapshot,
+  movementDetails: {
+    spreadMovement?: number;
+    totalMovement?: number;
+    mlChangePercent?: number;
+    reasons: string[];
+  }
+): Promise<void> {
+  const reason = [
+    "Line movement detected:",
+    ...movementDetails.reasons,
+    movementDetails.spreadMovement != null ? `Spread: ${movementDetails.spreadMovement.toFixed(1)} pts` : null,
+    movementDetails.totalMovement != null ? `Total: ${movementDetails.totalMovement.toFixed(1)} pts` : null,
+    movementDetails.mlChangePercent != null ? `ML: ${movementDetails.mlChangePercent.toFixed(1)}%` : null,
+  ].filter(Boolean).join("; ");
+
+  await logPredictionHistory({
+    predictionId,
+    gameId,
+    changeType: "line_movement",
+    previousValues,
+    newValues,
+    reason,
+    triggeredBy: "line_movement_monitor",
+  });
+}
+
+/**
+ * Get line movement history for a prediction.
+ */
+export async function getLineMovementHistory(predictionId: string): Promise<Array<{
+  id: string;
+  reason: string | null;
+  previousValues: unknown;
+  newValues: unknown;
+  createdAt: Date;
+}>> {
+  return prisma.predictionHistory.findMany({
+    where: { 
+      predictionId,
+      changeType: "line_movement",
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      reason: true,
+      previousValues: true,
+      newValues: true,
+      createdAt: true,
+    },
+  });
+}
+
+/**
+ * Get count of line movement re-predictions for a prediction.
+ */
+export async function getLineMovementCount(predictionId: string): Promise<number> {
+  return prisma.predictionHistory.count({
+    where: {
+      predictionId,
+      changeType: "line_movement",
+    },
   });
 }
 

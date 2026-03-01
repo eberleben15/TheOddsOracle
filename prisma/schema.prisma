@@ -223,6 +223,7 @@ model Prediction {
   favorableBets     Json?  // Serialized FavorableBet[] - bookmaker, edge, etc.
   oddsSnapshot      Json?  // { spread?, total?, moneyline?: { away?, home? } } at prediction time
   predictionTrace   Json?  // Audit trail: modelPath, totalScore, homeWinProbRaw, etc. for training
+  teamAnalytics     Json?  // { away: TeamAnalytics, home: TeamAnalytics } - full analytics snapshot at prediction time
 
   // Actual outcome (filled in after game)
   actualHomeScore Int?
@@ -238,6 +239,11 @@ model Prediction {
   clvSpread       Float?  // CLV for spread: closingSpread - predictedSpread (positive = beat the close)
   clvTotal        Float?  // CLV for total: closingTotal - predictedTotal (positive = beat the close)
   lineMovement    Float?  // closingSpread - openingSpread (how much line moved)
+
+  // Feedback loop tracking (Phase 1)
+  configVersion      Int?    // Track which config was active when prediction was made
+  recommendationTier String? // "high" | "medium" | "low" - recommendation tier
+  closingLineValue   Float?  // CLV = (closing spread - predicted spread) for beat-the-close tracking
 
   // Status tracking
   validated   Boolean   @default(false)
@@ -309,6 +315,120 @@ model ModelConfig {
   updatedAt DateTime @updatedAt
 
   @@map("model_config")
+  @@schema("oddsoracle")
+}
+
+// Feedback history - tracks ATS feedback reports over time (Phase 1)
+model FeedbackHistory {
+  id            String   @id @default(cuid())
+  timestamp     DateTime @default(now())
+  configVersion Int
+  sport         String?
+  
+  // Snapshot of feedback report
+  overall       Json     // { sampleCount, wins, losses, winRate, netUnits }
+  bySport       Json     // segmentations.bySport
+  topFeatures   Json     // top 10 feature importance
+  
+  // Performance metrics
+  brierScore    Float?
+  logLoss       Float?
+  spreadMAE     Float?
+  
+  @@index([timestamp])
+  @@index([configVersion])
+  @@index([sport])
+  @@map("feedback_history")
+  @@schema("oddsoracle")
+}
+
+// A/B test assignment - tracks which users are in which test variant (Phase 2)
+model ABTestAssignment {
+  id          String   @id @default(cuid())
+  userId      String
+  testName    String   // "config_v6_vs_v5"
+  variant     String   // "control" | "treatment"
+  assignedAt  DateTime @default(now())
+  
+  @@unique([userId, testName])
+  @@index([testName])
+  @@map("ab_test_assignments")
+  @@schema("oddsoracle")
+}
+
+// A/B test results - tracks outcomes per test variant (Phase 2)
+model ABTestResult {
+  id            String   @id @default(cuid())
+  testName      String
+  userId        String
+  variant       String
+  
+  // Outcome metrics
+  predictionId  String?  // Link to specific prediction
+  atsResult     Int?     // 1 = win, -1 = loss, 0 = push
+  netUnits      Float?
+  recordedAt    DateTime @default(now())
+  
+  @@index([testName, variant])
+  @@index([predictionId])
+  @@map("ab_test_results")
+  @@schema("oddsoracle")
+}
+
+// Decision engine run tracking - tracks portfolio construction decisions (Phase 4)
+model DecisionEngineRun {
+  id              String   @id @default(cuid())
+  userId          String
+  timestamp       DateTime @default(now())
+  
+  // Inputs
+  bankroll        Float
+  sport           String
+  configVersion   Int
+  candidateCount  Int
+  
+  // Outputs
+  selectedCount   Int
+  selectedSlate   Json     // PortfolioPosition[]
+  alternatives    Json?    // Top rejected candidates with reasons
+  
+  // Constraints used
+  constraints     Json     // DecisionEngineConstraints
+  
+  // Outcomes (populated after games complete)
+  validated       Boolean  @default(false)
+  actualATS       Float?   // Portfolio-level ATS win rate
+  actualNetUnits  Float?
+  maxDrawdown     Float?
+  avgCorrelation  Float?   // Realized correlation vs predicted
+  
+  @@index([userId])
+  @@index([timestamp])
+  @@index([validated])
+  @@index([configVersion])
+  @@map("decision_engine_runs")
+  @@schema("oddsoracle")
+}
+
+// Decision engine outcome - individual position outcomes within a run (Phase 4)
+model DecisionEngineOutcome {
+  id              String   @id @default(cuid())
+  runId           String
+  positionIndex   Int      // Which position in slate (0-based)
+  
+  // Position details
+  candidateId     String
+  stakeUsd        Float
+  expectedValue   Float
+  
+  // Outcome
+  predictionId    String?
+  atsResult       Int?     // 1 = win, -1 = loss, 0 = push
+  netUnits        Float?
+  
+  @@index([runId])
+  @@index([predictionId])
+  @@map("decision_engine_outcomes")
   @@schema("oddsoracle")
 }
 
@@ -501,5 +621,78 @@ model ABENotification {
   @@index([userId, read])
   @@index([createdAt])
   @@map("abe_notifications")
+  @@schema("oddsoracle")
+}
+
+// Player props: NBA player data cache
+model Player {
+  id          String   @id // ESPN athlete ID
+  name        String
+  firstName   String?
+  lastName    String?
+  team        String
+  teamId      String
+  position    String
+  jersey      Int?
+  headshotUrl String?
+  status      String   @default("active") // active, day-to-day, out, injured
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  propPredictions PlayerPropPrediction[]
+  
+  @@index([team])
+  @@index([teamId])
+  @@map("players")
+  @@schema("oddsoracle")
+}
+
+// Player props: predictions for individual player performance props
+model PlayerPropPrediction {
+  id              String   @id @default(cuid())
+  gameId          String   // External game ID from Odds API
+  playerId        String   // ESPN player ID
+  playerName      String   // Denormalized for display
+  propType        String   // points, rebounds, assists, threes, etc.
+  sport           String   @default("basketball_nba")
+  
+  // Market data
+  line            Float    // The sportsbook line (e.g., 24.5 points)
+  overOdds        Int?     // American odds for over
+  underOdds       Int?     // American odds for under
+  bestBookmaker   String?  // Which book has best odds
+  
+  // Our prediction
+  predictedValue  Float    // Our model's predicted stat
+  confidence      Float    // Confidence score (0-100)
+  edge            Float    // (predicted - line) / line as percentage
+  recommendation  String   // "over", "under", "pass"
+  factors         Json?    // string[] - factors driving prediction
+  
+  // Supporting stats
+  seasonAvg       Float?   // Season average for this stat
+  last5Avg        Float?   // Last 5 games average
+  last10Avg       Float?   // Last 10 games average
+  
+  // Outcome tracking (filled after game)
+  actualValue     Float?   // Actual stat from box score
+  hit             Boolean? // Did our recommendation hit?
+  settledAt       DateTime?
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  player          Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  
+  @@index([gameId])
+  @@index([playerId])
+  @@index([propType])
+  @@index([sport])
+  @@index([recommendation])
+  @@index([createdAt])
+  @@index([hit])
+  @@map("player_prop_predictions")
   @@schema("oddsoracle")
 }

@@ -76,6 +76,64 @@ export interface TrainingExample {
   // --- Errors (for quick analysis) ---
   spreadError: number;
   totalError: number;
+
+  // --- Upstream analytics (populated from stored teamAnalytics) ---
+  // Net ratings
+  awayNetRating?: number | null;
+  homeNetRating?: number | null;
+  netRatingDiff?: number | null; // home - away (positive = home stronger)
+  
+  // Offensive efficiency
+  awayOffEff?: number | null;
+  homeOffEff?: number | null;
+  awayAdjOffEff?: number | null;
+  homeAdjOffEff?: number | null;
+  
+  // Defensive efficiency
+  awayDefEff?: number | null;
+  homeDefEff?: number | null;
+  awayAdjDefEff?: number | null;
+  homeAdjDefEff?: number | null;
+  
+  // Momentum and form
+  awayMomentum?: number | null;
+  homeMomentum?: number | null;
+  momentumDiff?: number | null; // home - away
+  awayWinStreak?: number | null;
+  homeWinStreak?: number | null;
+  awayLast5Wins?: number | null;
+  homeLast5Wins?: number | null;
+  
+  // Strength of schedule
+  awayStrengthOfSchedule?: number | null;
+  homeStrengthOfSchedule?: number | null;
+  sosDiff?: number | null; // home - away
+  
+  // Shooting and efficiency metrics
+  awayShootingEff?: number | null;
+  homeShootingEff?: number | null;
+  awayThreePointThreat?: number | null;
+  homeThreePointThreat?: number | null;
+  awayFreeThrowReliability?: number | null;
+  homeFreeThrowReliability?: number | null;
+  
+  // Rebounding and playmaking
+  awayReboundingAdv?: number | null;
+  homeReboundingAdv?: number | null;
+  awayAstToTov?: number | null;
+  homeAstToTov?: number | null;
+  
+  // Consistency
+  awayConsistency?: number | null;
+  homeConsistency?: number | null;
+  
+  // --- Derived / game context features ---
+  /** 1 = home favorite, 0 = home underdog */
+  homeFavorite?: number;
+  /** Absolute spread magnitude */
+  spreadMagnitude?: number;
+  /** Market vs predicted spread diff (edge signal) */
+  spreadDiff?: number | null;
 }
 
 /**
@@ -121,6 +179,18 @@ export function extractFeatures(tracked: TrackedPrediction): TrainingExample | n
   const spreadError = Math.abs(pred.predictedSpread - actualSpread);
   const totalError = Math.abs(predictedTotal - actualTotal);
 
+  // Extract teamAnalytics if stored
+  const ta = tracked.teamAnalytics;
+  const awayA = ta?.away;
+  const homeA = ta?.home;
+  
+  // Derived features
+  const homeFavorite = pred.predictedSpread > 0 ? 1 : 0;
+  const spreadMagnitude = Math.abs(pred.predictedSpread);
+  const spreadDiff = tracked.closingSpread != null
+    ? pred.predictedSpread - (-tracked.closingSpread)
+    : null;
+
   return {
     id: tracked.id,
     date: tracked.date,
@@ -153,6 +223,81 @@ export function extractFeatures(tracked: TrackedPrediction): TrainingExample | n
     totalError,
 
     sportCode: SPORT_CODES[tracked.sport ?? ""] ?? -1,
+
+    // Upstream analytics
+    awayNetRating: awayA?.netRating ?? null,
+    homeNetRating: homeA?.netRating ?? null,
+    netRatingDiff: awayA && homeA ? homeA.netRating - awayA.netRating : null,
+    
+    awayOffEff: awayA?.offensiveEfficiency ?? null,
+    homeOffEff: homeA?.offensiveEfficiency ?? null,
+    awayAdjOffEff: awayA?.adjustedOffensiveEfficiency ?? null,
+    homeAdjOffEff: homeA?.adjustedOffensiveEfficiency ?? null,
+    
+    awayDefEff: awayA?.defensiveEfficiency ?? null,
+    homeDefEff: homeA?.defensiveEfficiency ?? null,
+    awayAdjDefEff: awayA?.adjustedDefensiveEfficiency ?? null,
+    homeAdjDefEff: homeA?.adjustedDefensiveEfficiency ?? null,
+    
+    awayMomentum: awayA?.momentum ?? null,
+    homeMomentum: homeA?.momentum ?? null,
+    momentumDiff: awayA && homeA ? homeA.momentum - awayA.momentum : null,
+    awayWinStreak: awayA?.winStreak ?? null,
+    homeWinStreak: homeA?.winStreak ?? null,
+    awayLast5Wins: awayA?.last5Wins ?? null,
+    homeLast5Wins: homeA?.last5Wins ?? null,
+    
+    awayStrengthOfSchedule: awayA?.strengthOfSchedule ?? null,
+    homeStrengthOfSchedule: homeA?.strengthOfSchedule ?? null,
+    sosDiff: awayA?.strengthOfSchedule != null && homeA?.strengthOfSchedule != null
+      ? homeA.strengthOfSchedule - awayA.strengthOfSchedule
+      : null,
+    
+    awayShootingEff: awayA?.shootingEfficiency ?? null,
+    homeShootingEff: homeA?.shootingEfficiency ?? null,
+    awayThreePointThreat: awayA?.threePointThreat ?? null,
+    homeThreePointThreat: homeA?.threePointThreat ?? null,
+    awayFreeThrowReliability: awayA?.freeThrowReliability ?? null,
+    homeFreeThrowReliability: homeA?.freeThrowReliability ?? null,
+    
+    awayReboundingAdv: awayA?.reboundingAdvantage ?? null,
+    homeReboundingAdv: homeA?.reboundingAdvantage ?? null,
+    awayAstToTov: awayA?.assistToTurnoverRatio ?? null,
+    homeAstToTov: homeA?.assistToTurnoverRatio ?? null,
+    
+    awayConsistency: awayA?.consistency ?? null,
+    homeConsistency: homeA?.consistency ?? null,
+    
+    // Derived
+    homeFavorite,
+    spreadMagnitude,
+    spreadDiff,
+  };
+}
+
+/**
+ * Enrich a training example with upstream TeamAnalytics.
+ * Call when analytics are available (e.g. from prediction-time storage or historical recompute).
+ */
+export function enrichWithAnalytics(
+  ex: TrainingExample,
+  analytics: {
+    away: { netRating: number; adjustedOffensiveEfficiency?: number; adjustedDefensiveEfficiency?: number; momentum?: number; strengthOfSchedule?: number };
+    home: { netRating: number; adjustedOffensiveEfficiency?: number; adjustedDefensiveEfficiency?: number; momentum?: number; strengthOfSchedule?: number };
+  }
+): TrainingExample {
+  return {
+    ...ex,
+    awayNetRating: analytics.away.netRating,
+    homeNetRating: analytics.home.netRating,
+    awayAdjOffEff: analytics.away.adjustedOffensiveEfficiency ?? null,
+    homeAdjOffEff: analytics.home.adjustedOffensiveEfficiency ?? null,
+    awayAdjDefEff: analytics.away.adjustedDefensiveEfficiency ?? null,
+    homeAdjDefEff: analytics.home.adjustedDefensiveEfficiency ?? null,
+    awayMomentum: analytics.away.momentum ?? null,
+    homeMomentum: analytics.home.momentum ?? null,
+    awayStrengthOfSchedule: analytics.away.strengthOfSchedule ?? null,
+    homeStrengthOfSchedule: analytics.home.strengthOfSchedule ?? null,
   };
 }
 

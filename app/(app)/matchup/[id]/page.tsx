@@ -5,6 +5,7 @@ import { MatchupHeader } from "./_components/MatchupHeader";
 import { AddToSandboxOdds } from "./_components/AddToSandboxOdds";
 import { BettingInsights } from "./_components/BettingInsights";
 import { AdvancedAnalyticsWrapper } from "./_components/AdvancedAnalyticsWrapper";
+import { PlayerPropsSection } from "./_components/PlayerPropsSection";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { EmptyState } from "@/components/EmptyState";
 import { parseOdds, buildBestOddsSnapshot } from "@/lib/odds-utils";
@@ -177,6 +178,14 @@ export default async function MatchupPage({ params, searchParams }: MatchupPageP
                 game={game}
               />
             </div>
+
+            {/* Player Props - NBA only */}
+            {sport === "nba" && (
+              <PlayerPropsSection
+                gameId={game.id}
+                sport={game.sport_key}
+              />
+            )}
             
             <StatsDisplay
               homeTeamStats={homeTeamStats}

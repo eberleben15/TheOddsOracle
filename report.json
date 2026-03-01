@@ -1,0 +1,472 @@
+{
+  "overall": {
+    "sampleCount": 197,
+    "wins": 87,
+    "losses": 101,
+    "pushes": 9,
+    "winRate": 46.27659574468085,
+    "netUnits": -21.83
+  },
+  "featureCorrelations": [
+    {
+      "feature": "homeWinProb",
+      "sampleCount": 197,
+      "winRateAboveMedian": 44.680851063829785,
+      "winRateBelowMedian": 47.87234042553192,
+      "delta": -3.191489361702132,
+      "correlation": -0.0012785129895853317
+    },
+    {
+      "feature": "homeWinProbRaw",
+      "sampleCount": 197,
+      "winRateAboveMedian": 41.05263157894737,
+      "winRateBelowMedian": 51.61290322580645,
+      "delta": -10.560271646859078,
+      "correlation": 0.009695536383150748
+    },
+    {
+      "feature": "totalScore",
+      "sampleCount": 197,
+      "winRateAboveMedian": 41.05263157894737,
+      "winRateBelowMedian": 51.61290322580645,
+      "delta": -10.560271646859078,
+      "correlation": 0.014822584361605419
+    },
+    {
+      "feature": "fourFactorsScore",
+      "sampleCount": 197,
+      "winRateAboveMedian": 42.10526315789473,
+      "winRateBelowMedian": 50.53763440860215,
+      "delta": -8.432371250707419,
+      "correlation": 0.024713877298230054
+    },
+    {
+      "feature": "efficiencyScore",
+      "sampleCount": 197,
+      "winRateAboveMedian": 48.421052631578945,
+      "winRateBelowMedian": 44.086021505376344,
+      "delta": 4.335031126202601,
+      "correlation": 0.00990456850404629
+    },
+    {
+      "feature": "tempoAdjustment",
+      "sampleCount": 197,
+      "winRateAboveMedian": 42.592592592592595,
+      "winRateBelowMedian": 51.24999999999999,
+      "delta": -8.657407407407398,
+      "correlation": -0.017989756387281786
+    },
+    {
+      "feature": "homeAdvantage",
+      "sampleCount": 197,
+      "winRateAboveMedian": 46.19565217391305,
+      "winRateBelowMedian": 50,
+      "delta": -3.8043478260869534,
+      "correlation": -0.015375336368977593
+    },
+    {
+      "feature": "momentumScore",
+      "sampleCount": 197,
+      "winRateAboveMedian": 43.15789473684211,
+      "winRateBelowMedian": 49.46236559139785,
+      "delta": -6.304470854555738,
+      "correlation": 0.011852739776246795
+    },
+    {
+      "feature": "confidence",
+      "sampleCount": 197,
+      "winRateAboveMedian": 46.27659574468085,
+      "winRateBelowMedian": 0,
+      "delta": 46.27659574468085,
+      "correlation": -0.08918136314912815
+    },
+    {
+      "feature": "predictedSpread",
+      "sampleCount": 197,
+      "winRateAboveMedian": 43.97163120567376,
+      "winRateBelowMedian": 53.191489361702125,
+      "delta": -9.219858156028366,
+      "correlation": -0.020144833630008158
+    },
+    {
+      "feature": "predictedTotal",
+      "sampleCount": 197,
+      "winRateAboveMedian": 39.175257731958766,
+      "winRateBelowMedian": 53.84615384615385,
+      "delta": -14.67089611419508,
+      "correlation": -0.19847987661964725
+    },
+    {
+      "feature": "spreadMagnitude",
+      "sampleCount": 197,
+      "winRateAboveMedian": 42.857142857142854,
+      "winRateBelowMedian": 51.31578947368421,
+      "delta": -8.458646616541358,
+      "correlation": 0.028897761792485592
+    },
+    {
+      "feature": "spreadDiff",
+      "sampleCount": 197,
+      "winRateAboveMedian": 44.554455445544555,
+      "winRateBelowMedian": 48.275862068965516,
+      "delta": -3.721406623420961,
+      "correlation": -0.025817231744631894
+    }
+  ],
+  "featureImportance": [
+    {
+      "feature": "predictedTotal",
+      "importance": 0.19847987661964725,
+      "direction": "negative",
+      "sampleCount": 197
+    },
+    {
+      "feature": "confidence",
+      "importance": 0.08918136314912815,
+      "direction": "negative",
+      "sampleCount": 197
+    },
+    {
+      "feature": "spreadMagnitude",
+      "importance": 0.028897761792485592,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "spreadDiff",
+      "importance": 0.025817231744631894,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "fourFactorsScore",
+      "importance": 0.024713877298230054,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "predictedSpread",
+      "importance": 0.020144833630008158,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "tempoAdjustment",
+      "importance": 0.017989756387281786,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "homeAdvantage",
+      "importance": 0.015375336368977593,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "totalScore",
+      "importance": 0.014822584361605419,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "momentumScore",
+      "importance": 0.011852739776246795,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "efficiencyScore",
+      "importance": 0.00990456850404629,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "homeWinProbRaw",
+      "importance": 0.009695536383150748,
+      "direction": "neutral",
+      "sampleCount": 197
+    },
+    {
+      "feature": "homeWinProb",
+      "importance": 0.0012785129895853317,
+      "direction": "neutral",
+      "sampleCount": 197
+    }
+  ],
+  "segmentations": {
+    "bySport": [
+      {
+        "segment": "sport",
+        "value": "basketball_ncaab",
+        "sampleCount": 173,
+        "wins": 82,
+        "losses": 83,
+        "pushes": 8,
+        "winRate": 49.696969696969695
+      },
+      {
+        "segment": "sport",
+        "value": "basketball_nba",
+        "sampleCount": 24,
+        "wins": 5,
+        "losses": 18,
+        "pushes": 1,
+        "winRate": 21.73913043478261
+      }
+    ],
+    "byModelPath": [
+      {
+        "segment": "modelPath",
+        "value": "fourFactors",
+        "sampleCount": 197,
+        "wins": 87,
+        "losses": 101,
+        "pushes": 9,
+        "winRate": 46.27659574468085
+      }
+    ],
+    "byConfidenceBand": [
+      {
+        "segment": "confidenceBand",
+        "value": "medium(50-70)",
+        "sampleCount": 136,
+        "wins": 64,
+        "losses": 66,
+        "pushes": 6,
+        "winRate": 49.23076923076923
+      },
+      {
+        "segment": "confidenceBand",
+        "value": "high(>=70)",
+        "sampleCount": 61,
+        "wins": 23,
+        "losses": 35,
+        "pushes": 3,
+        "winRate": 39.6551724137931
+      }
+    ],
+    "byHomeFavorite": [
+      {
+        "segment": "homeFavorite",
+        "value": "home_favorite",
+        "sampleCount": 146,
+        "wins": 62,
+        "losses": 79,
+        "pushes": 5,
+        "winRate": 43.97163120567376
+      },
+      {
+        "segment": "homeFavorite",
+        "value": "away_favorite",
+        "sampleCount": 51,
+        "wins": 25,
+        "losses": 22,
+        "pushes": 4,
+        "winRate": 53.191489361702125
+      }
+    ],
+    "bySpreadMagnitude": [
+      {
+        "segment": "spreadMagnitude",
+        "value": "small(<3)",
+        "sampleCount": 127,
+        "wins": 57,
+        "losses": 64,
+        "pushes": 6,
+        "winRate": 47.107438016528924
+      },
+      {
+        "segment": "spreadMagnitude",
+        "value": "medium(3-7)",
+        "sampleCount": 66,
+        "wins": 26,
+        "losses": 37,
+        "pushes": 3,
+        "winRate": 41.269841269841265
+      },
+      {
+        "segment": "spreadMagnitude",
+        "value": "large(7-12)",
+        "sampleCount": 4,
+        "wins": 4,
+        "losses": 0,
+        "pushes": 0,
+        "winRate": 100
+      }
+    ],
+    "byTotalBucket": [
+      {
+        "segment": "totalBucket",
+        "value": "very_high(>=160)",
+        "sampleCount": 130,
+        "wins": 56,
+        "losses": 71,
+        "pushes": 3,
+        "winRate": 44.09448818897638
+      },
+      {
+        "segment": "totalBucket",
+        "value": "high(145-160)",
+        "sampleCount": 57,
+        "wins": 28,
+        "losses": 23,
+        "pushes": 6,
+        "winRate": 54.90196078431373
+      },
+      {
+        "segment": "totalBucket",
+        "value": "medium(130-145)",
+        "sampleCount": 10,
+        "wins": 3,
+        "losses": 7,
+        "pushes": 0,
+        "winRate": 30
+      }
+    ]
+  },
+  "biasAnalysis": [
+    {
+      "segment": "sport",
+      "value": "basketball_nba",
+      "sampleCount": 24,
+      "wins": 5,
+      "losses": 18,
+      "winRate": 21.73913043478261,
+      "weightedContribution": 2.6595744680851063,
+      "netUnits": -13.45
+    },
+    {
+      "segment": "totalBucket",
+      "value": "medium(130-145)",
+      "sampleCount": 10,
+      "wins": 3,
+      "losses": 7,
+      "winRate": 30,
+      "weightedContribution": 1.5957446808510638,
+      "netUnits": -4.27
+    },
+    {
+      "segment": "confidenceBand",
+      "value": "high(>=70)",
+      "sampleCount": 61,
+      "wins": 23,
+      "losses": 35,
+      "winRate": 39.6551724137931,
+      "weightedContribution": 12.23404255319149,
+      "netUnits": -14.07
+    },
+    {
+      "segment": "spreadMagnitude",
+      "value": "medium(3-7)",
+      "sampleCount": 66,
+      "wins": 26,
+      "losses": 37,
+      "winRate": 41.269841269841265,
+      "weightedContribution": 13.829787234042552,
+      "netUnits": -13.34
+    },
+    {
+      "segment": "homeFavorite",
+      "value": "home_favorite",
+      "sampleCount": 146,
+      "wins": 62,
+      "losses": 79,
+      "winRate": 43.97163120567376,
+      "weightedContribution": 32.97872340425532,
+      "netUnits": -22.58
+    },
+    {
+      "segment": "totalBucket",
+      "value": "very_high(>=160)",
+      "sampleCount": 130,
+      "wins": 56,
+      "losses": 71,
+      "winRate": 44.09448818897638,
+      "weightedContribution": 29.787234042553187,
+      "netUnits": -20.04
+    },
+    {
+      "segment": "spreadMagnitude",
+      "value": "small(<3)",
+      "sampleCount": 127,
+      "wins": 57,
+      "losses": 64,
+      "winRate": 47.107438016528924,
+      "weightedContribution": 30.31914893617021,
+      "netUnits": -12.129999999999995
+    },
+    {
+      "segment": "confidenceBand",
+      "value": "medium(50-70)",
+      "sampleCount": 136,
+      "wins": 64,
+      "losses": 66,
+      "winRate": 49.23076923076923,
+      "weightedContribution": 34.04255319148937,
+      "netUnits": -7.759999999999998
+    },
+    {
+      "segment": "sport",
+      "value": "basketball_ncaab",
+      "sampleCount": 173,
+      "wins": 82,
+      "losses": 83,
+      "winRate": 49.696969696969695,
+      "weightedContribution": 43.61702127659574,
+      "netUnits": -8.379999999999995
+    },
+    {
+      "segment": "homeFavorite",
+      "value": "away_favorite",
+      "sampleCount": 51,
+      "wins": 25,
+      "losses": 22,
+      "winRate": 53.191489361702125,
+      "weightedContribution": 13.297872340425531,
+      "netUnits": 0.75
+    },
+    {
+      "segment": "totalBucket",
+      "value": "high(145-160)",
+      "sampleCount": 57,
+      "wins": 28,
+      "losses": 23,
+      "winRate": 54.90196078431373,
+      "weightedContribution": 14.893617021276595,
+      "netUnits": 2.4800000000000004
+    },
+    {
+      "segment": "spreadMagnitude",
+      "value": "large(7-12)",
+      "sampleCount": 4,
+      "wins": 4,
+      "losses": 0,
+      "winRate": 100,
+      "weightedContribution": 2.127659574468085,
+      "netUnits": 3.64
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "disable",
+      "target": "sport:basketball_nba",
+      "reason": "basketball_nba ATS is 21.7% (5-18) — significantly below break-even",
+      "severity": "high",
+      "suggestedAction": "Disable spread recommendations for basketball_nba until model is recalibrated"
+    },
+    {
+      "type": "recalibrate",
+      "target": "confidence",
+      "reason": "High confidence (39.7%) underperforms medium (49.2%)",
+      "severity": "high",
+      "suggestedAction": "Recalibrate confidence scoring — it's inversely correlated with ATS success"
+    },
+    {
+      "type": "investigate",
+      "target": "totalBucket:medium(130-145)",
+      "reason": "medium(130-145) total games have 30.0% ATS",
+      "severity": "medium",
+      "suggestedAction": "Model struggles with medium(130-145) tempo games — consider tempo-specific adjustments"
+    }
+  ]
+}
