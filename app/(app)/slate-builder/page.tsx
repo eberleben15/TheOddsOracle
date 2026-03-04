@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   Button, 
@@ -29,6 +30,10 @@ import {
 import type { Sport } from "@/lib/sports/sport-config";
 import { getAllSports, getSportConfig } from "@/lib/sports/sport-config";
 import type { BankrollSummary } from "@/types/abe";
+
+type BankrollResponse = BankrollSummary & {
+  decisionEngine?: { maxPositions?: number; maxFractionPerPosition?: number; maxFactorFraction?: number };
+};
 
 type SlatePosition = {
   candidateId: string;
@@ -66,13 +71,17 @@ type SlateResult = {
 };
 
 const SPORT_OPTIONS = getAllSports();
+const VALID_SPORTS: Sport[] = ["cbb", "nba", "nhl", "nfl", "mlb"];
 
 export default function SlateBuilderPage() {
-  const [sport, setSport] = useState<Sport>("cbb");
+  const searchParams = useSearchParams();
+  const sportParam = searchParams?.get("sport") ?? "";
+  const initialSport = VALID_SPORTS.includes(sportParam as Sport) ? (sportParam as Sport) : "cbb";
+  const [sport, setSport] = useState<Sport>(initialSport);
   const [includeKalshi, setIncludeKalshi] = useState(false);
   const [includePolymarket, setIncludePolymarket] = useState(false);
   const [includePlayerProps, setIncludePlayerProps] = useState(false);
-  const [maxPositions, setMaxPositions] = useState(10);
+  const [maxPositions, setMaxPositions] = useState(12);
   const [minEdge, setMinEdge] = useState(2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,11 +89,26 @@ export default function SlateBuilderPage() {
   const [copyDone, setCopyDone] = useState(false);
   const [bankroll, setBankroll] = useState<BankrollSummary | null>(null);
   const [bankrollLoading, setBankrollLoading] = useState(true);
+  const [constraintsFromSettings, setConstraintsFromSettings] = useState(false);
+
+  useEffect(() => {
+    const s = searchParams?.get("sport") ?? "";
+    if (VALID_SPORTS.includes(s as Sport)) setSport(s as Sport);
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/bankroll")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: BankrollSummary | null) => setBankroll(data))
+      .then((data: BankrollResponse | null) => {
+        if (data) {
+          setBankroll(data);
+          const de = data.decisionEngine;
+          if (de?.maxPositions != null && de.maxPositions >= 1 && de.maxPositions <= 100) {
+            setMaxPositions(de.maxPositions);
+            setConstraintsFromSettings(true);
+          }
+        }
+      })
       .catch(() => setBankroll(null))
       .finally(() => setBankrollLoading(false));
   }, []);
@@ -254,13 +278,19 @@ export default function SlateBuilderPage() {
                     <label className="text-gray-600 dark:text-gray-400">Max positions</label>
                     <span className="font-medium text-[var(--text-dark)]">{maxPositions}</span>
                   </div>
+                  {constraintsFromSettings && (
+                    <p className="text-xs text-gray-500 mb-1">Defaults from <Link href="/settings" className="text-primary hover:underline">Settings</Link></p>
+                  )}
                   <Slider
                     size="sm"
                     step={1}
                     minValue={1}
                     maxValue={25}
                     value={maxPositions}
-                    onChange={(v) => setMaxPositions(v as number)}
+                    onChange={(v) => {
+                      setMaxPositions(v as number);
+                      setConstraintsFromSettings(false);
+                    }}
                     className="max-w-full"
                   />
                 </div>
@@ -540,6 +570,21 @@ export default function SlateBuilderPage() {
                           ))}
                         </ul>
                       </details>
+                    </CardBody>
+                  </Card>
+                )}
+
+                {/* Next steps */}
+                {result.positions.length > 0 && (
+                  <Card className="border-2 border-primary/30 bg-primary/5 dark:bg-primary/10">
+                    <CardBody className="p-4">
+                      <h3 className="font-semibold text-[var(--text-dark)] mb-2">Next steps</h3>
+                      <ol className="space-y-2 text-sm text-[var(--text-body)]">
+                        <li><strong>1.</strong> Copy or download your slate above for reference.</li>
+                        <li><strong>2.</strong> Place sportsbook bets at your preferred book (DraftKings, FanDuel, BetMGM, etc.) using the labels and stakes.</li>
+                        <li><strong>3.</strong> For Kalshi or Polymarket positions, place orders on those platforms at the sizes shown.</li>
+                        <li><strong>4.</strong> Use <Link href="/prediction-markets/price-moves" className="text-primary hover:underline font-medium">Price Moves</Link> to monitor when odds move significantly on your positions.</li>
+                      </ol>
                     </CardBody>
                   </Card>
                 )}

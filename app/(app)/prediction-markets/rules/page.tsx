@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { ABERule, RuleTriggerType } from "@/types/abe";
+import type { ABEPosition } from "@/types/abe";
 
 export default function RulesPage() {
   const [rules, setRules] = useState<ABERule[]>([]);
@@ -10,6 +11,9 @@ export default function RulesPage() {
   const [runLoading, setRunLoading] = useState(false);
   const [runResult, setRunResult] = useState<{ fired: number; notificationsCreated: number } | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [positions, setPositions] = useState<ABEPosition[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
+  const [hasConnections, setHasConnections] = useState(false);
   const [form, setForm] = useState({
     name: "",
     triggerType: "concentration_above" as RuleTriggerType,
@@ -30,6 +34,29 @@ export default function RulesPage() {
   useEffect(() => {
     fetchRules();
   }, []);
+
+  const fetchPositions = useCallback(() => {
+    if ((form.triggerType === "price_above" || form.triggerType === "price_below") && showForm) {
+      setPositionsLoading(true);
+      fetch("/api/positions")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { positions?: ABEPosition[]; kalshiConnected?: boolean; polymarketConnected?: boolean } | null) => {
+          setPositions(data?.positions ?? []);
+          setHasConnections(!!(data?.kalshiConnected || data?.polymarketConnected));
+        })
+        .catch(() => {
+          setPositions([]);
+          setHasConnections(false);
+        })
+        .finally(() => setPositionsLoading(false));
+    } else {
+      setPositions([]);
+    }
+  }, [form.triggerType, showForm]);
+
+  useEffect(() => {
+    fetchPositions();
+  }, [fetchPositions]);
 
   const runNow = () => {
     setRunLoading(true);
@@ -192,13 +219,45 @@ export default function RulesPage() {
               <>
                 <label className="block">
                   <span className="text-xs text-gray-500">Contract ID</span>
-                  <input
-                    type="text"
-                    value={form.contractId}
-                    onChange={(e) => setForm((p) => ({ ...p, contractId: e.target.value }))}
-                    placeholder="e.g. kalshi:TICKER:yes"
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type="text"
+                      value={form.contractId}
+                      onChange={(e) => setForm((p) => ({ ...p, contractId: e.target.value }))}
+                      placeholder="e.g. kalshi:TICKER:yes"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    {positions.length > 0 ? (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v) setForm((p) => ({ ...p, contractId: v }));
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 min-w-[140px]"
+                        title="Pick from my positions"
+                      >
+                        <option value="">Pick from positions</option>
+                        {positions.map((pos) => (
+                          <option key={pos.contractId} value={pos.contractId}>
+                            {pos.contractId.replace(/^kalshi:/, "").replace(/^polymarket:/, "").slice(0, 24)}
+                            {pos.contractId.length > 24 ? "…" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    ) : positionsLoading ? (
+                      <span className="px-3 py-2 text-xs text-gray-500">Loading positions…</span>
+                    ) : hasConnections ? (
+                      <span className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">No positions yet</span>
+                    ) : (
+                      <Link
+                        href="/settings"
+                        className="px-3 py-2 text-xs text-primary hover:underline whitespace-nowrap"
+                      >
+                        Connect accounts for positions
+                      </Link>
+                    )}
+                  </div>
                 </label>
                 <label className="block">
                   <span className="text-xs text-gray-500">Price (0–1)</span>
@@ -239,7 +298,17 @@ export default function RulesPage() {
         {loading ? (
           <p className="text-sm text-gray-500">Loading…</p>
         ) : rules.length === 0 ? (
-          <p className="text-sm text-gray-500">No rules yet. Add one to get started.</p>
+          <div className="py-4">
+            <p className="text-sm text-gray-500 mb-3">No rules yet.</p>
+            <p className="text-xs text-gray-500 mb-3">Start with a concentration rule—it alerts when one position exceeds a share of your portfolio.</p>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Add your first rule →
+            </button>
+          </div>
         ) : (
           <ul className="space-y-2">
             {rules.map((r) => (

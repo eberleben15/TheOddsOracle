@@ -178,7 +178,7 @@ export async function captureOddsForSport(sport: string): Promise<CaptureResult>
         const isOpening = existingCount === 0;
 
         // Check if game starts within 30 minutes (potential closing line)
-        const gameTime = new Date(game.commence_time);
+        // Note: gameTime already declared above in the guardrail check
         const minutesUntilGame = (gameTime.getTime() - now.getTime()) / 1000 / 60;
         const isClosing = minutesUntilGame <= 30 && minutesUntilGame > 0;
 

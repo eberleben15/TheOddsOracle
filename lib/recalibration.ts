@@ -1,13 +1,16 @@
 /**
- * Recalibration Module (Platt Scaling)
+ * Recalibration Module (Platt Scaling + Isotonic)
  *
  * Industry best practice: raw model probabilities often need recalibration.
  * Research shows calibration matters more than accuracy for betting ROI.
- * Platt scaling fits: p_cal = 1 / (1 + exp(A * logit(p) + B))
+ * Supports: Platt scaling (parametric) and Isotonic regression (nonparametric).
  *
  * @see https://en.wikipedia.org/wiki/Platt_scaling
- * @see "Machine Learning for Sports Betting: Calibration vs Accuracy" (2024)
+ * @see https://en.wikipedia.org/wiki/Isotonic_regression
  */
+
+import type { CalibrationParams } from "./methods/types";
+import { applyIsotonic } from "./methods/isotonic-calibration";
 
 export interface RecalibrationParams {
   A: number; // Slope (typically 0.5-2)
@@ -18,6 +21,7 @@ export interface RecalibrationParams {
 const PASSTHROUGH: RecalibrationParams = { A: 1, B: 0 };
 
 let cachedParams: RecalibrationParams | null = null;
+let cachedCalibrationConfig: { method: "platt" | "isotonic"; params: CalibrationParams } | null = null;
 
 /**
  * Fit Platt scaling parameters from historical (predictedProb, actualOutcome) pairs.
@@ -86,10 +90,59 @@ export function setRecalibrationParams(params: RecalibrationParams | null): void
 }
 
 /**
- * Get current recalibration params.
+ * Get current recalibration params (legacy Platt).
  */
 export function getRecalibrationParams(): RecalibrationParams | null {
   return cachedParams;
+}
+
+/**
+ * Set calibration config (method + params). Takes precedence over legacy RecalibrationParams.
+ */
+export function setCalibrationConfig(
+  config: { method: "platt" | "isotonic"; params: CalibrationParams } | null
+): void {
+  cachedCalibrationConfig = config;
+}
+
+/**
+ * Get current calibration config.
+ */
+export function getCalibrationConfig(): {
+  method: "platt" | "isotonic";
+  params: CalibrationParams;
+} | null {
+  return cachedCalibrationConfig;
+}
+
+/**
+ * Apply calibration to a raw home win probability.
+ * Uses calibration config if set, else legacy Platt params, else passthrough.
+ */
+export function applyCalibration(rawHomeWinProb: number): number {
+  const p = Math.max(1e-7, Math.min(1 - 1e-7, rawHomeWinProb));
+  if (cachedCalibrationConfig) {
+    const { method, params } = cachedCalibrationConfig;
+    if (method === "isotonic" && params.method === "isotonic") {
+      return applyIsotonic(p, params);
+    }
+    if (method === "platt" && params.method === "platt") {
+      return applyPlattScaling(p, { A: params.A, B: params.B });
+    }
+  }
+  if (cachedParams) {
+    return applyPlattScaling(p, cachedParams);
+  }
+  return Math.max(0.01, Math.min(0.99, p));
+}
+
+/**
+ * Whether any calibration is active (config or non-passthrough Platt).
+ */
+export function isRecalibrationActive(): boolean {
+  if (cachedCalibrationConfig) return true;
+  if (cachedParams && (cachedParams.A !== 1 || cachedParams.B !== 0)) return true;
+  return false;
 }
 
 /**

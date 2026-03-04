@@ -17,6 +17,7 @@ import {
   Square2StackIcon,
   SparklesIcon,
   UserGroupIcon,
+  BellAlertIcon,
 } from "@heroicons/react/24/outline";
 import { Sport } from "@/lib/sports/sport-config";
 
@@ -35,9 +36,9 @@ export function Sidebar() {
 
   const isDashboard = pathname === "/" || pathname === "/dashboard";
   const isSportsPage = pathname.startsWith("/sports/");
-  const isPredictionMarkets = pathname.startsWith("/prediction-markets") && pathname !== "/prediction-markets/portfolio" && pathname !== "/prediction-markets/simulator" && pathname !== "/prediction-markets/rules" && pathname !== "/prediction-markets/dna";
+  const isPredictionMarkets = pathname.startsWith("/prediction-markets");
 
-  // Order: Home → Sports → Prediction markets (browse + portfolio) → Tools → AI → Settings
+  // Order: Home → Sports → Prediction markets (grouped) → Slate Builder → Tools → AI → Settings
   const navigation = [
     {
       name: "Dashboard",
@@ -64,13 +65,13 @@ export function Sidebar() {
       children: [
         { name: "Kalshi", href: "/prediction-markets/kalshi", current: pathname === "/prediction-markets/kalshi" },
         { name: "Polymarket", href: "/prediction-markets/polymarket", current: pathname === "/prediction-markets/polymarket" },
+        { name: "Portfolio Risk", href: "/prediction-markets/portfolio", current: pathname === "/prediction-markets/portfolio" },
+        { name: "Price Moves", href: "/prediction-markets/price-moves", current: pathname === "/prediction-markets/price-moves" },
+        { name: "Notifications", href: "/prediction-markets/notifications", current: pathname === "/prediction-markets/notifications" },
+        { name: "Rules", href: "/prediction-markets/rules", current: pathname === "/prediction-markets/rules" },
+        { name: "Betting DNA", href: "/prediction-markets/dna", current: pathname === "/prediction-markets/dna" },
+        { name: "Strategy Simulator", href: "/prediction-markets/simulator", current: pathname === "/prediction-markets/simulator" },
       ],
-    },
-    {
-      name: "Portfolio Risk",
-      href: "/prediction-markets/portfolio",
-      icon: ChartPieIcon,
-      current: pathname === "/prediction-markets/portfolio",
     },
     {
       name: "Slate Builder",
@@ -89,24 +90,6 @@ export function Sidebar() {
       href: "/sandbox",
       icon: Square2StackIcon,
       current: pathname === "/sandbox",
-    },
-    {
-      name: "Strategy Simulator",
-      href: "/prediction-markets/simulator",
-      icon: ChartBarIcon,
-      current: pathname === "/prediction-markets/simulator",
-    },
-    {
-      name: "Rules",
-      href: "/prediction-markets/rules",
-      icon: BoltIcon,
-      current: pathname === "/prediction-markets/rules",
-    },
-    {
-      name: "Betting DNA",
-      href: "/prediction-markets/dna",
-      icon: ChartPieIcon,
-      current: pathname === "/prediction-markets/dna",
     },
     {
       name: "AI Chat",

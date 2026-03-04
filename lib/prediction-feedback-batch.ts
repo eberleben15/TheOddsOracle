@@ -25,7 +25,8 @@ import {
   getTrackingStats,
   TrackedPrediction,
 } from "./prediction-tracker";
-import { fitFromValidations, setRecalibrationParams, type RecalibrationParams } from "./recalibration";
+import { setRecalibrationParams, setCalibrationConfig, type RecalibrationParams } from "./recalibration";
+import { fitPlatt, fitIsotonic } from "./methods";
 import type { Prisma } from "@/generated/prisma-client/client";
 import { prisma } from "./prisma";
 import { generatePerformanceReport } from "./validation-dashboard";
@@ -46,6 +47,7 @@ import {
 } from "./feedback-pipeline-config";
 
 const RECALIBRATION_KEY = "recalibration_platt";
+const CALIBRATION_CONFIG_KEY = "calibration_config";
 const BIAS_CORRECTION_KEY = "bias_correction";
 const VARIANCE_MODEL_KEY = "variance_model";
 const MONTE_CARLO_NUM_SIMULATIONS_KEY = "monte_carlo_num_simulations";
@@ -85,6 +87,20 @@ export interface BatchSyncResult {
 /** Odds API sport keys to fetch (all sports we track predictions for). */
 const ODDS_API_SPORTS = ["basketball_ncaab", "basketball_nba", "icehockey_nhl", "baseball_mlb"] as const;
 
+/** Stored calibration config (method + both param sets for switching) */
+export interface StoredCalibrationConfig {
+  activeMethod: "platt" | "isotonic";
+  platt?: { A: number; B: number };
+  isotonic?: { bins: Array<{ lower: number; upper: number; calibrated: number }> };
+  metadata?: {
+    trainedAt: string;
+    validatedCount: number;
+    brierScore?: number;
+    logLoss?: number;
+    winnerAccuracy?: number;
+  };
+}
+
 /** Metadata stored with calibrated params (for audit / reproducibility) */
 export interface CalibrationMetadata {
   trainedAt: string; // ISO timestamp
@@ -113,6 +129,79 @@ export async function loadRecalibrationParams(): Promise<RecalibrationParams | n
     // Table might not exist yet
   }
   return null;
+}
+
+/**
+ * Load full calibration config (method + params) from DB.
+ */
+export async function loadCalibrationConfig(): Promise<StoredCalibrationConfig | null> {
+  try {
+    const row = await prisma.modelConfig.findUnique({
+      where: { key: CALIBRATION_CONFIG_KEY },
+    });
+    const v = row?.value;
+    if (v && typeof v === "object" && "activeMethod" in v) {
+      const obj = v as unknown as StoredCalibrationConfig;
+      if (obj.platt || obj.isotonic?.bins?.length) {
+        return obj;
+      }
+    }
+  } catch {
+    // Table might not exist
+  }
+  return null;
+}
+
+/**
+ * Ensure calibration_config exists with isotonic. If missing, migrate from legacy
+ * recalibration_platt by fitting isotonic from validated predictions. Enables
+ * switching to isotonic without running full batch sync.
+ */
+export async function ensureCalibrationConfig(): Promise<StoredCalibrationConfig | null> {
+  const existing = await loadCalibrationConfig();
+  const recal = await loadRecalibrationParams();
+  const validated = await getValidatedPredictions();
+
+  if (existing?.isotonic?.bins?.length) {
+    return existing;
+  }
+  if (validated.length < 20) {
+    return existing;
+  }
+
+  const pairs = validated.map((v) => ({
+    predicted: (v.prediction.winProbability as { home: number }).home / 100,
+    actual: (v.actualOutcome!.winner as "home" | "away") === "home" ? 1 : 0,
+  }));
+  const plattParams = fitPlatt(pairs);
+  const isotonicParams = fitIsotonic(pairs);
+
+  const config: StoredCalibrationConfig = {
+    activeMethod: existing?.activeMethod ?? "platt",
+    platt: existing?.platt ?? (recal ? { A: recal.A, B: recal.B } : { A: plattParams.A, B: plattParams.B }),
+    isotonic: { bins: isotonicParams.bins },
+    metadata: existing?.metadata ?? {
+      trainedAt: new Date().toISOString(),
+      validatedCount: validated.length,
+    },
+  };
+  await saveCalibrationConfig(config);
+  return config;
+}
+
+/**
+ * Save calibration config to DB.
+ */
+export async function saveCalibrationConfig(config: StoredCalibrationConfig): Promise<void> {
+  try {
+    await prisma.modelConfig.upsert({
+      where: { key: CALIBRATION_CONFIG_KEY },
+      create: { key: CALIBRATION_CONFIG_KEY, value: config as unknown as Prisma.InputJsonValue },
+      update: { value: config as unknown as Prisma.InputJsonValue },
+    });
+  } catch (error) {
+    console.warn("Could not persist calibration config:", error);
+  }
 }
 
 /**
@@ -273,12 +362,27 @@ export async function saveNumSimulations(num: number): Promise<void> {
 
 /**
  * Load recalibration params from DB and set as active for predictions.
+ * Prefers calibration_config (Platt + Isotonic) if present; else falls back to legacy recalibration_platt.
  * Call at app/request start for server-side prediction routes.
  */
 export async function loadRecalibrationFromDb(): Promise<RecalibrationParams | null> {
+  const config = await loadCalibrationConfig();
+  if (config) {
+    if (config.activeMethod === "platt" && config.platt) {
+      setRecalibrationParams(config.platt);
+      setCalibrationConfig({ method: "platt", params: { method: "platt", ...config.platt } });
+      return config.platt;
+    }
+    if (config.activeMethod === "isotonic" && config.isotonic?.bins?.length) {
+      setRecalibrationParams(null); // Legacy params not used
+      setCalibrationConfig({ method: "isotonic", params: { method: "isotonic", bins: config.isotonic.bins } });
+      return null;
+    }
+  }
   const params = await loadRecalibrationParams();
   if (params) {
     setRecalibrationParams(params);
+    setCalibrationConfig({ method: "platt", params: { method: "platt", A: params.A, B: params.B } });
     return params;
   }
   return null;
@@ -345,15 +449,19 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
       let biasCorrection: BiasCorrection | undefined;
 
       if (validated.length >= 20) {
-        // Stored winProbability is post-Platt; suitable for training next iteration.
+        // Stored winProbability is post-calibration; suitable for training next iteration.
         const pairs = validated.map((v) => ({
-          homeWinProb: (v.prediction.winProbability as { home: number }).home,
-          actualWinner: (v.actualOutcome!.winner as "home" | "away"),
+          predicted: (v.prediction.winProbability as { home: number }).home / 100,
+          actual: (v.actualOutcome!.winner as "home" | "away") === "home" ? 1 : 0,
         }));
 
-        const params = fitFromValidations(pairs, true);
-        setRecalibrationParams(params);
-        recalibrationParams = params;
+        const plattParams = fitPlatt(pairs);
+        const isotonicParams = fitIsotonic(pairs);
+
+        // Use Platt for backward compat; setCalibrationConfig for unified apply
+        setRecalibrationParams({ A: plattParams.A, B: plattParams.B });
+        setCalibrationConfig({ method: "platt", params: plattParams });
+        recalibrationParams = { A: plattParams.A, B: plattParams.B };
         trainingRan = true;
 
         const examples = await buildTrainingDataset({ limit: 5000 });
@@ -383,7 +491,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
             console.warn("[ATS Feedback] Could not save pipeline config:", configError);
           }
         }
-        await saveRecalibrationParams(params, {
+        await saveRecalibrationParams(recalibrationParams!, {
           trainedAt: new Date().toISOString(),
           validatedCount: validated.length,
           metrics: metrics
@@ -393,6 +501,18 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
                 winnerAccuracy: metrics.winnerAccuracy,
               }
             : undefined,
+        });
+        await saveCalibrationConfig({
+          activeMethod: "platt",
+          platt: { A: plattParams.A, B: plattParams.B },
+          isotonic: { bins: isotonicParams.bins },
+          metadata: {
+            trainedAt: new Date().toISOString(),
+            validatedCount: validated.length,
+            brierScore: metrics?.brierScore,
+            logLoss: metrics?.logLoss,
+            winnerAccuracy: metrics?.winnerAccuracy,
+          },
         });
       }
 
@@ -689,16 +809,18 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
     if (!syncOnly) {
       const validated = await getValidatedPredictions();
       if (validated.length >= 20) {
-        // Stored winProbability is post-Platt (predictMatchup applies recalibration before storage).
-        // This is the correct value for training the next iteration's Platt params.
+        // Stored winProbability is post-calibration; suitable for training next iteration.
         const pairs = validated.map((v) => ({
-          homeWinProb: (v.prediction.winProbability as { home: number }).home,
-          actualWinner: (v.actualOutcome!.winner as "home" | "away"),
+          predicted: (v.prediction.winProbability as { home: number }).home / 100,
+          actual: (v.actualOutcome!.winner as "home" | "away") === "home" ? 1 : 0,
         }));
 
-        const params = fitFromValidations(pairs, true);
-        setRecalibrationParams(params);
-        recalibrationParams = params;
+        const plattParams = fitPlatt(pairs);
+        const isotonicParams = fitIsotonic(pairs);
+
+        setRecalibrationParams({ A: plattParams.A, B: plattParams.B });
+        setCalibrationConfig({ method: "platt", params: plattParams });
+        recalibrationParams = { A: plattParams.A, B: plattParams.B };
         trainingRan = true;
 
         const examples = await buildTrainingDataset({ limit: 5000 });
@@ -728,7 +850,7 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
             console.warn("[ATS Feedback] Could not save pipeline config:", configError);
           }
         }
-        await saveRecalibrationParams(params, {
+        await saveRecalibrationParams(recalibrationParams!, {
           trainedAt: new Date().toISOString(),
           validatedCount: validated.length,
           metrics: metrics
@@ -738,6 +860,18 @@ export async function runBatchSync(options: BatchSyncOptions = {}): Promise<Batc
                 winnerAccuracy: metrics.winnerAccuracy,
               }
             : undefined,
+        });
+        await saveCalibrationConfig({
+          activeMethod: "platt",
+          platt: { A: plattParams.A, B: plattParams.B },
+          isotonic: { bins: isotonicParams.bins },
+          metadata: {
+            trainedAt: new Date().toISOString(),
+            validatedCount: validated.length,
+            brierScore: metrics?.brierScore,
+            logLoss: metrics?.logLoss,
+            winnerAccuracy: metrics?.winnerAccuracy,
+          },
         });
       }
 

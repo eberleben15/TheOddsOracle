@@ -30,7 +30,12 @@ export default function NotificationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ read: true, notificationIds: unreadIds }),
     })
-      .then((r) => (r.ok ? fetchNotifications() : null))
+      .then((r) => {
+        if (r.ok) {
+          fetchNotifications();
+          window.dispatchEvent(new Event("notifications-updated"));
+        }
+      })
       .catch(() => {});
   };
 
@@ -60,7 +65,15 @@ export default function NotificationsPage() {
         {loading ? (
           <p className="p-4 text-sm text-gray-500">Loading…</p>
         ) : notifications.length === 0 ? (
-          <p className="p-4 text-sm text-gray-500">No notifications yet. Create rules and run them to see alerts here.</p>
+          <div className="p-6 text-center">
+            <p className="text-sm text-gray-500 mb-3">No notifications yet.</p>
+            <Link
+              href="/prediction-markets/rules"
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Create your first rule →
+            </Link>
+          </div>
         ) : (
           notifications.map((n) => (
             <div

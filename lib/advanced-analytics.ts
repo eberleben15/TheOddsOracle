@@ -11,7 +11,7 @@ import { TeamStats, GameResult } from "@/types";
 import { CalibrationCoefficients, DEFAULT_COEFFICIENTS } from "./prediction-calibration";
 import { SimulationResult } from "./monte-carlo-simulation";
 import type { Sport } from "./sports/sport-config";
-import { applyPlattScaling, getRecalibrationParams } from "./recalibration";
+import { applyCalibration, isRecalibrationActive, getCalibrationConfig } from "./recalibration";
 import { decimalToAmerican } from "./odds-utils";
 
 /** League constants per sport so predicted scores match sportsbook/ESPN scale (pace, PPG, score bounds). */
@@ -133,6 +133,8 @@ export interface PredictionTrace {
   blended?: boolean; // true when Four Factors + efficiency were blended
   homeWinProbRaw: number; // Before recalibration
   recalibrationApplied: boolean;
+  /** Calibration method used when recalibrationApplied: 'platt' | 'isotonic' */
+  calibrationMethod?: 'platt' | 'isotonic';
 }
 
 export interface AlternateSpread {
@@ -958,11 +960,10 @@ function predictNHLMatchup(
   homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
   const homeWinProbRaw = homeWinProb;
   
-  // Apply Platt scaling recalibration if available
-  const recalParams = getRecalibrationParams();
-  const recalibrationApplied = recalParams != null && (recalParams.A !== 1 || recalParams.B !== 0);
-  if (recalibrationApplied && recalParams != null) {
-    homeWinProb = applyPlattScaling(homeWinProb, recalParams);
+  // Apply calibration if available (Platt or isotonic)
+  const recalibrationApplied = isRecalibrationActive();
+  if (recalibrationApplied) {
+    homeWinProb = applyCalibration(homeWinProb);
     homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
   }
   const awayWinProb = 1 - homeWinProb;
@@ -1038,6 +1039,7 @@ function predictNHLMatchup(
       homeAdvantage: homeIceScore,
       homeWinProbRaw,
       recalibrationApplied,
+      calibrationMethod: recalibrationApplied ? getCalibrationConfig()?.method : undefined,
     },
     valueBets: [],
   };
@@ -1090,10 +1092,9 @@ function predictMLBMatchup(
   homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
   const homeWinProbRaw = homeWinProb;
 
-  const recalParams = getRecalibrationParams();
-  const recalibrationApplied = recalParams != null && (recalParams.A !== 1 || recalParams.B !== 0);
-  if (recalibrationApplied && recalParams != null) {
-    homeWinProb = applyPlattScaling(homeWinProb, recalParams);
+  const recalibrationApplied = isRecalibrationActive();
+  if (recalibrationApplied) {
+    homeWinProb = applyCalibration(homeWinProb);
     homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
   }
   const awayWinProb = 1 - homeWinProb;
@@ -1157,6 +1158,7 @@ function predictMLBMatchup(
       homeAdvantage: homeAdvantageScore,
       homeWinProbRaw,
       recalibrationApplied,
+      calibrationMethod: recalibrationApplied ? getCalibrationConfig()?.method : undefined,
     },
     valueBets: [],
   };
@@ -1334,10 +1336,9 @@ export function predictMatchup(
   let homeWinProb = 1 / (1 + Math.exp(-totalScore / 8));
   homeWinProb = Math.max(0.02, Math.min(0.98, homeWinProb));
   const homeWinProbRaw = homeWinProb;
-  const recalParams = getRecalibrationParams();
-  const recalibrationApplied = recalParams != null && (recalParams.A !== 1 || recalParams.B !== 0);
-  if (recalibrationApplied && recalParams != null) {
-    homeWinProb = applyPlattScaling(homeWinProb, recalParams);
+  const recalibrationApplied = isRecalibrationActive();
+  if (recalibrationApplied) {
+    homeWinProb = applyCalibration(homeWinProb);
     homeWinProb = Math.max(0.02, Math.min(0.98, homeWinProb));
   }
   const awayWinProb = 1 - homeWinProb;
@@ -1613,6 +1614,7 @@ export function predictMatchup(
       ...traceData,
       homeWinProbRaw,
       recalibrationApplied,
+      calibrationMethod: recalibrationApplied ? getCalibrationConfig()?.method : undefined,
     },
     valueBets: [], // To be populated by odds comparison
   };

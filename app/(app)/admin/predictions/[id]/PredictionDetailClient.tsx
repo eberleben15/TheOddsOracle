@@ -54,6 +54,7 @@ interface PredictionData {
     homeAdvantage: number;
     homeWinProbRaw: number;
     recalibrationApplied: boolean;
+    calibrationMethod?: "platt" | "isotonic";
     fourFactorsScore?: number;
     efficiencyScore?: number;
   } | null;
@@ -503,7 +504,11 @@ export function PredictionDetailClient({ predictionId }: { predictionId: string 
               )}
               <div>
                 <div className="text-gray-500">Recalibration</div>
-                <div className="font-medium">{p.predictionTrace.recalibrationApplied ? "Applied" : "Not Applied"}</div>
+                <div className="font-medium">
+                  {p.predictionTrace.recalibrationApplied
+                    ? (p.predictionTrace.calibrationMethod === "isotonic" ? "Isotonic" : "Platt")
+                    : "Not Applied"}
+                </div>
               </div>
             </div>
           </CardBody>

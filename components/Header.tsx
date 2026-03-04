@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { MagnifyingGlassIcon, UserCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, UserCircleIcon, XMarkIcon, BellAlertIcon } from "@heroicons/react/24/outline";
 import { SearchResults } from "./SearchResults";
 import { OddsGame, LiveGame } from "@/types";
 
@@ -20,8 +20,28 @@ export function Header() {
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [unreadCount, setUnreadCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const fetchUnreadCount = useCallback(() => {
+    fetch("/api/notifications/count")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { unreadCount?: number } | null) => setUnreadCount(data?.unreadCount ?? 0))
+      .catch(() => setUnreadCount(0));
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 60_000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    const handler = () => fetchUnreadCount();
+    window.addEventListener("notifications-updated", handler);
+    return () => window.removeEventListener("notifications-updated", handler);
+  }, [fetchUnreadCount]);
 
   // Calculate total items for keyboard navigation
   const totalItems = (searchResults?.teams.length || 0) + (searchResults?.games.length || 0);
@@ -176,6 +196,20 @@ export function Header() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-4 ml-6">
+          {/* Notifications */}
+          <Link
+            href="/prediction-markets/notifications"
+            className="relative flex items-center justify-center p-2 rounded-lg hover:bg-body-bg transition-colors"
+            title="Notifications"
+            aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : "Notifications"}
+          >
+            <BellAlertIcon className="h-6 w-6 text-text-body" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </Link>
           {/* User Profile */}
           <Link
             href="/account"

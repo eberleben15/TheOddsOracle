@@ -21,7 +21,9 @@ vi.mock("@/lib/prediction-tracker", () => ({
 }));
 vi.mock("@/lib/recalibration", () => ({
   fitFromValidations: vi.fn(() => ({ A: 1.1, B: -0.05 })),
+  fitPlattScaling: vi.fn(() => ({ A: 1.1, B: -0.05 })),
   setRecalibrationParams: vi.fn(),
+  setCalibrationConfig: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { modelConfig: { findUnique: vi.fn(), upsert: vi.fn() } },
@@ -83,7 +85,7 @@ describe("runBatchSync", () => {
           } as any,
         ],
       })
-      .mockResolvedValueOnce({ games: [] });
+      .mockResolvedValue({ games: [] });
     vi.mocked(recordOutcomeByGameId).mockResolvedValue(true);
     vi.mocked(getValidatedPredictions).mockResolvedValue([]);
     vi.mocked(getTrackingStats).mockResolvedValue({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button, Card, CardBody, Select, SelectItem } from "@nextui-org/react";
 import type { Sport } from "@/lib/sports/sport-config";
@@ -44,9 +44,20 @@ export function BuildSlateSection() {
   const [sport, setSport] = useState<Sport>("cbb");
   const [includeKalshi, setIncludeKalshi] = useState(false);
   const [includePolymarket, setIncludePolymarket] = useState(false);
+  const [limit, setLimit] = useState(12);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SlateResult | null>(null);
+
+  useEffect(() => {
+    fetch("/api/bankroll")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { decisionEngine?: { maxPositions?: number } } | null) => {
+        const m = data?.decisionEngine?.maxPositions;
+        if (typeof m === "number" && m >= 1 && m <= 100) setLimit(m);
+      })
+      .catch(() => {});
+  }, []);
 
   function copySlateToClipboard() {
     if (!result?.positions.length) return;
@@ -92,7 +103,7 @@ export function BuildSlateSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sport,
-          limit: 25,
+          limit,
           includeKalshi: includeKalshi || undefined,
           includePolymarket: includePolymarket || undefined,
         }),
@@ -117,11 +128,11 @@ export function BuildSlateSection() {
         One-click portfolio: we pick positions and sizes from today’s value bets using your bankroll and risk limits.
       </p>
       <p className="text-xs text-gray-500 mb-4">
-        Sizing uses your risk capital from{" "}
+        Uses your risk capital and limits from{" "}
         <Link href="/settings" className="text-primary hover:underline">
           Settings
         </Link>
-        . Set it there for personalized stakes.
+        . Need more options? <Link href="/slate-builder" className="text-primary hover:underline">Open full Slate Builder →</Link>
       </p>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <Select

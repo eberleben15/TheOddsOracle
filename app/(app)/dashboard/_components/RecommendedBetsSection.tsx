@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { RecommendedBets } from "@/components/RecommendedBets";
+import { getSportConfig } from "@/lib/sports/sport-config";
+import type { Sport } from "@/lib/sports/sport-config";
+
+const VALUE_BET_SPORTS: Sport[] = ["cbb", "nba", "nhl", "mlb"];
 import type { RecommendedBet } from "@/types";
 import { PremiumGate } from "@/components/PremiumGate";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
@@ -80,7 +85,22 @@ export function RecommendedBetsSection() {
 
   return (
     <div className="mb-8">
-      <RecommendedBets bets={bets} />
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {VALUE_BET_SPORTS.map((s) => (
+          <Link
+            key={s}
+            href={`/dashboard?sport=${s}#value-bets`}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              sport === s
+                ? "bg-primary text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+            }`}
+          >
+            {getSportConfig(s).displayName}
+          </Link>
+        ))}
+      </div>
+      <RecommendedBets bets={bets} sport={sport} />
     </div>
   );
 }

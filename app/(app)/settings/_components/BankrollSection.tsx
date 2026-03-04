@@ -41,8 +41,8 @@ export function BankrollSection() {
           setForm((p) => ({
             ...p,
             maxPositions: de.maxPositions != null ? String(de.maxPositions) : "",
-            maxFractionPerPosition: de.maxFractionPerPosition != null ? String(de.maxFractionPerPosition) : "",
-            maxFactorFraction: de.maxFactorFraction != null ? String(de.maxFactorFraction) : "",
+            maxFractionPerPosition: de.maxFractionPerPosition != null ? String((de.maxFractionPerPosition * 100)) : "",
+            maxFactorFraction: de.maxFactorFraction != null ? String((de.maxFactorFraction * 100)) : "",
           }));
         }
       })
@@ -78,11 +78,11 @@ export function BankrollSection() {
         if (!Number.isNaN(v) && v >= 1 && v <= 100) payload.maxPositions = v;
       } else payload.maxPositions = null;
       if (form.maxFractionPerPosition.trim() !== "") {
-        const v = Number(form.maxFractionPerPosition);
+        const v = Number(form.maxFractionPerPosition) / 100;
         if (!Number.isNaN(v) && v > 0 && v <= 1) payload.maxFractionPerPosition = v;
       } else payload.maxFractionPerPosition = null;
       if (form.maxFactorFraction.trim() !== "") {
-        const v = Number(form.maxFactorFraction);
+        const v = Number(form.maxFactorFraction) / 100;
         if (!Number.isNaN(v) && v > 0 && v <= 1) payload.maxFactorFraction = v;
       } else payload.maxFactorFraction = null;
 
@@ -101,8 +101,8 @@ export function BankrollSection() {
         setForm((p) => ({
           ...p,
           maxPositions: de.maxPositions != null ? String(de.maxPositions) : "",
-          maxFractionPerPosition: de.maxFractionPerPosition != null ? String(de.maxFractionPerPosition) : "",
-          maxFactorFraction: de.maxFactorFraction != null ? String(de.maxFactorFraction) : "",
+          maxFractionPerPosition: de.maxFractionPerPosition != null ? String((de.maxFractionPerPosition * 100)) : "",
+          maxFactorFraction: de.maxFactorFraction != null ? String((de.maxFactorFraction * 100)) : "",
         }));
       }
     } catch (e) {
@@ -207,28 +207,28 @@ export function BankrollSection() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Max % per position (0–1, e.g. 0.02 = 2%)</label>
+            <label className="block text-xs text-gray-500 mb-1">Max % per position (e.g. 2 = 2%)</label>
             <input
               type="number"
-              min={0.01}
-              max={1}
-              step={0.01}
+              min={0.1}
+              max={100}
+              step={0.5}
               value={form.maxFractionPerPosition}
               onChange={(e) => setForm((p) => ({ ...p, maxFractionPerPosition: e.target.value }))}
-              placeholder="0.02"
+              placeholder="2"
               className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Max % in one factor (0–1, e.g. 0.4 = 40%)</label>
+            <label className="block text-xs text-gray-500 mb-1">Max % in one factor (e.g. 40 = 40%)</label>
             <input
               type="number"
-              min={0.1}
-              max={1}
-              step={0.05}
+              min={5}
+              max={100}
+              step={5}
               value={form.maxFactorFraction}
               onChange={(e) => setForm((p) => ({ ...p, maxFactorFraction: e.target.value }))}
-              placeholder="0.4"
+              placeholder="40"
               className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
             />
           </div>

@@ -7,6 +7,7 @@ import { SportsSummarySection } from "./_components/SportsSummarySection";
 import { PredictionMarketsSummarySection } from "./_components/PredictionMarketsSummarySection";
 import { UnifiedPortfolioSection } from "./_components/UnifiedPortfolioSection";
 import { RecommendedBetsSection } from "./_components/RecommendedBetsSection";
+import { BuildSlateSection } from "./_components/BuildSlateSection";
 import { GettingStartedSection } from "./_components/GettingStartedSection";
 import type { OddsGame, LiveGame } from "@/types";
 import type { Sport } from "@/lib/sports/sport-config";
@@ -73,6 +74,11 @@ export function DashboardHome({
           </Link>
         </div>
         <RecommendedBetsSection />
+      </section>
+
+      {/* Build my slate (inline) */}
+      <section className="mb-8">
+        <BuildSlateSection />
       </section>
 
       {/* Slate Builder CTA */}

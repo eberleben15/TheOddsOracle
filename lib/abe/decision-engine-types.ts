@@ -94,6 +94,8 @@ export interface DecisionEngineResult {
   };
   /** Optional: why some candidates were excluded (for "why not those 12"). */
   excludedReasons?: Record<string, string>;
+  /** Optional: excluded candidates with labels for UI. */
+  excludedWithLabels?: Array<{ id: string; label?: string; reason: string }>;
   /** Solver used (e.g. "classical-mip", "heuristic-greedy", "quantum-hybrid"). */
   solver: string;
   /** Solve time in ms (for benchmarking). */

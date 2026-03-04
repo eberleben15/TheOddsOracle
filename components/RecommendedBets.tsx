@@ -3,13 +3,15 @@
 import { Card, CardBody, CardHeader, Chip, Button } from "@nextui-org/react";
 import { FaStar, FaChartLine, FaArrowRight, FaFire } from "react-icons/fa";
 import Link from "next/link";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import type { RecommendedBet } from "@/types";
 
 interface RecommendedBetsProps {
   bets: RecommendedBet[];
+  sport?: string;
 }
 
-export function RecommendedBets({ bets }: RecommendedBetsProps) {
+export function RecommendedBets({ bets, sport = "cbb" }: RecommendedBetsProps) {
   if (bets.length === 0) {
     return (
       <Card className="bg-gray-50 border border-gray-200">
@@ -43,7 +45,7 @@ export function RecommendedBets({ bets }: RecommendedBetsProps) {
   return (
     <Card className="bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200 shadow-lg">
       <CardHeader className="border-b border-red-200 bg-white/50">
-        <div className="flex items-center justify-between w-full">
+        <div className="flex items-center justify-between w-full flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-red-600 rounded-lg">
               <FaFire className="text-white" size={20} />
@@ -53,6 +55,12 @@ export function RecommendedBets({ bets }: RecommendedBetsProps) {
               <p className="text-sm text-gray-600">Top value opportunities identified by our AI</p>
             </div>
           </div>
+          <Link
+            href="/methodology"
+            className="text-xs text-gray-500 hover:text-primary hover:underline"
+          >
+            How we predict →
+          </Link>
           <Chip size="lg" className="bg-red-600 text-white font-semibold">
             {bets.length} Opportunities
           </Chip>
@@ -145,7 +153,7 @@ export function RecommendedBets({ bets }: RecommendedBetsProps) {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center justify-center">
+                <div className="flex flex-col items-center justify-center gap-2">
                   <Link href={`/matchup/${bet.gameId}`}>
                     <Button
                       size="sm"
@@ -153,6 +161,16 @@ export function RecommendedBets({ bets }: RecommendedBetsProps) {
                       endContent={<FaArrowRight size={12} />}
                     >
                       View Details
+                    </Button>
+                  </Link>
+                  <Link href={`/slate-builder?sport=${sport}`}>
+                    <Button
+                      size="sm"
+                      variant="bordered"
+                      className="border-primary text-primary"
+                      startContent={<SparklesIcon className="h-4 w-4" />}
+                    >
+                      Include in Slate
                     </Button>
                   </Link>
                 </div>

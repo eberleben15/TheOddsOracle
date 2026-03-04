@@ -22,6 +22,7 @@ This file orients AI agents and developers to the product direction and where to
 | Area | Location | Notes |
 |------|----------|--------|
 | Edge / value bets | `lib/recommendation-engine.ts`, `lib/advanced-analytics.ts`, `lib/favorable-bet-engine.ts`, `lib/betting-utils.ts` | Brain A |
+| Methods layer | `lib/methods/` (calibration, registry, isotonic, platt) | See [docs/METHODS_ARCHITECTURE.md](docs/METHODS_ARCHITECTURE.md) |
 | Per-bet sizing | `lib/abe/bankroll-engine.ts` | Kelly, drawdown heuristics |
 | Portfolio risk (existing positions) | `lib/abe/portfolio-risk-engine.ts` | Correlations, factor exposure, variance |
 | Strategy simulation | `lib/abe/strategy-simulator.ts` | Flat vs Kelly on sequences |

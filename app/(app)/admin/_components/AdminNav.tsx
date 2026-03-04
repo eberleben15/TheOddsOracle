@@ -22,6 +22,7 @@ import {
   UserGroupIcon,
   ArrowTrendingUpIcon,
   BoltIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 
 interface NavItem {
@@ -48,6 +49,7 @@ const nav: NavEntry[] = [
     name: "Model",
     icon: BeakerIcon,
     items: [
+      { name: "Methods", href: "/admin/methods", icon: DocumentTextIcon },
       { name: "Performance", href: "/admin/model-performance", icon: SparklesIcon },
       { name: "ATS Feedback", href: "/admin/ats-feedback", icon: AdjustmentsHorizontalIcon },
       { name: "Player Props", href: "/admin/player-props", icon: UserGroupIcon },

@@ -2,6 +2,7 @@
 
 import { Card, CardBody, CardHeader, Chip, Button, Link } from "@nextui-org/react";
 import { FaStar, FaChartLine, FaArrowRight, FaFire, FaExternalLinkAlt } from "react-icons/fa";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import NextLink from "next/link";
 import type { RecommendedBet } from "@/types";
 
@@ -136,9 +137,9 @@ export function ChatBetCard({ bet }: ChatBetCardProps) {
             <p className="text-sm text-gray-700">{bet.reason}</p>
           </div>
 
-          {/* Action Button */}
-          <div className="pt-2">
-            <NextLink href={`/matchup/${bet.gameId}`} passHref>
+          {/* Action Buttons */}
+          <div className="pt-2 flex flex-col sm:flex-row gap-2">
+            <NextLink href={`/matchup/${bet.gameId}`} passHref className="flex-1">
               <Button
                 size="sm"
                 color="primary"
@@ -146,7 +147,17 @@ export function ChatBetCard({ bet }: ChatBetCardProps) {
                 endContent={<FaExternalLinkAlt className="text-xs" />}
                 className="w-full"
               >
-                View Matchup Details
+                View Matchup
+              </Button>
+            </NextLink>
+            <NextLink href="/slate-builder" passHref className="flex-1">
+              <Button
+                size="sm"
+                variant="bordered"
+                startContent={<SparklesIcon className="h-4 w-4" />}
+                className="w-full border-primary text-primary"
+              >
+                Include in Slate
               </Button>
             </NextLink>
           </div>
@@ -164,9 +175,16 @@ interface ChatBetCardsProps {
 export function ChatBetCards({ bets, count }: ChatBetCardsProps) {
   return (
     <div className="space-y-2">
-      <p className="text-sm text-gray-600 mb-3">
-        Showing {bets.length} of {count} recommended betting opportunities
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <p className="text-sm text-gray-600">
+          Showing {bets.length} of {count} recommended betting opportunities
+        </p>
+        <NextLink href="/slate-builder">
+          <Button size="sm" variant="flat" color="primary" startContent={<SparklesIcon className="h-4 w-4" />}>
+            Build slate from these
+          </Button>
+        </NextLink>
+      </div>
       {bets.map((bet) => (
         <ChatBetCard key={bet.id} bet={bet} />
       ))}

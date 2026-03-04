@@ -80,15 +80,27 @@ homeWinProb = clamp(homeWinProb, 0.02, 0.98)
 
 (Logistic with divisor 8; industry alternative: Pythagorean exponent 10.25 + Log5.)
 
-### 3.7 Optional Recalibration (Platt Scaling)
+### 3.7 Calibration: Platt vs Isotonic
 
-When trained params are set:
+Raw model probabilities are recalibrated to match historical outcomes. Two methods are supported:
+
+**Platt Scaling (parametric):**
 
 ```
 p_cal = 1 / (1 + exp(-(A × logit(p) + B)))
 ```
 
-Fitted to minimize log loss on historical (predictedProb, actualOutcome) pairs.
+Fitted to minimize log loss on historical (predictedProb, actualOutcome) pairs. A=1, B=0 = passthrough.
+
+**Isotonic Regression (nonparametric):**
+
+Fits a monotone step function from predicted → calibrated probability using Pool Adjacent Violators (PAV). Often outperforms Platt when miscalibration is non-linear. Requires at least 20 samples to fit.
+
+**When to use:**
+- **Platt:** Default; works well when miscalibration is roughly logistic-shaped.
+- **Isotonic:** Prefer when calibration plot shows non-linear deviations (e.g. overconfident at extremes).
+
+Admin can switch methods at Admin → Methods. Both are fitted during training; switching does not require re-training.
 
 ---
 
@@ -128,7 +140,8 @@ Each prediction includes an optional `trace` with:
 | `momentumScore` | Recent form |
 | `blended` | true if Four Factors + efficiency were blended |
 | `homeWinProbRaw` | Before recalibration |
-| `recalibrationApplied` | Whether Platt scaling was used |
+| `recalibrationApplied` | Whether calibration was applied |
+| `calibrationMethod` | `'platt'` or `'isotonic'` when applied |
 
 ---
 
@@ -158,7 +171,8 @@ DEFAULT_COEFFICIENTS = {
 | `lib/advanced-analytics.ts` | `predictMatchup`, Four Factors, efficiency, trace |
 | `lib/prediction-calibration.ts` | Coefficients, optimization |
 | `lib/score-prediction-validator.ts` | Validation, Brier, log loss, ECE |
-| `lib/recalibration.ts` | Platt scaling fit and apply |
+| `lib/recalibration.ts` | Calibration dispatch (Platt + isotonic) |
+| `lib/methods/` | Methods layer: types, isotonic, platt, registry |
 | `lib/favorable-bet-engine.ts` | Edge calculation, market sanity checks |
 
 ---

@@ -19,6 +19,7 @@ import { getSportFromGame } from "@/lib/sports/sport-detection";
 import { buildBestOddsSnapshot } from "@/lib/odds-utils";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import React from "react";
+import Link from "next/link";
 
 interface AdvancedAnalyticsProps {
   awayTeamStats: TeamStats;
@@ -317,14 +318,19 @@ export function AdvancedAnalytics({
       {/* Win Probability & Prediction */}
       <Card className="bg-white border border-gray-200 shadow-lg">
         <CardHeader className="border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <FaTrophy className="text-gray-600" size={20} />
-            <h3 className="text-xl font-semibold text-text-dark">AI-Powered Prediction</h3>
-            {hasValidPrediction && (
-              <Chip size="sm" className="bg-gray-100 text-gray-700" variant="flat">
-                {safeNumber(prediction.confidence, 0)}% Confidence
-              </Chip>
-            )}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <FaTrophy className="text-gray-600" size={20} />
+              <h3 className="text-xl font-semibold text-text-dark">AI-Powered Prediction</h3>
+              {hasValidPrediction && (
+                <Chip size="sm" className="bg-gray-100 text-gray-700" variant="flat">
+                  {safeNumber(prediction.confidence, 0)}% Confidence
+                </Chip>
+              )}
+            </div>
+            <Link href="/methodology" className="text-xs text-gray-500 hover:text-primary hover:underline">
+              How we predict →
+            </Link>
           </div>
         </CardHeader>
         <CardBody className="p-6">
