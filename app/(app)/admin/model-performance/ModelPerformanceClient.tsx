@@ -34,6 +34,14 @@ import {
   XMarkIcon,
   QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
+import { MetricExplanationPanel, MetricInfoButton } from "@/components/MetricExplanationPanel";
+import {
+  CALIBRATION_RELIABILITY_SECTIONS,
+  BRIER_SECTIONS,
+  LOG_LOSS_SECTIONS,
+  ECE_SECTIONS,
+  METRICS_GLOSSARY_SECTIONS,
+} from "@/lib/model-insights-content";
 
 function InfoBubble({ content }: { content: string }) {
   return (
@@ -88,6 +96,7 @@ interface ModelPerformanceData {
     spreadMAE: number;
     totalMAE: number;
     ats?: { wins: number; losses: number; pushes: number; winRate: number };
+    gamesWithClosingLine?: number;
     overUnder?: { overWins: number; underWins: number; totalAccuracy: number };
   } | null;
   calibrationChart: CalibrationBin[];
@@ -222,7 +231,10 @@ export function ModelPerformanceClient() {
         const v = parseFloat(configForm.biasScore);
         if (!isNaN(v)) bias.scoreBias = v;
       }
-      if (Object.keys(bias).length > 0) body.biasCorrection = bias;
+      if (Object.keys(bias).length > 0) {
+        body.biasCorrection = bias;
+        if (sport) (body.biasCorrection as Record<string, unknown>).sport = sport;
+      }
 
       const res = await fetch("/api/admin/model-performance/config", {
         method: "PATCH",
@@ -270,7 +282,16 @@ export function ModelPerformanceClient() {
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold flex items-center gap-2">
             Model Performance
-            <InfoBubble content="Evaluation metrics, calibration, and config for the prediction model. Based on validated predictions (last 90 days)." />
+            <MetricExplanationPanel
+              tooltip="Open full metrics glossary"
+              badge="Glossary"
+              sections={[
+                ...BRIER_SECTIONS,
+                ...LOG_LOSS_SECTIONS,
+                ...ECE_SECTIONS,
+                ...METRICS_GLOSSARY_SECTIONS,
+              ]}
+            />
           </h1>
           <Select
             size="sm"
@@ -312,7 +333,7 @@ export function ModelPerformanceClient() {
         <Card>
           <CardBody className="py-4">
             <div className="flex items-center gap-1 text-xs text-gray-500">
-              Brier Score <InfoBubble content="Mean squared error of predicted vs actual outcome (0–1). Lower = more accurate probabilities." />
+              Brier Score <MetricInfoButton tooltip="Learn about Brier Score" sections={BRIER_SECTIONS} />
             </div>
             <div className="text-xl font-bold">
               {eval_ ? eval_.brierScore.toFixed(4) : "-"}
@@ -323,7 +344,7 @@ export function ModelPerformanceClient() {
         <Card>
           <CardBody className="py-4">
             <div className="flex items-center gap-1 text-xs text-gray-500">
-              Log Loss <InfoBubble content="Cross-entropy loss; penalizes overconfident wrong predictions. Lower = better." />
+              Log Loss <MetricInfoButton tooltip="Learn about Log Loss" sections={LOG_LOSS_SECTIONS} />
             </div>
             <div className="text-xl font-bold">
               {eval_ ? eval_.logLoss.toFixed(4) : "-"}
@@ -334,7 +355,7 @@ export function ModelPerformanceClient() {
         <Card>
           <CardBody className="py-4">
             <div className="flex items-center gap-1 text-xs text-gray-500">
-              Winner Accuracy <InfoBubble content="% of games where we correctly predicted the winner. 60%+ is strong." />
+              Winner Accuracy <MetricInfoButton tooltip="Learn about Winner Accuracy" sections={[METRICS_GLOSSARY_SECTIONS[0]]} />
             </div>
             <div
               className={`text-xl font-bold ${
@@ -353,7 +374,7 @@ export function ModelPerformanceClient() {
         <Card>
           <CardBody className="py-4">
             <div className="flex items-center gap-1 text-xs text-gray-500">
-              Spread MAE <InfoBubble content="Mean absolute error of predicted margin (spread). Lower = more accurate score predictions." />
+              Spread MAE <MetricInfoButton tooltip="Learn about Spread MAE" sections={[METRICS_GLOSSARY_SECTIONS[1]]} />
             </div>
             <div className="text-xl font-bold">
               {eval_ ? eval_.spreadMAE.toFixed(2) : "-"}
@@ -363,7 +384,7 @@ export function ModelPerformanceClient() {
         <Card>
           <CardBody className="py-4">
             <div className="flex items-center gap-1 text-xs text-gray-500">
-              ATS Win Rate <InfoBubble content="Against the spread: % of spread picks that covered. 53%+ meets performance gate for recs." />
+              True ATS Win Rate <MetricInfoButton tooltip="ATS against market closing line only (excludes games without closing spread)" sections={[METRICS_GLOSSARY_SECTIONS[2]]} />
             </div>
             <div
               className={`text-xl font-bold ${
@@ -378,13 +399,16 @@ export function ModelPerformanceClient() {
               {eval_?.ats
                 ? `${eval_.ats.wins}-${eval_.ats.losses}-${eval_.ats.pushes}`
                 : ""}
+              {eval_?.gamesWithClosingLine != null && (
+                <span className="ml-1">· {eval_.gamesWithClosingLine} w/ closing line</span>
+              )}
             </div>
           </CardBody>
         </Card>
         <Card>
           <CardBody className="py-4">
             <div className="flex items-center gap-1 text-xs text-gray-500">
-              O/U Accuracy <InfoBubble content="% of over/under picks correct vs market total. Based on predicted total vs closing line." />
+              O/U Accuracy <MetricInfoButton tooltip="Learn about O/U Accuracy" sections={[METRICS_GLOSSARY_SECTIONS[3]]} />
             </div>
             <div className="text-xl font-bold">
               {eval_?.overUnder
@@ -454,13 +478,20 @@ export function ModelPerformanceClient() {
       {/* Calibration chart */}
       {d.calibrationChart.length > 0 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               Calibration (Predicted vs Actual Win Rate)
-              <InfoBubble content="Groups predictions by probability bin. Well-calibrated = predicted % matches actual win rate. Bars should align with diagonal." />
+              <MetricExplanationPanel
+                tooltip="Open calibration learning guide"
+                badge="Learn"
+                sections={CALIBRATION_RELIABILITY_SECTIONS}
+              />
             </h2>
           </CardHeader>
-          <CardBody>
+          <CardBody className="space-y-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+              Groups predictions by probability bin. Blue = predicted, green = actual. Bars should align for well-calibrated probabilities.
+            </p>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={d.calibrationChart}>
@@ -494,10 +525,13 @@ export function ModelPerformanceClient() {
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Perfect calibration = predicted bars match actual. ECE:{" "}
-              {d.calibrationMetrics?.expectedCalibrationError.toFixed(4) ?? "-"}
-            </p>
+            <div className="flex flex-wrap items-center gap-4 mt-3">
+              <p className="text-sm text-gray-500">
+                <strong>ECE:</strong> {d.calibrationMetrics?.expectedCalibrationError.toFixed(4) ?? "-"}
+                <span className="ml-1 text-xs">(lower is better; &lt;0.03 = good)</span>
+              </p>
+              <MetricInfoButton tooltip="What is ECE?" sections={ECE_SECTIONS} />
+            </div>
           </CardBody>
         </Card>
       )}
@@ -655,7 +689,11 @@ export function ModelPerformanceClient() {
             </div>
             <div>
               <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                Bias Correction (pts) <InfoBubble content="Subtract these from predictions. E.g. homeTeamBias +1.5 = we over-predict home by 1.5 pts; use -1.5 to correct." />
+                Bias Correction (pts)
+                {sport && (
+                  <span className="text-xs font-normal text-gray-500">for {formatSport(sport)}</span>
+                )}
+                <InfoBubble content="Subtract these from predictions. When sport is selected, applies to that sport only. E.g. homeTeamBias -11 = we under-predict home by 11 pts." />
               </h3>
               {editingConfig ? (
                 <div className="flex flex-wrap gap-2">

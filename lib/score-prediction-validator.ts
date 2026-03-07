@@ -276,7 +276,11 @@ export function calculateValidationMetrics(
   };
 
   // === Over/Under Performance ===
-  const validationsWithTotal = validations.filter(v => v.predictedTotal != null);
+  // Only include validations with a real market O/U line. Never use predicted total as proxy -
+  // that would inflate O/U accuracy when we over-predict (actual < pred always counts as "Under hit").
+  const validationsWithTotal = validations.filter(
+    v => v.predictedTotal != null && v.marketTotal != null
+  );
   let overWins = 0;
   let underWins = 0;
   let ouPushes = 0;
@@ -288,7 +292,7 @@ export function calculateValidationMetrics(
   for (const v of validationsWithTotal) {
     const predictedTotal = v.predictedTotal!;
     const actualTotal = v.actualScore.home + v.actualScore.away;
-    const marketLine = v.marketTotal ?? predictedTotal;
+    const marketLine = v.marketTotal!;
 
     // Did we predict over or under the market line?
     const predictedOver = predictedTotal > marketLine;
@@ -489,6 +493,50 @@ export function calculateValidationMetrics(
       expectedCalibrationError: ece,
     },
     gameCount: validations.length,
+  };
+}
+
+/**
+ * Compute True ATS metrics for validations that have a market (closing) spread.
+ * Use when you need ATS against the market line only, excluding games where
+ * we fall back to our predicted spread.
+ */
+export function computeTrueATSMetrics(
+  validations: PredictionValidation[]
+): { wins: number; losses: number; pushes: number; winRate: number; record: string; gameCount: number } | null {
+  const withMarket = validations.filter((v) => v.marketSpread != null);
+  if (withMarket.length === 0) return null;
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+  for (const v of withMarket) {
+    const betOnHome = v.predictedSpread > 0;
+    const lineInOurFormat = -v.marketSpread!; // Odds API: neg = home favored
+    const actualMargin = v.actualSpread;
+
+    if (betOnHome) {
+      const homeCover = actualMargin - lineInOurFormat;
+      if (homeCover > 0) wins++;
+      else if (homeCover < 0) losses++;
+      else pushes++;
+    } else {
+      const awayCover = lineInOurFormat - actualMargin;
+      if (awayCover > 0) wins++;
+      else if (awayCover < 0) losses++;
+      else pushes++;
+    }
+  }
+
+  const decided = wins + losses;
+  return {
+    wins,
+    losses,
+    pushes,
+    winRate: decided > 0 ? (wins / decided) * 100 : 0,
+    record: `${wins}-${losses}-${pushes}`,
+    gameCount: withMarket.length,
   };
 }
 

@@ -46,7 +46,8 @@ export async function PATCH(request: NextRequest) {
       if (typeof b.homeTeamBias === "number") bias.homeTeamBias = b.homeTeamBias;
       if (typeof b.awayTeamBias === "number") bias.awayTeamBias = b.awayTeamBias;
       if (typeof b.scoreBias === "number") bias.scoreBias = b.scoreBias;
-      await saveBiasCorrection(bias);
+      const sport = typeof b.sport === "string" ? b.sport : undefined;
+      await saveBiasCorrection(bias, sport);
     }
 
     if (body.numSimulations != null) {

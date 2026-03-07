@@ -14,7 +14,8 @@ import {
 } from "./sports/unified-sports-api";
 import { calculateTeamAnalytics, predictMatchup, TeamAnalytics } from "./advanced-analytics";
 import { trackPrediction, StoredTeamAnalytics } from "./prediction-tracker";
-import { loadRecalibrationFromDb } from "./prediction-feedback-batch";
+import { loadRecalibrationFromDb, loadBiasCorrection } from "./prediction-feedback-batch";
+import { applyBiasCorrection } from "./recommendation-engine";
 
 /** Convert TeamAnalytics to StoredTeamAnalytics for DB persistence */
 function toStoredAnalytics(a: TeamAnalytics): StoredTeamAnalytics {
@@ -112,13 +113,35 @@ export async function generatePredictionForGame(
     );
 
     // Generate prediction
-    const prediction = predictMatchup(
+    let prediction = predictMatchup(
       awayAnalytics,
       homeAnalytics,
       awayStats,
       homeStats,
       sport
     );
+
+    // Apply per-sport bias correction (e.g. NBA under-prediction fix)
+    const bias = await loadBiasCorrection(game.sport_key);
+    if (bias) {
+      const rawInput = {
+        predictedScore: prediction.predictedScore,
+        predictedSpread: prediction.predictedSpread,
+        predictedTotal: prediction.predictedScore.home + prediction.predictedScore.away,
+        winProbability: prediction.winProbability,
+        confidence: prediction.confidence,
+        homeTeam: game.home_team,
+        awayTeam: game.away_team,
+        sport: game.sport_key,
+      };
+      const corrected = applyBiasCorrection(rawInput, bias);
+      prediction = {
+        ...prediction,
+        predictedScore: corrected.predictedScore!,
+        predictedSpread: corrected.predictedSpread,
+        winProbability: prediction.winProbability, // unchanged by bias
+      };
+    }
 
     // Extract odds snapshot for tracking
     const oddsSnapshot = extractOddsFromGame(game);

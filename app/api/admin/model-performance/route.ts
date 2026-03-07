@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       generatePerformanceReport(90, sport),
       buildTrainingDataset({ sport, limit: 5000 }),
       loadRecalibrationWithMetadata(),
-      loadBiasCorrection(),
+      loadBiasCorrection(sport),
       loadVarianceModel(),
       loadNumSimulations(),
       getPropPerformanceStats({ startDate }),
@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
             spreadMAE: evaluation.spreadMAE,
             totalMAE: evaluation.totalMAE,
             ats: evaluation.ats,
+            trueAts: performanceReport.trueAts,
+            gamesWithClosingLine: performanceReport.gamesWithClosingLine,
             overUnder: evaluation.overUnder,
           }
         : null,

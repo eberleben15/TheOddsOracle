@@ -174,6 +174,24 @@ if (Math.abs(coverMargin) < 0.5) {
 }
 ```
 
+### True ATS vs Blended ATS
+
+We report two ATS metrics. Use them as follows:
+
+| Metric | Definition | When to use |
+|--------|------------|-------------|
+| **Blended ATS** | All validated games. For games without a closing spread, we use our predicted spread as the line. | Overall model performance; includes games where odds capture missed the closing line. |
+| **True ATS** | Only games with a closing spread. Our pick vs the market line. | Actual betting performance against the market; the metric that matters for profitability. |
+
+**Closing line coverage** depends on the capture-odds cron. If it runs infrequently, many games will lack `closingSpread`. Those games are excluded from True ATS. When coverage is low (&lt;70%), Blended ATS can misrepresent real ATS performance because it falls back to our own predicted spread.
+
+**Where each is shown**:
+- Admin → Predictions: Both Blended ATS and True ATS (with games-with-closing-line count)
+- Admin → Model Performance: True ATS only (evaluation harness includes only games with market spread)
+- Audit script (any sport): `npm run audit-predictions` (default CBB), `npm run audit-nba`, or `npx tsx scripts/audit-predictions.ts --sport basketball_nba`
+
+**Reference**: `lib/score-prediction-validator.ts` (`calculateValidationMetrics` = blended, `computeTrueATSMetrics` = true).
+
 ---
 
 ## ATS Feedback Analysis

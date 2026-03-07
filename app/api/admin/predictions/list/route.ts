@@ -40,6 +40,7 @@ export interface PredictionListItem {
   // CLV (Closing Line Value) fields
   openingSpread: number | null;
   closingSpread: number | null;
+  closingTotal: number | null;
   clvSpread: number | null;
   lineMovement: number | null;
 }
@@ -109,6 +110,7 @@ export async function GET(request: NextRequest) {
           // CLV fields
           openingSpread: true,
           closingSpread: true,
+          closingTotal: true,
           clvSpread: true,
           lineMovement: true,
         },
@@ -140,6 +142,7 @@ export async function GET(request: NextRequest) {
         // CLV fields
         openingSpread: p.openingSpread,
         closingSpread: p.closingSpread,
+        closingTotal: p.closingTotal,
         clvSpread: p.clvSpread,
         lineMovement: p.lineMovement,
       })),

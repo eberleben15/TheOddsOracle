@@ -78,6 +78,12 @@ export async function syncGames(sportsFilter?: string[]): Promise<GameSyncResult
       // Process each game
       for (const game of games) {
         try {
+          // Skip games that have already started - avoid creating predictions on closing-line odds
+          const gameTime = new Date(game.commence_time);
+          if (gameTime <= new Date()) {
+            continue;
+          }
+
           // Check if we already track this game
           const existingGame = await prisma.trackedGame.findUnique({
             where: { externalId: game.id },

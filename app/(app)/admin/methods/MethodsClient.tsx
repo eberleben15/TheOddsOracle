@@ -27,6 +27,12 @@ import {
   QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { MetricExplanationPanel, MetricInfoButton } from "@/components/MetricExplanationPanel";
+import {
+  FACTOR_CONTRIBUTIONS_SECTIONS,
+  CALIBRATION_RELIABILITY_SECTIONS,
+  ECE_SECTIONS,
+} from "@/lib/model-insights-content";
 
 function InfoBubble({ content }: { content: string }) {
   return (
@@ -328,13 +334,20 @@ export function MethodsClient() {
       {/* Factor Contribution Chart */}
       {d.factorContributions && d.factorContributions.length > 0 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               Factor Contributions (avg magnitude)
-              <InfoBubble content="Average absolute contribution of each factor across recent predictions with trace." />
+              <MetricExplanationPanel
+                tooltip="Open learning guide"
+                badge="Learn"
+                sections={FACTOR_CONTRIBUTIONS_SECTIONS}
+              />
             </h2>
           </CardHeader>
-          <CardBody>
+          <CardBody className="space-y-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+              Which model inputs drive predictions most. Higher bars = larger typical impact. Based on {d.traceSampleCount} predictions with trace.
+            </p>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={d.factorContributions} layout="vertical" margin={{ left: 20 }}>
@@ -355,13 +368,20 @@ export function MethodsClient() {
       {/* Calibration Chart */}
       {d.calibrationChart.length > 0 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               Calibration Reliability
-              <InfoBubble content="Predicted vs actual win rate by probability bin. Well-calibrated = bars align." />
+              <MetricExplanationPanel
+                tooltip="Open learning guide"
+                badge="Learn"
+                sections={CALIBRATION_RELIABILITY_SECTIONS}
+              />
             </h2>
           </CardHeader>
-          <CardBody>
+          <CardBody className="space-y-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+              Do our predicted win % match reality? Blue = predicted, green = actual. Bars should align for well-calibrated probabilities.
+            </p>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={d.calibrationChart}>
@@ -379,9 +399,16 @@ export function MethodsClient() {
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              ECE: {d.calibrationMetrics?.expectedCalibrationError.toFixed(4) ?? "-"}
-            </p>
+            <div className="flex flex-wrap items-center gap-4 mt-3">
+              <p className="text-sm text-gray-500">
+                <strong>ECE:</strong> {d.calibrationMetrics?.expectedCalibrationError.toFixed(4) ?? "-"}
+                <span className="ml-1 text-xs">(lower is better; &lt;0.03 = good)</span>
+              </p>
+              <MetricInfoButton
+                tooltip="What is ECE?"
+                sections={ECE_SECTIONS}
+              />
+            </div>
           </CardBody>
         </Card>
       )}

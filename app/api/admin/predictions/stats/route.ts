@@ -104,6 +104,8 @@ export async function GET(request: NextRequest) {
         biases: performanceReport.biases,
         // Enhanced metrics
         ats: performanceReport.overall.ats,
+        trueAts: performanceReport.trueAts,
+        gamesWithClosingLine: performanceReport.gamesWithClosingLine,
         overUnder: performanceReport.overall.overUnder,
         categories: performanceReport.overall.categories,
         calibration: performanceReport.overall.calibration ? {

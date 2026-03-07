@@ -243,3 +243,87 @@ export async function getGameOdds(gameId: string, sport?: Sport): Promise<OddsGa
   }
   return null;
 }
+
+/** Historical odds API response (wraps standard odds with snapshot metadata) */
+export interface HistoricalOddsResponse {
+  timestamp: string;
+  previous_timestamp: string | null;
+  next_timestamp: string | null;
+  data: OddsGame[];
+}
+
+/**
+ * Fetch historical odds for a sport at a given timestamp.
+ * Returns closest snapshot at or before the provided date.
+ * Quota: 10 units per region per market per request (paid plans only).
+ *
+ * @param sport - Odds API sport key (e.g. basketball_ncaab)
+ * @param date - ISO8601 timestamp
+ */
+export async function fetchHistoricalOdds(
+  sport: string = "basketball_ncaab",
+  date: Date | string,
+  regions: string = "us",
+  markets: string = "h2h,spreads,totals"
+): Promise<HistoricalOddsResponse> {
+  const apiKey = process.env.THE_ODDS_API_KEY;
+  if (!apiKey) {
+    throw new Error("THE_ODDS_API_KEY is not set in environment variables");
+  }
+
+  // API expects ISO8601 without milliseconds, e.g. 2021-10-18T12:00:00Z
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) {
+    throw new Error("Invalid date for historical API");
+  }
+  const dateStr = dateObj.toISOString().replace(/\.\d{3}Z$/, "Z");
+
+  const url = `${THE_ODDS_API_BASE_URL}/historical/sports/${sport}/odds/?regions=${regions}&markets=${markets}&oddsFormat=american&apiKey=${apiKey}&date=${encodeURIComponent(dateStr)}`;
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    let errorMessage = `Historical odds API ${response.status}: ${response.statusText}`;
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : {};
+      const code = errorJson.error_code;
+      const msg = errorJson.message || "";
+      if (code === "HISTORICAL_UNAVAILABLE_ON_FREE_USAGE_PLAN") {
+        errorMessage =
+          "Historical odds API requires a paid subscription. Upgrade at https://the-odds-api.com/";
+      } else if (code === "OUT_OF_USAGE_CREDITS") {
+        errorMessage = "API quota exceeded. Historical odds consume 10 credits per request.";
+      } else if (code === "INVALID_HISTORICAL_TIMESTAMP") {
+        errorMessage = `Invalid date for historical API: ${msg}`;
+      } else if (code || msg) {
+        errorMessage = `${code || "Error"}: ${msg}`.trim();
+      } else if (errorText) {
+        errorMessage += ` - ${errorText.slice(0, 150)}`;
+      }
+    } catch {
+      if (errorText) errorMessage += ` - ${errorText.slice(0, 150)}`;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch historical odds for a specific game at a given timestamp.
+ * Returns the game if found in the snapshot, null otherwise.
+ */
+export async function fetchHistoricalOddsForGame(
+  sport: string,
+  gameId: string,
+  date: Date | string,
+  regions: string = "us",
+  markets: string = "h2h,spreads,totals"
+): Promise<OddsGame | null> {
+  const response = await fetchHistoricalOdds(sport, date, regions, markets);
+  const game = response.data.find((g) => g.id === gameId);
+  return game ?? null;
+}

@@ -70,6 +70,15 @@ interface PerformanceStats {
     winRate: number;
     record: string;
   };
+  trueAts?: {
+    wins: number;
+    losses: number;
+    pushes: number;
+    winRate: number;
+    record: string;
+    gameCount: number;
+  };
+  gamesWithClosingLine?: number;
   overUnder?: {
     overWins: number;
     underWins: number;
@@ -586,11 +595,23 @@ export function PredictionsDashboard() {
                       }`}>
                         {performance.ats.winRate.toFixed(1)}%
                       </div>
-                      <div className="text-sm font-medium text-gray-600">ATS Win Rate</div>
+                      <div className="text-sm font-medium text-gray-600">ATS Win Rate (blended)</div>
                     </div>
                     <div className="text-2xl font-semibold text-gray-700 dark:text-gray-300">
                       {performance.ats.record}
                     </div>
+                    {performance.trueAts && (
+                      <div className="border-l border-gray-300 dark:border-gray-600 pl-4">
+                        <div className={`text-xl font-bold ${
+                          performance.trueAts.winRate >= 53 ? "text-green-600" : 
+                          performance.trueAts.winRate >= 50 ? "text-blue-600" : "text-amber-600"
+                        }`}>
+                          {performance.trueAts.winRate.toFixed(1)}%
+                        </div>
+                        <div className="text-xs font-medium text-gray-600">True ATS (market line)</div>
+                        <div className="text-sm text-gray-500">{performance.trueAts.record} · {performance.gamesWithClosingLine ?? performance.trueAts.gameCount} games</div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-6 text-center">
                     <div>
@@ -1459,17 +1480,21 @@ export function PredictionsDashboard() {
                             : `Away didn't cover (+${awayMargin.toFixed(0)} vs +${awayNeeded.toFixed(1)})`;
                       }
                       
-                      // O/U result
-                      const marketTotal = p.closingTotal ?? predTotal;
-                      const predictedOver = predTotal > marketTotal;
-                      const actualOver = actualTotal > marketTotal;
-                      const totalPush = actualTotal === marketTotal;
-                      let totalHit: boolean | null = totalPush ? null : (predictedOver === actualOver);
-                      const totalText = totalPush 
-                        ? "Push" 
-                        : totalHit 
-                          ? `${actualOver ? "Over" : "Under"} hit (${actualTotal} vs ${marketTotal.toFixed(0)})`
-                          : `${actualOver ? "Over" : "Under"} (${actualTotal} vs ${marketTotal.toFixed(0)})`;
+                      // O/U result - only valid when we have a real market line (closingTotal)
+                      // Never use predicted total as proxy: that would show false "hits" when we over-predict
+                      const marketTotal = p.closingTotal ?? null;
+                      const hasMarketLine = marketTotal != null;
+                      const actualOver = hasMarketLine ? actualTotal > marketTotal : false;
+                      const totalPush = hasMarketLine && actualTotal === marketTotal;
+                      const predictedOver = hasMarketLine ? (predTotal > marketTotal) : false;
+                      let totalHit: boolean | null = !hasMarketLine ? null : totalPush ? null : (predictedOver === actualOver);
+                      const totalText = !hasMarketLine 
+                        ? "No closing O/U line"
+                        : totalPush 
+                          ? "Push" 
+                          : totalHit 
+                            ? `${actualOver ? "Over" : "Under"} hit (${actualTotal} vs ${marketTotal.toFixed(0)})`
+                            : `${actualOver ? "Over" : "Under"} (${actualTotal} vs ${marketTotal.toFixed(0)})`;
                       
                       return (
                         <div className="ml-9 flex flex-wrap items-center gap-2 text-sm">

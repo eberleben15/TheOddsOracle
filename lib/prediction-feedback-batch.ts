@@ -49,6 +49,7 @@ import {
 const RECALIBRATION_KEY = "recalibration_platt";
 const CALIBRATION_CONFIG_KEY = "calibration_config";
 const BIAS_CORRECTION_KEY = "bias_correction";
+const BIAS_CORRECTION_PREFIX = "bias_correction_";
 const VARIANCE_MODEL_KEY = "variance_model";
 const MONTE_CARLO_NUM_SIMULATIONS_KEY = "monte_carlo_num_simulations";
 
@@ -253,13 +254,28 @@ export async function saveRecalibrationParams(
 
 /**
  * Load persisted bias corrections from DB.
+ * @param sport - If provided, load sport-specific bias. Otherwise load global fallback.
  */
-export async function loadBiasCorrection(): Promise<BiasCorrection | null> {
+export async function loadBiasCorrection(sport?: string | null): Promise<BiasCorrection | null> {
   try {
-    const row = await prisma.modelConfig.findUnique({
-      where: { key: BIAS_CORRECTION_KEY },
+    const keys: string[] = [];
+    if (sport) keys.push(BIAS_CORRECTION_PREFIX + sport);
+    keys.push(BIAS_CORRECTION_KEY); // global fallback
+
+    const rows = await prisma.modelConfig.findMany({
+      where: { key: { in: keys } },
     });
-    const v = row?.value;
+    const byKey = new Map(rows.map((r) => [r.key, r.value]));
+
+    // Prefer sport-specific, then global
+    if (sport) {
+      const sportKey = BIAS_CORRECTION_PREFIX + sport;
+      const v = byKey.get(sportKey);
+      if (v && typeof v === "object" && ("homeTeamBias" in v || "awayTeamBias" in v || "scoreBias" in v)) {
+        return v as BiasCorrection;
+      }
+    }
+    const v = byKey.get(BIAS_CORRECTION_KEY);
     if (v && typeof v === "object" && ("homeTeamBias" in v || "awayTeamBias" in v || "scoreBias" in v)) {
       return v as BiasCorrection;
     }
@@ -270,13 +286,59 @@ export async function loadBiasCorrection(): Promise<BiasCorrection | null> {
 }
 
 /**
- * Save bias corrections to DB.
+ * Load bias corrections for multiple sports in one query.
  */
-export async function saveBiasCorrection(params: BiasCorrection): Promise<void> {
+export async function loadBiasCorrectionsForSports(
+  sports: string[]
+): Promise<Record<string, BiasCorrection | null>> {
+  const result: Record<string, BiasCorrection | null> = {};
+  if (sports.length === 0) return result;
+
   try {
+    const keys = [
+      BIAS_CORRECTION_KEY,
+      ...sports.map((s) => BIAS_CORRECTION_PREFIX + s),
+    ];
+    const rows = await prisma.modelConfig.findMany({
+      where: { key: { in: keys } },
+    });
+    const byKey = new Map(rows.map((r) => [r.key, r.value]));
+
+    const global = byKey.get(BIAS_CORRECTION_KEY);
+    const globalBias =
+      global && typeof global === "object" && ("homeTeamBias" in global || "awayTeamBias" in global || "scoreBias" in global)
+        ? (global as BiasCorrection)
+        : null;
+
+    for (const sport of sports) {
+      const sportKey = BIAS_CORRECTION_PREFIX + sport;
+      const v = byKey.get(sportKey);
+      if (v && typeof v === "object" && ("homeTeamBias" in v || "awayTeamBias" in v || "scoreBias" in v)) {
+        result[sport] = v as BiasCorrection;
+      } else {
+        result[sport] = globalBias;
+      }
+    }
+  } catch {
+    // Table might not exist
+  }
+  return result;
+}
+
+/**
+ * Save bias corrections to DB.
+ * @param params - Bias values to save
+ * @param sport - If provided, save as sport-specific. Otherwise save as global.
+ */
+export async function saveBiasCorrection(
+  params: BiasCorrection,
+  sport?: string | null
+): Promise<void> {
+  try {
+    const key = sport ? BIAS_CORRECTION_PREFIX + sport : BIAS_CORRECTION_KEY;
     await prisma.modelConfig.upsert({
-      where: { key: BIAS_CORRECTION_KEY },
-      create: { key: BIAS_CORRECTION_KEY, value: params as Prisma.InputJsonValue },
+      where: { key },
+      create: { key, value: params as Prisma.InputJsonValue },
       update: { value: params as Prisma.InputJsonValue },
     });
   } catch (error) {

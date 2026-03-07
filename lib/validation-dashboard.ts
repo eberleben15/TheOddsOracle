@@ -6,7 +6,7 @@
  */
 
 import { TrackedPrediction, getValidatedPredictions, getTrackingStats, StoredFavorableBet } from "./prediction-tracker";
-import { ValidationMetrics, calculateValidationMetrics, PredictionValidation, validateGamePrediction, logValidationMetrics } from "./score-prediction-validator";
+import { ValidationMetrics, calculateValidationMetrics, computeTrueATSMetrics, PredictionValidation, validateGamePrediction, logValidationMetrics } from "./score-prediction-validator";
 
 export interface PerformanceTrend {
   period: string; // e.g., "2024-01", "Last 7 days"
@@ -33,6 +33,10 @@ export interface PerformanceReport {
   };
   favorableBetPerformance?: FavorableBetPerformance;
   bySport?: Record<string, ValidationMetrics>;
+  /** True ATS: market line only (excludes games without closing spread) */
+  trueAts?: { wins: number; losses: number; pushes: number; winRate: number; record: string; gameCount: number };
+  /** Count of validated games that have a closing spread (for True ATS) */
+  gamesWithClosingLine?: number;
 }
 
 /**
@@ -140,6 +144,10 @@ export async function generatePerformanceReport(days: number = 90, sport?: strin
   // Per-sport metrics
   const bySport = computePerSportMetrics(recentPredictions);
   
+  // True ATS (market line only) and closing-line coverage
+  const trueAts = computeTrueATSMetrics(validations);
+  const gamesWithClosingLine = validations.filter((v) => v.marketSpread != null).length;
+  
   return {
     overall,
     trends,
@@ -152,6 +160,8 @@ export async function generatePerformanceReport(days: number = 90, sport?: strin
     biases,
     favorableBetPerformance,
     bySport: Object.keys(bySport).length > 0 ? bySport : undefined,
+    trueAts: trueAts ?? undefined,
+    gamesWithClosingLine,
   };
 }
 
@@ -225,6 +235,15 @@ function didFavorableBetWin(
     return over ? actualTotal > line : actualTotal < line;
   }
   return false;
+}
+
+/**
+ * Create validation objects from tracked predictions (for ATS audit, True ATS, etc.)
+ */
+export function validationsFromTrackedPredictions(tracked: TrackedPrediction[]): PredictionValidation[] {
+  return tracked
+    .filter((p) => p.actualOutcome != null)
+    .map(createValidationFromTracked);
 }
 
 /**

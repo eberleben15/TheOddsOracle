@@ -18,6 +18,7 @@ import {
 import { generatePerformanceReport } from "@/lib/validation-dashboard";
 import {
   loadBiasCorrection,
+  loadBiasCorrectionsForSports,
   getVarianceModelForSimulation,
   loadNumSimulations,
 } from "@/lib/prediction-feedback-batch";
@@ -91,8 +92,10 @@ export async function GET(request: NextRequest) {
     const atsWinRate = ats?.winRate ?? 0;
     const gamesDecided = (ats?.wins ?? 0) + (ats?.losses ?? 0);
     const performanceGate = checkPerformanceGate(atsWinRate, gamesDecided);
-    // Use fresh biases from report; fall back to persisted if report has none
-    const biases = performanceReport.biases ?? (await loadBiasCorrection()) ?? null;
+    // Load per-sport bias corrections (sport-specific or global fallback)
+    const sports = [...new Set(predictions.map((p) => p.sport).filter(Boolean))] as string[];
+    const biasBySport = await loadBiasCorrectionsForSports(sports);
+    const defaultBias = performanceReport.biases ?? (await loadBiasCorrection()) ?? null;
 
     // Strict gate: when ATS gate fails, return empty recommendations
     const hideRecsDueToGate = strictGate && !performanceGate.passed;
@@ -131,7 +134,8 @@ export async function GET(request: NextRequest) {
         awayTeam: pred.awayTeam,
         sport: pred.sport,
       };
-      const input = applyBiasCorrection(rawInput, biases);
+      const sportBias = pred.sport ? biasBySport[pred.sport] : null;
+      const input = applyBiasCorrection(rawInput, sportBias ?? defaultBias);
 
       let simulation: SimulationUncertainty | undefined;
       if (!hideRecsDueToGate && varianceModel && predictions.length <= 30) {

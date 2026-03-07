@@ -483,6 +483,71 @@ model OddsHistory {
   @@schema("oddsoracle")
 }
 
+// Historical games - persisted for reproducible calibration and walk-forward backtests
+model HistoricalGame {
+  id              String   @id @default(cuid())
+  externalGameId  String   // SportsData/ESPN game ID
+  date            DateTime // Game date
+  homeTeam        String
+  awayTeam        String
+  homeTeamId      String?  // External team ID
+  awayTeamId      String?
+  homeScore       Int
+  awayScore       Int
+  sport           String   // e.g. basketball_ncaab, basketball_nba
+  season          Int      // Season year (e.g. 2024)
+  source          String   @default("sportsdata") // Data source
+  createdAt       DateTime @default(now())
+
+  @@unique([externalGameId, sport])
+  @@index([sport])
+  @@index([date])
+  @@index([sport, date])
+  @@map("historical_games")
+  @@schema("oddsoracle")
+}
+
+// Backtest run - tracks each backtest execution for comparison and reproducibility
+model BacktestRun {
+  id              String   @id @default(cuid())
+  name            String   // e.g. "flat-2pct-q1-2024"
+  strategyType    String   // "flat_fraction", "kelly", "value_only"
+  strategyParams  Json     // { fractionOfInitial: 0.02 } etc.
+  dateRangeStart  DateTime
+  dateRangeEnd    DateTime
+  sport           String?
+  metrics         Json     // { totalBets, wins, roi, maxDrawdown }
+  createdAt       DateTime @default(now())
+
+  positions       BacktestPosition[]
+
+  @@index([createdAt])
+  @@index([strategyType])
+  @@map("backtest_runs")
+  @@schema("oddsoracle")
+}
+
+// Backtest position - one row per simulated bet in a run
+model BacktestPosition {
+  id              String   @id @default(cuid())
+  backtestRunId   String
+  predictionId    String?
+  positionIndex   Int      // Order in the run
+  winProb         Float    // Our estimated win probability
+  price           Float    // Market price at bet time
+  stakeUsd        Float    // Simulated stake
+  won             Boolean  // Actual outcome
+  pnlUsd          Float    // Profit/loss for this position
+  bankrollAfter   Float?   // Bankroll after this bet
+
+  run             BacktestRun @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+
+  @@index([backtestRunId])
+  @@index([predictionId])
+  @@map("backtest_positions")
+  @@schema("oddsoracle")
+}
+
 // Admin bet tracking - records bets placed based on predictions
 model BetRecord {
   id            String   @id @default(cuid())

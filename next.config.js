@@ -24,10 +24,8 @@ const nextConfig = {
   },
   // Allow TypeScript files in node_modules for Prisma
   transpilePackages: ['@prisma/client'],
-  // Experimental features for native modules
-  experimental: {
-    serverComponentsExternalPackages: ['@tensorflow/tfjs-node', '@mapbox/node-pre-gyp'],
-  },
+  // External packages for server components (moved from experimental.serverComponentsExternalPackages)
+  serverExternalPackages: ['@tensorflow/tfjs-node', '@mapbox/node-pre-gyp'],
   // Turbopack configuration (Next.js 16 uses Turbopack by default)
   turbopack: {
     resolveAlias: {
